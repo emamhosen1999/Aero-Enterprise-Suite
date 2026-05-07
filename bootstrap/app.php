@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_permission_sync' => \App\Http\Middleware\EnsureRolePermissionSync::class,
             'track_security' => \App\Http\Middleware\TrackSecurityActivity::class,
             'session_expiry' => \App\Http\Middleware\CheckSessionExpiry::class, // Register alias
+            'employee.onboarded' => \App\Http\Middleware\EnsureEmployeeOnboarded::class, // HRM architecture guard
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

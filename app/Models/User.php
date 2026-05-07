@@ -7,6 +7,7 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
+use App\Models\HRM\Employee;
 use App\Models\HRM\Leave;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -275,6 +276,32 @@ class User extends Authenticatable implements HasMedia
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    /**
+     * Get the employee record associated with this user.
+     * This is the HRM aggregate root - use this for all HRM operations.
+     */
+    public function employee()
+    {
+        return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * Check if this user has an employee record.
+     */
+    public function isEmployee(): bool
+    {
+        return $this->employee !== null;
+    }
+
+    /**
+     * Check if this user can access HRM features.
+     * Requires completed employee onboarding.
+     */
+    public function canAccessHrm(): bool
+    {
+        return $this->isEmployee() && $this->employee->canAccessHrm();
     }
 
     /**
