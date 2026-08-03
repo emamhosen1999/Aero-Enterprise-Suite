@@ -87,12 +87,25 @@ Schedule::command('biometric:process-scheduled-commands')
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/biometric-commands.log'));
 
-// Scheduled download of attendance logs from all active ADMS devices - runs every 4 hours
-Schedule::command('biometric:scheduled-log-download')
-    ->everyFourHours()
+// Scheduled download of attendance logs from all active ADMS devices - runs every
+// 30 minutes so punches reach attendance in near-real-time. --hours=1 keeps the
+// command's own guard active: a device that already synced within the hour is
+// skipped, so the frequent tick does not hammer the hardware. --hours=0 would
+// disable that guard and force every device to sync on every run.
+Schedule::command('biometric:scheduled-log-download', ['--hours=1'])
+    ->everyThirtyMinutes()
     ->withoutOverlapping()
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/biometric-log-download.log'));
+
+// Second half of the capture-then-import flow: a download session only parks device
+// logs in biometric_att_logs with punch_status = 'downloaded'. This drains them into
+// real attendance records; without it nothing arrives automatically.
+Schedule::command('biometric:import-downloaded')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/biometric-import.log'));
 
 // Close forgotten open punches at their resolved shift end
 Schedule::command('attendance:auto-punch-out')->hourly()->withoutOverlapping();

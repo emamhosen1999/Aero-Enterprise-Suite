@@ -10,18 +10,25 @@ use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDownloadSession;
 use App\Models\User;
 use App\Services\Biometric\BiometricProcessingService;
+use App\Services\Biometric\DeviceCapabilityService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class BiometricDeviceController extends Controller
 {
     protected BiometricProcessingService $biometricService;
 
-    public function __construct(BiometricProcessingService $biometricService)
-    {
+    protected DeviceCapabilityService $capabilityService;
+
+    public function __construct(
+        BiometricProcessingService $biometricService,
+        DeviceCapabilityService $capabilityService
+    ) {
         $this->biometricService = $biometricService;
+        $this->capabilityService = $capabilityService;
     }
 
     public function index()
@@ -60,11 +67,16 @@ class BiometricDeviceController extends Controller
             'name' => 'required|string|max:255',
             'serial_number' => 'required|string|max:191|unique:biometric_devices,serial_number',
             'ip_address' => 'nullable|ip',
+            'port' => 'nullable|integer|min:1|max:65535',
             'location' => 'nullable|string|max:255',
             'model' => 'nullable|string|max:255',
             'protocol' => 'nullable|in:push_sdk,adms',
             'is_active' => 'boolean',
+            'notes' => 'nullable|string|max:1000',
             'config' => 'nullable|array',
+            // adms_token is intentionally NOT accepted here. It is a shared secret
+            // and must be server-generated via the regenerate-adms-token endpoint,
+            // never typed in by an admin and echoed back through a form.
         ]);
 
         $device = BiometricDevice::create($data);
@@ -86,11 +98,14 @@ class BiometricDeviceController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'serial_number' => 'sometimes|required|string|max:191|unique:biometric_devices,serial_number,'.$id,
             'ip_address' => 'nullable|ip',
+            'port' => 'nullable|integer|min:1|max:65535',
             'location' => 'nullable|string|max:255',
             'model' => 'nullable|string|max:255',
             'protocol' => 'nullable|in:push_sdk,adms',
             'is_active' => 'boolean',
+            'notes' => 'nullable|string|max:1000',
             'config' => 'nullable|array',
+            // adms_token is intentionally NOT accepted here — see store().
         ]);
 
         $device->update($data);
@@ -117,6 +132,42 @@ class BiometricDeviceController extends Controller
         return response()->json([
             'message' => 'Token regenerated.',
             'auth_token' => $token,
+        ]);
+    }
+
+    /**
+     * Provision (or rotate) the per-device ADMS shared secret used by the
+     * EnsureAdmsDeviceAuthorized middleware on the /iclock/* push endpoints.
+     *
+     * This is the ONLY write path for biometric_devices.adms_token — it is not a
+     * mass-assignable form field on purpose. The plaintext token is returned
+     * here ONCE so the admin can paste it into the device's server settings;
+     * it is never echoed back by index()/show() afterwards.
+     *
+     * Note this rotates a live credential: until the device itself is updated
+     * with the new token it will fail auth (rejected in strict mode, logged in
+     * observe mode).
+     */
+    public function regenerateAdmsToken($id)
+    {
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        $token = $device->regenerateAdmsToken();
+
+        // Credential rotation must be auditable. Never log the token value.
+        Log::info('ADMS device token regenerated', [
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'user_id' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'ADMS token regenerated. Copy it now — it will not be shown again.',
+            'adms_token' => $token,
         ]);
     }
 
@@ -189,17 +240,34 @@ class BiometricDeviceController extends Controller
     }
 
     /**
-     * Execute ping command
+     * Execute ping command.
+     *
+     * BLOCKING. This shells out and waits, so it must only ever be reached from
+     * an endpoint the admin explicitly triggered (pingDevice / bulkPing) — never
+     * from a polled one. See getHealthMetrics() for why.
+     *
+     * The IP is re-validated here rather than trusted from the column. It is
+     * currently written under a `nullable|ip` rule, but a controller that is one
+     * bad migration or one seeder away from taking arbitrary text must not be
+     * the thing that decides whether a string reaches a shell.
+     *
+     * Marked protected, not private, so a test can substitute it and assert that
+     * the polled health endpoint never calls it.
      */
-    private function executePing($ip)
+    protected function executePing($ip)
     {
         try {
+            if (! is_string($ip) || filter_var($ip, FILTER_VALIDATE_IP) === false) {
+                return false;
+            }
+
             // Windows: ping -n 1 -w 1000 IP
             // Linux/Mac: ping -c 1 -W 1 IP
             $os = PHP_OS_FAMILY;
+            $safeIp = escapeshellarg($ip);
             $command = $os === 'Windows'
-                ? "ping -n 1 -w 1000 {$ip}"
-                : "ping -c 1 -W 1 {$ip}";
+                ? 'ping -n 1 -w 1000 '.$safeIp
+                : 'ping -c 1 -W 1 '.$safeIp;
 
             $output = [];
             $exitCode = 0;
@@ -212,7 +280,29 @@ class BiometricDeviceController extends Controller
     }
 
     /**
-     * Get device health metrics
+     * Get device health metrics.
+     *
+     * Deliberately does NOT ping. The admin panel auto-refreshes this endpoint
+     * every 30 seconds, and the previous implementation ran a blocking
+     * exec("ping ... -w 1000") once per device inside the map. With N devices,
+     * most of them offline (the ping only returns early when the host answers),
+     * a single request held a PHP-FPM worker for up to N seconds — every 30
+     * seconds, multiplied by every open admin tab. On a small pool that is
+     * worker exhaustion, and the tab that caused it is the one an admin opens
+     * precisely when something is already wrong.
+     *
+     * Liveness now comes from last_heartbeat_at, which is not merely the cheap
+     * option, it is the correct one. These are ADMS push devices: they open the
+     * connection, we never dial them. last_heartbeat_at is stamped by every
+     * /iclock/* poll, so it measures the thing we actually care about — "is this
+     * terminal still talking to us". ICMP does not: a device can answer ping
+     * from a healthy NIC while its ADMS client is wedged, misconfigured onto the
+     * wrong server URL, or holding a stale token, and the old code would have
+     * scored that unit as reachable.
+     *
+     * On-demand ICMP is still available, unchanged, on the explicit
+     * biometric-devices.ping and biometric-devices.bulk.ping actions — an admin
+     * clicking a button can afford to wait; a 30-second poll cannot.
      */
     public function getHealthMetrics()
     {
@@ -246,16 +336,10 @@ class BiometricDeviceController extends Controller
             // Ensure score is between 0 and 100
             $healthScore = max(0, min(100, $healthScore));
 
-            // Calculate uptime (days since creation or last reset)
-            $uptimeDays = $device->created_at ? now()->diffInDays($device->created_at) : 0;
-
-            // Get latency from last ping (stored in config or calculate fresh)
-            $latency = null;
-            if ($device->ip_address) {
-                $startTime = microtime(true);
-                $reachable = $this->executePing($device->ip_address);
-                $latency = $reachable ? round((microtime(true) - $startTime) * 1000, 2) : null;
-            }
+            // Calculate uptime (days since creation or last reset).
+            // Carbon 3 returns a signed float here, so the operands have to be
+            // this way round or an older device reports negative uptime.
+            $uptimeDays = $device->created_at ? (int) $device->created_at->diffInDays(now()) : 0;
 
             return [
                 'id' => $device->id,
@@ -265,7 +349,14 @@ class BiometricDeviceController extends Controller
                 'is_online' => $isOnline,
                 'is_active' => $device->is_active,
                 'last_heartbeat' => $lastHeartbeat ? $lastHeartbeat->toISOString() : null,
-                'latency' => $latency,
+                // Kept, and kept null on purpose: no ICMP round trip was taken,
+                // so there is no honest number to put here. The key stays so the
+                // existing table column keeps rendering (it falls back to 'N/A'),
+                // and latency_measured says outright that null means "not
+                // measured" rather than "measured, unreachable".
+                'latency' => null,
+                'latency_measured' => false,
+                'liveness_source' => 'last_heartbeat_at',
                 'uptime_days' => $uptimeDays,
                 'health_score' => $healthScore,
                 'status' => $healthScore >= 80 ? 'healthy' : ($healthScore >= 50 ? 'warning' : 'critical'),
@@ -292,57 +383,389 @@ class BiometricDeviceController extends Controller
                 'critical' => $criticalDevices,
                 'overall_health_score' => $overallHealthScore,
             ],
+            'meta' => [
+                'ping_performed' => false,
+                'liveness_source' => 'last_heartbeat_at',
+                'online_threshold_minutes' => 5,
+                'note' => 'Reachability is derived from the last ADMS heartbeat, not ICMP. Use the per-device ping action for an on-demand network check.',
+            ],
         ]);
     }
 
     /**
-     * Get ADMS request logs
+     * How many trailing log lines getAdmsLogs() will look at before it gives up
+     * and reports the result as truncated. Bounds both memory and the amount of
+     * disk this endpoint can be made to read.
+     */
+    private const ADMS_LOG_SCAN_LINES = 5000;
+
+    /**
+     * Get ADMS request logs.
+     *
+     * Reads the application log from whatever channel is actually configured
+     * (see resolveLogFiles) rather than a hardcoded laravel.log, scans a bounded
+     * tail of it backwards, and paginates the ADMS-related lines it finds.
+     *
+     * Three things this fixes, all of which were silent failures:
+     *
+     *  - the path was hardcoded to storage/logs/laravel.log, so the moment the
+     *    log channel is `daily` (which writes laravel-Y-m-d.log) this endpoint
+     *    read a file that did not exist and returned an empty list. An empty log
+     *    viewer is indistinguishable from "nothing has gone wrong", and the one
+     *    thing it is for is diagnosing devices EnsureAdmsDeviceAuthorized has
+     *    rejected. Both layouts are handled now.
+     *
+     *  - pagination was fabricated: current_page was the literal 1 and total was
+     *    the size of a fixed tail slice, while the UI renders real page controls
+     *    against those numbers. The keys are unchanged, but the values are now
+     *    the actual page and the actual number of matched lines in the scanned
+     *    window (with scan_truncated saying when that count is a floor, not a
+     *    total, so the UI is never told a lower bound is exact).
+     *
+     *  - it was O(n^2): SplFileObject::seek() on a forward-only stream rewinds
+     *    and re-reads from line 0, and it was called once per line. tailLines()
+     *    walks backwards in 64 KB blocks and touches each byte once.
      */
     public function getAdmsLogs(Request $request)
     {
-        $limit = $request->get('limit', 100);
-        $logFile = storage_path('logs/laravel.log');
+        $request->validate([
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:500',
+            'limit' => 'nullable|integer|min:1|max:500',
+        ]);
 
-        if (! file_exists($logFile)) {
-            return response()->json(['logs' => []]);
+        // `limit` is the older parameter name and is still honoured so an
+        // existing caller does not silently start getting a different page size.
+        $perPage = (int) ($request->input('per_page') ?? $request->input('limit') ?? 100);
+        $page = (int) $request->input('page', 1);
+
+        try {
+            $files = $this->resolveLogFiles();
+
+            if ($files === []) {
+                // No log file at all is a normal state (fresh deploy, log
+                // cleared, non-file channel such as stderr/syslog). Say so
+                // rather than erroring, and still return the full key set.
+                return response()->json([
+                    'logs' => [],
+                    'total' => 0,
+                    'current_page' => 1,
+                    'per_page' => $perPage,
+                    'last_page' => 1,
+                    'from' => null,
+                    'to' => null,
+                    'scanned_lines' => 0,
+                    'scan_truncated' => false,
+                    'log_files' => [],
+                    'message' => 'No readable application log file was found for the configured log channel.',
+                ]);
+            }
+
+            [$matched, $scannedLines, $truncated] = $this->scanAdmsLogLines($files);
+
+            // Real pagination over the matched set, which is already newest-first.
+            $total = count($matched);
+            $lastPage = max(1, (int) ceil($total / $perPage));
+            $page = min($page, $lastPage);
+            $offset = ($page - 1) * $perPage;
+            $slice = array_slice($matched, $offset, $perPage);
+
+            return response()->json([
+                'logs' => $slice,
+                'total' => $total,
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'last_page' => $lastPage,
+                'from' => $slice === [] ? null : $offset + 1,
+                'to' => $slice === [] ? null : $offset + count($slice),
+                'scanned_lines' => $scannedLines,
+                // True when the scan window filled up before the log ran out, in
+                // which case `total` is the number of matches within the newest
+                // ADMS_LOG_SCAN_LINES lines, not within all history.
+                'scan_truncated' => $truncated,
+                'log_files' => array_map('basename', $files),
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to read the application log.',
+                'message' => $e->getMessage(),
+                'logs' => [],
+                'total' => 0,
+                'current_page' => 1,
+                'per_page' => $perPage,
+            ], 500);
         }
+    }
 
-        $logs = [];
-        $file = new \SplFileObject($logFile);
-        $file->seek(PHP_INT_MAX);
-        $totalLines = $file->key();
-        $linesToRead = min($limit, $totalLines);
+    /**
+     * Resolve the on-disk log files for the configured logging channel, newest
+     * modification first.
+     *
+     * Handles both file layouts because both are live possibilities in this app:
+     * `single` writes storage/logs/laravel.log, `daily` writes
+     * storage/logs/laravel-Y-m-d.log next to it. Rather than branch on the
+     * driver and read only one, both are collected — a box that has been
+     * switched between the two (this one has: rotated laravel-Y-m-d.log files
+     * sit beside a live laravel.log) still shows its full recent history, and
+     * flipping LOG_CHANNEL does not blank the viewer.
+     *
+     * Channels with no file at all (stderr, syslog, papertrail, null) simply
+     * contribute nothing, which is the honest answer for them.
+     */
+    protected function resolveLogFiles(): array
+    {
+        $bases = [];
 
-        for ($i = 0; $i < $linesToRead; $i++) {
-            $file->seek($totalLines - $linesToRead + $i);
-            $line = trim($file->current());
-            if (empty($line)) {
+        foreach ($this->resolveLogChannelNames() as $channel) {
+            $config = config('logging.channels.'.$channel);
+
+            if (! is_array($config)) {
                 continue;
             }
 
-            // Parse log line and extract ADMS-related entries
-            if (str_contains($line, 'ADMS') || str_contains($line, 'biometric')) {
-                // Extract timestamp from log line format: [2026-05-17 11:31:10]
-                $timestamp = null;
-                if (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $matches)) {
-                    $timestamp = $matches[1];
+            if (! in_array($config['driver'] ?? null, ['single', 'daily'], true)) {
+                continue;
+            }
+
+            if (! empty($config['path'])) {
+                $bases[] = (string) $config['path'];
+            }
+        }
+
+        if ($bases === []) {
+            // Nothing file-based is configured. Fall back to the framework
+            // default location so a misconfigured channel does not hide logs
+            // that are demonstrably on disk.
+            $bases[] = storage_path('logs/laravel.log');
+        }
+
+        $files = [];
+
+        foreach (array_unique($bases) as $base) {
+            $directory = dirname($base);
+            $name = pathinfo($base, PATHINFO_FILENAME);
+            $extension = pathinfo($base, PATHINFO_EXTENSION);
+            $suffix = $extension !== '' ? '.'.$extension : '';
+
+            // single layout
+            if (is_file($base) && is_readable($base)) {
+                $files[$base] = true;
+            }
+
+            // daily layout: <name>-YYYY-MM-DD<suffix>
+            $matches = glob($directory.DIRECTORY_SEPARATOR.$name.'-*'.$suffix) ?: [];
+
+            foreach ($matches as $match) {
+                if (is_file($match) && is_readable($match)) {
+                    $files[$match] = true;
+                }
+            }
+        }
+
+        $files = array_keys($files);
+
+        usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+
+        return $files;
+    }
+
+    /**
+     * The channel names that actually write files for the default channel,
+     * unwrapping a one-level `stack`. Nested stacks are not unwrapped — Laravel
+     * permits them but this app does not use one, and a cycle in a config file
+     * should not be able to hang an admin endpoint.
+     */
+    protected function resolveLogChannelNames(): array
+    {
+        $default = (string) config('logging.default', 'stack');
+        $config = config('logging.channels.'.$default);
+
+        if (is_array($config) && ($config['driver'] ?? null) === 'stack') {
+            $channels = array_map('trim', (array) ($config['channels'] ?? []));
+
+            return array_values(array_filter($channels, fn ($channel) => $channel !== ''));
+        }
+
+        return [$default];
+    }
+
+    /**
+     * Walk the given files newest-first, pulling ADMS-related lines out of a
+     * bounded tail of each.
+     *
+     * Returns [matched entries newest-first, lines scanned, whether the scan
+     * window was exhausted before the logs were].
+     */
+    protected function scanAdmsLogLines(array $files): array
+    {
+        $budget = self::ADMS_LOG_SCAN_LINES;
+        $matched = [];
+        $scanned = 0;
+        $truncated = false;
+        $id = 0;
+
+        foreach ($files as $file) {
+            if ($budget <= 0) {
+                $truncated = true;
+                break;
+            }
+
+            $reachedStartOfFile = false;
+            $lines = $this->tailLines($file, $budget, $reachedStartOfFile);
+            $scanned += count($lines);
+
+            if (! $reachedStartOfFile) {
+                // We stopped before the top of this file, so there are older
+                // lines here we never looked at.
+                $truncated = true;
+            }
+
+            $budget -= count($lines);
+
+            foreach ($lines as $line) {
+                $line = trim($line);
+
+                if ($line === '') {
+                    continue;
                 }
 
-                $logs[] = [
-                    'id' => $totalLines - $linesToRead + $i,
+                if (stripos($line, 'ADMS') === false && stripos($line, 'biometric') === false) {
+                    continue;
+                }
+
+                // Extract timestamp from log line format: [2026-05-17 11:31:10]
+                $timestamp = null;
+                if (preg_match('/\[(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/', $line, $matches)) {
+                    $timestamp = str_replace('T', ' ', $matches[1]);
+                }
+
+                $matched[] = [
+                    'id' => $id++,
                     'message' => $line,
-                    'level' => str_contains($line, 'ERROR') ? 'error' : (str_contains($line, 'WARNING') ? 'warning' : 'info'),
+                    'level' => $this->parseLogLevel($line),
                     'created_at' => $timestamp,
+                    'file' => basename($file),
                 ];
             }
         }
 
-        return response()->json([
-            'logs' => array_reverse($logs),
-            'total' => count($logs),
-            'current_page' => 1,
-            'per_page' => $limit,
-        ]);
+        return [$matched, $scanned, $truncated];
+    }
+
+    /**
+     * Read up to $maxLines trailing lines of a file, newest first, without
+     * reading the whole file.
+     *
+     * Seeks backwards in blocks from EOF and stops as soon as it has enough
+     * lines, so cost is proportional to the tail requested and not to the size
+     * of a multi-megabyte laravel.log. The byte ceiling guards the degenerate
+     * case of a log with very few newlines (a single enormous serialised
+     * payload), which would otherwise pull the whole file into memory.
+     */
+    protected function tailLines(string $path, int $maxLines, ?bool &$reachedStartOfFile = null): array
+    {
+        $reachedStartOfFile = false;
+
+        if ($maxLines < 1) {
+            return [];
+        }
+
+        $handle = @fopen($path, 'rb');
+
+        if ($handle === false) {
+            return [];
+        }
+
+        try {
+            $blockSize = 64 * 1024;
+            $maxBytes = 16 * 1024 * 1024;
+            $bytesRead = 0;
+
+            fseek($handle, 0, SEEK_END);
+            $position = ftell($handle);
+
+            if ($position === false || $position === 0) {
+                $reachedStartOfFile = $position === 0;
+
+                return [];
+            }
+
+            $lines = [];
+            // Bytes of a line whose beginning lies further left than we have read.
+            $remainder = '';
+            // Set when the line budget ran out with material still unread. Without
+            // it, a file small enough to sit inside one block but longer than
+            // $maxLines would leave $position at 0 and be reported as fully
+            // scanned, which is the same silent lie as the fake pagination: the
+            // caller would publish a floor as an exact total.
+            $stoppedOnBudget = false;
+
+            while ($position > 0 && count($lines) < $maxLines && $bytesRead < $maxBytes) {
+                $read = (int) min($blockSize, $position);
+                $position -= $read;
+                $bytesRead += $read;
+
+                fseek($handle, $position, SEEK_SET);
+                $chunk = fread($handle, $read);
+
+                if ($chunk === false) {
+                    break;
+                }
+
+                $parts = explode("\n", $chunk.$remainder);
+                // The first element may continue leftwards into the next block.
+                $remainder = array_shift($parts);
+
+                for ($i = count($parts) - 1; $i >= 0; $i--) {
+                    if (count($lines) >= $maxLines) {
+                        $stoppedOnBudget = true;
+
+                        break;
+                    }
+
+                    if (trim($parts[$i]) === '') {
+                        continue;
+                    }
+
+                    $lines[] = rtrim($parts[$i], "\r");
+                }
+            }
+
+            if ($position === 0 && trim($remainder) !== '') {
+                if (count($lines) < $maxLines) {
+                    $lines[] = rtrim($remainder, "\r");
+                } else {
+                    $stoppedOnBudget = true;
+                }
+            }
+
+            $reachedStartOfFile = $position === 0 && ! $stoppedOnBudget;
+
+            return $lines;
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
+     * Map a Monolog line ("local.ERROR: ...") onto the level string the UI
+     * colours by.
+     */
+    protected function parseLogLevel(string $line): string
+    {
+        if (preg_match('/\.(EMERGENCY|ALERT|CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG)\b/', $line, $matches)) {
+            $level = strtolower($matches[1]);
+
+            return match ($level) {
+                'emergency', 'alert', 'critical', 'error' => 'error',
+                'warning' => 'warning',
+                default => 'info',
+            };
+        }
+
+        return 'info';
     }
 
     /**
@@ -686,6 +1109,282 @@ class BiometricDeviceController extends Controller
                 'message' => 'Failed to fetch session logs: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Import the punches captured by a completed download session into
+     * attendance. The download itself only parks rows in biometric_att_logs with
+     * punch_status='downloaded'; this is the explicit second step that turns
+     * them into attendance records.
+     */
+    public function importSessionLogs(Request $request, $id)
+    {
+        $session = BiometricDownloadSession::find($id);
+
+        if (! $session) {
+            return response()->json(['message' => 'Download session not found'], 404);
+        }
+
+        try {
+            $result = $this->biometricService->importDownloadedLogs($session);
+
+            $imported = $result['imported'] ?? 0;
+            $duplicates = $result['duplicates'] ?? 0;
+            $failed = $result['failed'] ?? 0;
+            $skippedUnknown = $result['skipped_unknown'] ?? 0;
+
+            return response()->json([
+                'message' => "Imported {$imported} punch(es). {$duplicates} duplicate(s), {$skippedUnknown} skipped (unknown user), {$failed} failed.",
+                'imported' => $imported,
+                'duplicates' => $duplicates,
+                'failed' => $failed,
+                'skipped_unknown' => $skippedUnknown,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to import session logs: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Device capabilities and device-internal settings (matrix §4b / §5)
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * The catalogue of writable device-internal settings, for the UI to build a
+     * form from. Static data — no device involved.
+     *
+     * Returned grouped as well as flat so a form can render sections without
+     * re-deriving the grouping, and with the dangerous keys called out
+     * separately so a client cannot accidentally render them as ordinary rows.
+     */
+    public function settingsCatalogue()
+    {
+        $catalogue = DeviceCapabilityService::SETTINGS_CATALOGUE;
+
+        $groups = [];
+        $dangerous = [];
+
+        foreach ($catalogue as $key => $meta) {
+            $groups[$meta['group'] ?? 'Other'][$key] = $meta;
+
+            if ($this->isDangerousKey($key)) {
+                $dangerous[] = $key;
+            }
+        }
+
+        return response()->json([
+            'catalogue' => $catalogue,
+            'groups' => $groups,
+            'dangerous_keys' => $dangerous,
+            'confirmation_field' => 'confirm_dangerous',
+            'probe_keys' => DeviceCapabilityService::CAPABILITY_KEYS,
+        ]);
+    }
+
+    /**
+     * The stored capability snapshot for one device (counts, maxima, firmware,
+     * platform, MAC, and which keys the unit rejected with -1004).
+     *
+     * Read-only: this never talks to the device. It reports what the last probe
+     * learned, which may be nothing at all — `has_data` / `is_stale` in the
+     * snapshot are how the UI renders that.
+     */
+    public function capabilities($id)
+    {
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        return response()->json([
+            'capabilities' => $this->capabilityService->snapshot($device),
+        ]);
+    }
+
+    /**
+     * Queue a capability probe: `INFO` plus one `GET OPTION FROM <keys>`.
+     *
+     * ADMS is device-initiated. There is no way to pull from the device on
+     * demand — the commands sit in the queue until the unit next polls
+     * /iclock/getrequest, and the answers arrive later as a push. The response
+     * says so explicitly so the UI does not promise fresh data on this click.
+     */
+    public function probe(Request $request, $id)
+    {
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        if (! $device->isAdms()) {
+            return response()->json(['message' => 'Capability probing is only supported for ADMS protocol devices.'], 400);
+        }
+
+        if (! $device->is_active) {
+            return response()->json(['message' => 'Device is inactive.'], 403);
+        }
+
+        $info = $this->biometricService->createCommand($device, ['command_type' => 'INFO']);
+
+        $getOption = $this->biometricService->createCommand($device, [
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => DeviceCapabilityService::CAPABILITY_KEYS],
+        ]);
+
+        Log::info('Biometric capability probe queued', [
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'command_ids' => [$info->id, $getOption->id],
+            'user_id' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Probe queued. ADMS is device-initiated, so the device will pick these commands up on its next poll and the results arrive asynchronously as a push — this page will not update immediately.',
+            'asynchronous' => true,
+            'command_ids' => [$info->id, $getOption->id],
+            'commands' => [
+                ['id' => $info->id, 'type' => $info->command_type, 'adms_string' => $info->toAdmsString()],
+                ['id' => $getOption->id, 'type' => $getOption->command_type, 'adms_string' => $getOption->toAdmsString()],
+            ],
+            'probed_keys' => DeviceCapabilityService::CAPABILITY_KEYS,
+        ]);
+    }
+
+    /**
+     * Queue device-internal setting writes — one `SET_OPTION` command per key.
+     *
+     * One key per command is deliberate (see BiometricDeviceCommand::toAdmsString):
+     * a batched write returns a single code, so a -1004 would not say which key
+     * the model rejected, and -1004 is exactly the capability signal we want.
+     *
+     * Two hard rules, both enforced here and again in the ADMS queue endpoint:
+     *  - only keys present in SETTINGS_CATALOGUE are accepted; arbitrary keys
+     *    from user input never reach the wire,
+     *  - a key the catalogue marks dangerous requires `confirm_dangerous=true`
+     *    on this request. There is deliberately no multi-device settings
+     *    endpoint: dangerous keys must never be fired at a fleet.
+     */
+    public function updateDeviceSettings(Request $request, $id)
+    {
+        $request->validate([
+            'settings' => 'required|array|min:1',
+            'confirm_dangerous' => 'sometimes|boolean',
+        ]);
+
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        if (! $device->isAdms()) {
+            return response()->json(['message' => 'Device settings are only supported for ADMS protocol devices.'], 400);
+        }
+
+        $catalogue = DeviceCapabilityService::SETTINGS_CATALOGUE;
+        $settings = $request->input('settings');
+        $confirmed = $request->boolean('confirm_dangerous');
+
+        $unknown = [];
+        $invalid = [];
+        $needsConfirmation = [];
+
+        foreach ($settings as $key => $value) {
+            $key = trim((string) $key);
+
+            if (! array_key_exists($key, $catalogue)) {
+                $unknown[] = $key;
+
+                continue;
+            }
+
+            if (! is_scalar($value) || preg_match('/[\r\n\t]/', (string) $value)) {
+                $invalid[] = $key;
+
+                continue;
+            }
+
+            if ($this->isDangerousKey($key) && ! $confirmed) {
+                $needsConfirmation[] = $key;
+            }
+        }
+
+        if ($unknown !== []) {
+            return response()->json([
+                'message' => 'Unknown device setting(s): '.implode(', ', $unknown).'. Only keys in the settings catalogue can be written.',
+                'unknown_keys' => $unknown,
+            ], 422);
+        }
+
+        if ($invalid !== []) {
+            return response()->json([
+                'message' => 'Invalid value for device setting(s): '.implode(', ', $invalid).'.',
+                'invalid_keys' => $invalid,
+            ], 422);
+        }
+
+        if ($needsConfirmation !== []) {
+            return response()->json([
+                'message' => 'These settings can make the device unreachable — recovery requires physical access to the unit: '
+                    .implode(', ', $needsConfirmation)
+                    .'. Re-send with confirm_dangerous=true to proceed.',
+                'requires_confirmation' => true,
+                'dangerous_keys' => $needsConfirmation,
+                'help' => collect($needsConfirmation)
+                    ->mapWithKeys(fn ($key) => [$key => $catalogue[$key]['help'] ?? null])
+                    ->all(),
+            ], 422);
+        }
+
+        $queued = [];
+
+        foreach ($settings as $key => $value) {
+            $key = trim((string) $key);
+
+            $command = $this->biometricService->createCommand($device, [
+                'command_type' => 'SET_OPTION',
+                'payload' => ['key' => $key, 'value' => (string) $value],
+            ]);
+
+            $queued[] = [
+                'id' => $command->id,
+                'key' => $key,
+                'value' => (string) $value,
+                'dangerous' => $this->isDangerousKey($key),
+                'adms_string' => $command->toAdmsString(),
+            ];
+        }
+
+        Log::info('Biometric device settings queued', [
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'keys' => array_column($queued, 'key'),
+            'dangerous_confirmed' => $confirmed,
+            'user_id' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => count($queued).' setting(s) queued. ADMS is device-initiated: the device applies them on its next poll and reports back asynchronously, so a key it does not support will show up as "not supported on this model" in command history rather than failing now.',
+            'asynchronous' => true,
+            'commands' => $queued,
+            'command_ids' => array_column($queued, 'id'),
+        ]);
+    }
+
+    /**
+     * Does the catalogue flag this key as able to strand the device?
+     */
+    private function isDangerousKey(string $key): bool
+    {
+        $meta = DeviceCapabilityService::SETTINGS_CATALOGUE[$key] ?? [];
+
+        // Accept either spelling so this cannot silently degrade to "nothing is
+        // dangerous" if the catalogue's flag is renamed.
+        return (bool) ($meta['dangerous'] ?? $meta['danger'] ?? false);
     }
 
     private function formatTo12Hour(?string $timeStr): string

@@ -2,12 +2,70 @@
 
 namespace App\Models\HRM;
 
+use App\Services\Biometric\DeviceCapabilityService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class BiometricDeviceCommand extends Model
 {
     use HasFactory;
+
+    /**
+     * Command has been queued but not yet handed to the device.
+     */
+    public const STATUS_PENDING = 'pending';
+
+    /**
+     * Command was written into a /iclock/getrequest response; the device has it.
+     */
+    public const STATUS_SENT = 'sent';
+
+    /**
+     * Device acked with Return=0.
+     */
+    public const STATUS_EXECUTED = 'executed';
+
+    /**
+     * Device acked with a genuine error (syntax, file, generic failure).
+     */
+    public const STATUS_FAILED = 'failed';
+
+    /**
+     * Device acked with -1004 (or -1): the model simply cannot do this.
+     * Deliberately NOT folded into `failed` — "this unit has no face engine"
+     * is a permanent capability fact we want to surface and cache, whereas
+     * `failed` implies something worth retrying.
+     */
+    public const STATUS_UNSUPPORTED = 'unsupported';
+
+    /**
+     * Every status the column may hold. Kept here so the migration that widens
+     * the MySQL ENUM and any UI filter have one authoritative list.
+     */
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_SENT,
+        self::STATUS_EXECUTED,
+        self::STATUS_FAILED,
+        self::STATUS_UNSUPPORTED,
+    ];
+
+    /**
+     * ADMS acknowledgement return codes (`ID=<id>&Return=<code>&CMD=<cmd>`).
+     *
+     * Source: ZKTeco PUSH SDK protocol notes, consolidated in
+     * docs/zkteco-adms-capability-matrix.md §4. Anything not listed here is
+     * treated as a generic failure.
+     *
+     * @var array<string, array{label: string, ok: bool, unsupported: bool}>
+     */
+    public const RETURN_CODES = [
+        '0' => ['label' => 'Success', 'ok' => true, 'unsupported' => false],
+        '-1' => ['label' => 'Unsupported or no data', 'ok' => false, 'unsupported' => true],
+        '-2' => ['label' => 'File error', 'ok' => false, 'unsupported' => false],
+        '-1002' => ['label' => 'Syntax error', 'ok' => false, 'unsupported' => false],
+        '-1004' => ['label' => 'Not supported on this model', 'ok' => false, 'unsupported' => true],
+    ];
 
     protected $fillable = [
         'biometric_device_id',
@@ -82,7 +140,47 @@ class BiometricDeviceCommand extends Model
                 break;
 
             case 'GET_USERINFO':
-                $command .= 'GET USERINFO';
+            case 'QUERY_USERINFO':
+                // `GET_USERINFO` used to emit the bare string `GET USERINFO`, which appears
+                // in no reference ADMS implementation; at least one notes devices actively
+                // reject the shorthand verbs. The documented form for pulling the roster is
+                // `DATA QUERY USERINFO`. This command type has never been exposed in the UI,
+                // so the old string was never exercised against hardware — this is a
+                // correction to something that could not have worked, not a behaviour change
+                // anyone could have depended on. The enum value is kept because rows may
+                // already exist in biometric_device_commands with command_type=GET_USERINFO.
+                $command .= 'DATA QUERY USERINFO';
+                $pin = $payload['pin'] ?? null;
+                if ($pin !== null && $pin !== '') {
+                    $command .= ' PIN='.$pin;
+                }
+                break;
+
+            case 'INFO':
+                $command .= 'INFO';
+                break;
+
+            case 'CHECK':
+                $command .= 'CHECK';
+                break;
+
+            case 'GET_OPTION':
+                $command .= 'GET OPTION FROM '.implode(',', $this->optionKeysFromPayload($payload));
+                break;
+
+            case 'SET_OPTION':
+                // One key per command, deliberately not batched. A batched
+                // `SET OPTION a=1,b=2` comes back as a single Return code, so one
+                // -1004 from one unsupported key tells us nothing about which key the
+                // device rejected — and -1004 is precisely the per-model capability
+                // signal we are trying to record. Commands are a cheap queued row, so
+                // we buy unambiguous attribution for effectively nothing.
+                $key = trim((string) ($payload['key'] ?? ''));
+                if ($key === '') {
+                    $command .= 'UNKNOWN';
+                    break;
+                }
+                $command .= 'SET OPTION '.$key.'='.($payload['value'] ?? '');
                 break;
 
             case 'CHECK_ATTLOG':
@@ -97,6 +195,89 @@ class BiometricDeviceCommand extends Model
         }
 
         return $command;
+    }
+
+    /**
+     * Normalise the option keys carried by a GET_OPTION payload.
+     *
+     * Accepts `keys` as an array or as an already-comma-joined string, because
+     * both shapes turn up depending on whether the command was queued from JSON
+     * or from a form post. Falls back to the full probe set so a GET_OPTION with
+     * an empty payload is still a useful command rather than a malformed one.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<int, string>
+     */
+    protected function optionKeysFromPayload(array $payload): array
+    {
+        $keys = $payload['keys'] ?? $payload['options'] ?? null;
+
+        if (is_string($keys)) {
+            $keys = explode(',', $keys);
+        }
+
+        if (! is_array($keys)) {
+            $keys = [];
+        }
+
+        $keys = array_values(array_unique(array_filter(
+            array_map(fn ($key) => trim((string) $key), $keys),
+            fn ($key) => $key !== ''
+        )));
+
+        return $keys !== [] ? $keys : DeviceCapabilityService::CAPABILITY_KEYS;
+    }
+
+    /**
+     * Decode an ADMS acknowledgement return code into something the rest of the
+     * application can branch on, instead of collapsing every non-zero code into
+     * a generic failure.
+     *
+     * `unsupported` is the load-bearing flag: -1004 ("not supported on this
+     * model") and -1 ("unsupported or no data") are how a device tells us it
+     * lacks a face engine, a lock relay, or a given option key. That is a
+     * capability fact to cache, not an error to retry.
+     *
+     * @return array{code: string, ok: bool, label: string, unsupported: bool, known: bool}
+     */
+    public static function decodeReturnCode(?string $returnCode): array
+    {
+        $code = trim((string) $returnCode);
+
+        if (isset(self::RETURN_CODES[$code])) {
+            return [
+                'code' => $code,
+                'ok' => self::RETURN_CODES[$code]['ok'],
+                'label' => self::RETURN_CODES[$code]['label'],
+                'unsupported' => self::RETURN_CODES[$code]['unsupported'],
+                'known' => true,
+            ];
+        }
+
+        // Unknown codes are a failure, never a success: a device that answers
+        // something we do not recognise has not demonstrably done the work.
+        return [
+            'code' => $code,
+            'ok' => false,
+            'label' => $code === '' ? 'No return code' : "Unknown device return code ({$code})",
+            'unsupported' => false,
+            'known' => false,
+        ];
+    }
+
+    /**
+     * Decode this command's own recorded return code.
+     *
+     * @return array{code: string, ok: bool, label: string, unsupported: bool, known: bool}
+     */
+    public function returnCodeMeaning(): array
+    {
+        return self::decodeReturnCode($this->return_code);
+    }
+
+    public function isUnsupported(): bool
+    {
+        return $this->status === self::STATUS_UNSUPPORTED;
     }
 
     /**
@@ -116,9 +297,22 @@ class BiometricDeviceCommand extends Model
      */
     public function markAsExecuted(string $returnCode = '0'): void
     {
+        $meaning = self::decodeReturnCode($returnCode);
+
+        if ($meaning['ok']) {
+            $status = self::STATUS_EXECUTED;
+        } elseif ($meaning['unsupported']) {
+            $status = self::STATUS_UNSUPPORTED;
+        } else {
+            $status = self::STATUS_FAILED;
+        }
+
         $this->update([
-            'status' => $returnCode == '0' ? 'executed' : 'failed',
+            'status' => $status,
             'return_code' => $returnCode,
+            // Surface the decoded meaning so command history reads
+            // "Not supported on this model" rather than a bare -1004.
+            'error_message' => $meaning['ok'] ? null : $meaning['label'],
             'executed_at' => now(),
         ]);
     }

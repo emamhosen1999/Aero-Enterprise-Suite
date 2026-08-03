@@ -1,29 +1,45 @@
 <?php
 
+use App\Http\Controllers\Admin\ClientErrorController;
+use App\Http\Controllers\Admin\DeviceSessionController;
+use App\Http\Controllers\Admin\FeatureFlagController;
+use App\Http\Controllers\Admin\NotificationSettingsController;
 use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
 use App\Http\Controllers\DailyWorkController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DailyWorkSummaryController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\Quality\NcrController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
-use App\Http\Controllers\Admin\DeviceSessionController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EducationController;
 use App\Http\Controllers\ExperienceController;
+use App\Http\Controllers\FirebaseTokenController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\HRM\CompOffController;
+use App\Http\Controllers\HRM\CoverageController;
+use App\Http\Controllers\HRM\CoverageRequirementController;
+use App\Http\Controllers\HRM\OvertimeController;
+use App\Http\Controllers\HRM\PolicyController;
+use App\Http\Controllers\HRM\PunchExceptionController;
+use App\Http\Controllers\HRM\RegularizationController;
+use App\Http\Controllers\HRM\RosterController;
+use App\Http\Controllers\HRM\ShiftController;
+use App\Http\Controllers\HRM\ShiftSwapController;
 use App\Http\Controllers\JurisdictionController;
+use App\Http\Controllers\LeaveBalanceController;
 use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\LetterController;
 use App\Http\Controllers\ModuleController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ObjectionController;
-use App\Http\Controllers\OrganizationController;
+// APK Install Gate (public, always accessible)
 use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
+use App\Http\Controllers\Quality\NcrController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RfiObjectionController;
 use App\Http\Controllers\RoleController;
@@ -35,8 +51,8 @@ use App\Http\Controllers\Settings\RequestLogController;
 use App\Http\Controllers\SystemMonitoringController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WorkLocationController;
 use App\Models\HRM\Department;
-// APK Install Gate (public, always accessible)
 use App\Models\HRM\Designation;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
@@ -93,7 +109,7 @@ $middlewareStack = ['auth', 'verified'];
 Route::middleware($middlewareStack)->group(function () {
 
     // Firebase custom-token endpoint — lets the browser sign in to Firebase (signInWithCustomToken)
-    Route::get('/firebase/token', \App\Http\Controllers\FirebaseTokenController::class)->name('firebase.token');
+    Route::get('/firebase/token', FirebaseTokenController::class)->name('firebase.token');
 
     // Dashboard routes - require dashboard permission
     Route::middleware(['permission:core.dashboard.view'])->group(function () {
@@ -133,8 +149,8 @@ Route::middleware($middlewareStack)->group(function () {
         Route::delete('/leaves/{id}/attachments/{mediaId}', [LeaveController::class, 'deleteAttachment'])->name('leaves.attachments.delete');
         Route::get('/leaves-paginate', [LeaveController::class, 'paginate'])->name('leaves.paginate');
         Route::get('/leaves-stats', [LeaveController::class, 'stats'])->name('leaves.stats');
-        Route::get('/leave-balances', [\App\Http\Controllers\LeaveBalanceController::class, 'index'])->name('leave-balances');
-        Route::get('/leave-ledger', [\App\Http\Controllers\LeaveBalanceController::class, 'ledger'])->name('leave-ledger');
+        Route::get('/leave-balances', [LeaveBalanceController::class, 'index'])->name('leave-balances');
+        Route::get('/leave-ledger', [LeaveBalanceController::class, 'ledger'])->name('leave-ledger');
     });
 
     // Attendance self-service routes
@@ -142,19 +158,19 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/attendance-employee', [AttendanceController::class, 'index2'])->name('attendance-employee');
         Route::get('/attendance/attendance-today', [AttendanceController::class, 'getCurrentUserPunch'])->name('attendance.current-user-punch');
         Route::get('/get-current-user-attendance-for-date', [AttendanceController::class, 'getCurrentUserAttendanceForDate'])->name('getCurrentUserAttendanceForDate');
-        Route::get('/attendance/my-roster', [\App\Http\Controllers\HRM\RosterController::class, 'myRoster'])->name('attendance.myRoster');
-        Route::post('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'store'])->name('attendance.swaps.store');
-        Route::get('/attendance/swaps/awaiting-me', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'awaitingMe'])->name('attendance.swaps.awaitingMe');
-        Route::get('/attendance/swaps/mine', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'mine'])->name('attendance.swaps.mine');
-        Route::post('/attendance/swaps/{id}/respond', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'respond'])->name('attendance.swaps.respond');
-        Route::get('/attendance/swaps/eligible', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'eligible'])->name('attendance.swaps.eligible');
-        Route::get('/attendance/swaps/counterparty-roster', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'counterpartyRoster'])->name('attendance.swaps.counterpartyRoster');
-        Route::get('/attendance/swaps/pickup', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'pickup'])->name('attendance.swaps.pickup');
-        Route::post('/attendance/regularizations', [\App\Http\Controllers\HRM\RegularizationController::class, 'store'])->name('attendance.regularizations.store');
-        Route::get('/attendance/regularizations/mine', [\App\Http\Controllers\HRM\RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
-        Route::post('/attendance/overtime', [\App\Http\Controllers\HRM\OvertimeController::class, 'store'])->name('attendance.overtime.store');
-        Route::get('/attendance/overtime/mine', [\App\Http\Controllers\HRM\OvertimeController::class, 'mine'])->name('attendance.overtime.mine');
-        Route::get('/attendance/comp-off/mine', [\App\Http\Controllers\HRM\CompOffController::class, 'mine'])->name('attendance.compoff.mine');
+        Route::get('/attendance/my-roster', [RosterController::class, 'myRoster'])->name('attendance.myRoster');
+        Route::post('/attendance/swaps', [ShiftSwapController::class, 'store'])->name('attendance.swaps.store');
+        Route::get('/attendance/swaps/awaiting-me', [ShiftSwapController::class, 'awaitingMe'])->name('attendance.swaps.awaitingMe');
+        Route::get('/attendance/swaps/mine', [ShiftSwapController::class, 'mine'])->name('attendance.swaps.mine');
+        Route::post('/attendance/swaps/{id}/respond', [ShiftSwapController::class, 'respond'])->name('attendance.swaps.respond');
+        Route::get('/attendance/swaps/eligible', [ShiftSwapController::class, 'eligible'])->name('attendance.swaps.eligible');
+        Route::get('/attendance/swaps/counterparty-roster', [ShiftSwapController::class, 'counterpartyRoster'])->name('attendance.swaps.counterpartyRoster');
+        Route::get('/attendance/swaps/pickup', [ShiftSwapController::class, 'pickup'])->name('attendance.swaps.pickup');
+        Route::post('/attendance/regularizations', [RegularizationController::class, 'store'])->name('attendance.regularizations.store');
+        Route::get('/attendance/regularizations/mine', [RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
+        Route::post('/attendance/overtime', [OvertimeController::class, 'store'])->name('attendance.overtime.store');
+        Route::get('/attendance/overtime/mine', [OvertimeController::class, 'mine'])->name('attendance.overtime.mine');
+        Route::get('/attendance/comp-off/mine', [CompOffController::class, 'mine'])->name('attendance.compoff.mine');
     });
 
     // Punch route - unified validated flow only
@@ -430,8 +446,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // User management routes - CONSOLIDATED & REFACTORED
     Route::middleware(['permission:users.view'])->group(function () {
-        Route::get('/admin-unified', function () { return redirect()->route('employees'); })->name('admin.unified');
-        Route::get('/users', function () { return redirect()->route('employees'); })->name('users');
+        Route::get('/admin-unified', function () {
+            return redirect()->route('employees');
+        })->name('admin.unified');
+        Route::get('/users', function () {
+            return redirect()->route('employees');
+        })->name('users');
         Route::get('/users/paginate', [UserController::class, 'paginate'])->name('users.paginate');
         Route::get('/users/stats', [UserController::class, 'stats'])->name('users.stats');
 
@@ -494,26 +514,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Feature flags / remote config. Gated at the SAME level as admin device
     // sessions on purpose: a flag flip changes fleet-wide behaviour instantly.
     Route::middleware(['permission:users.view'])->group(function () {
-        Route::get('/admin/feature-flags', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'index'])->name('admin.feature-flags.index');
+        Route::get('/admin/feature-flags', [FeatureFlagController::class, 'index'])->name('admin.feature-flags.index');
     });
 
     Route::middleware(['permission:users.update'])->group(function () {
-        Route::post('/admin/feature-flags', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'store'])->name('admin.feature-flags.store');
-        Route::put('/admin/feature-flags/{flag}', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'update'])->whereNumber('flag')->name('admin.feature-flags.update');
-        Route::post('/admin/feature-flags/{flag}/toggle', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'toggle'])->whereNumber('flag')->name('admin.feature-flags.toggle');
-        Route::delete('/admin/feature-flags/{flag}', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'destroy'])->whereNumber('flag')->name('admin.feature-flags.destroy');
+        Route::post('/admin/feature-flags', [FeatureFlagController::class, 'store'])->name('admin.feature-flags.store');
+        Route::put('/admin/feature-flags/{flag}', [FeatureFlagController::class, 'update'])->whereNumber('flag')->name('admin.feature-flags.update');
+        Route::post('/admin/feature-flags/{flag}/toggle', [FeatureFlagController::class, 'toggle'])->whereNumber('flag')->name('admin.feature-flags.toggle');
+        Route::delete('/admin/feature-flags/{flag}', [FeatureFlagController::class, 'destroy'])->whereNumber('flag')->name('admin.feature-flags.destroy');
     });
 
     // Client Diagnostics: mobile crash telemetry triage. Gated at the SAME
     // level as admin device sessions — the payloads carry device ids, app
     // builds and user attribution for the whole fleet.
     Route::middleware(['permission:users.view'])->group(function () {
-        Route::get('/admin/client-errors', [\App\Http\Controllers\Admin\ClientErrorController::class, 'index'])->name('admin.client-errors.index');
-        Route::get('/admin/client-errors/{error}', [\App\Http\Controllers\Admin\ClientErrorController::class, 'show'])->whereNumber('error')->name('admin.client-errors.show');
+        Route::get('/admin/client-errors', [ClientErrorController::class, 'index'])->name('admin.client-errors.index');
+        Route::get('/admin/client-errors/{error}', [ClientErrorController::class, 'show'])->whereNumber('error')->name('admin.client-errors.show');
     });
 
     Route::middleware(['permission:users.update'])->group(function () {
-        Route::post('/admin/client-errors/{error}/resolve', [\App\Http\Controllers\Admin\ClientErrorController::class, 'resolve'])->whereNumber('error')->name('admin.client-errors.resolve');
+        Route::post('/admin/client-errors/{error}/resolve', [ClientErrorController::class, 'resolve'])->whereNumber('error')->name('admin.client-errors.resolve');
     });
 
     // Company settings routes
@@ -558,15 +578,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:attendance.correct|attendance.create|attendance.update'])->group(function () {
         Route::post('/attendance/mark-as-present', [AttendanceController::class, 'markAsPresent'])->name('attendance.mark-as-present');
         Route::post('/attendance/bulk-mark-as-present', [AttendanceController::class, 'bulkMarkAsPresent'])->name('attendance.bulk-mark-as-present');
-        Route::get('/attendance/regularizations/pending', [\App\Http\Controllers\HRM\RegularizationController::class, 'pending'])->name('attendance.regularizations.pending');
-        Route::post('/attendance/regularizations/{id}/approve', [\App\Http\Controllers\HRM\RegularizationController::class, 'approve'])->name('attendance.regularizations.approve');
-        Route::post('/attendance/regularizations/{id}/reject', [\App\Http\Controllers\HRM\RegularizationController::class, 'reject'])->name('attendance.regularizations.reject');
-        Route::get('/attendance/punch-exceptions/pending', [\App\Http\Controllers\HRM\PunchExceptionController::class, 'pending'])->name('attendance.punch-exceptions.pending');
-        Route::post('/attendance/punch-exceptions/{id}/approve', [\App\Http\Controllers\HRM\PunchExceptionController::class, 'approve'])->name('attendance.punch-exceptions.approve');
-        Route::post('/attendance/punch-exceptions/{id}/reject', [\App\Http\Controllers\HRM\PunchExceptionController::class, 'reject'])->name('attendance.punch-exceptions.reject');
-        Route::get('/attendance/overtime/pending', [\App\Http\Controllers\HRM\OvertimeController::class, 'pending'])->name('attendance.overtime.pending');
-        Route::post('/attendance/overtime/{id}/approve', [\App\Http\Controllers\HRM\OvertimeController::class, 'approve'])->name('attendance.overtime.approve');
-        Route::post('/attendance/overtime/{id}/reject', [\App\Http\Controllers\HRM\OvertimeController::class, 'reject'])->name('attendance.overtime.reject');
+        Route::get('/attendance/regularizations/pending', [RegularizationController::class, 'pending'])->name('attendance.regularizations.pending');
+        Route::post('/attendance/regularizations/{id}/approve', [RegularizationController::class, 'approve'])->name('attendance.regularizations.approve');
+        Route::post('/attendance/regularizations/{id}/reject', [RegularizationController::class, 'reject'])->name('attendance.regularizations.reject');
+        Route::get('/attendance/punch-exceptions/pending', [PunchExceptionController::class, 'pending'])->name('attendance.punch-exceptions.pending');
+        Route::post('/attendance/punch-exceptions/{id}/approve', [PunchExceptionController::class, 'approve'])->name('attendance.punch-exceptions.approve');
+        Route::post('/attendance/punch-exceptions/{id}/reject', [PunchExceptionController::class, 'reject'])->name('attendance.punch-exceptions.reject');
+        Route::get('/attendance/overtime/pending', [OvertimeController::class, 'pending'])->name('attendance.overtime.pending');
+        Route::post('/attendance/overtime/{id}/approve', [OvertimeController::class, 'approve'])->name('attendance.overtime.approve');
+        Route::post('/attendance/overtime/{id}/reject', [OvertimeController::class, 'reject'])->name('attendance.overtime.reject');
     });
 
     // Attendance correction routes
@@ -600,25 +620,37 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Biometric device management routes
         Route::get('settings/biometric-devices', [BiometricDeviceController::class, 'index'])->name('biometric-devices.index');
         Route::post('settings/biometric-devices', [BiometricDeviceController::class, 'store'])->name('biometric-devices.store');
-        Route::put('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'update'])->name('biometric-devices.update');
-        Route::delete('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'destroy'])->name('biometric-devices.destroy');
+        Route::put('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'update'])->whereNumber('id')->name('biometric-devices.update');
+        Route::delete('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'destroy'])->whereNumber('id')->name('biometric-devices.destroy');
         Route::post('settings/biometric-devices/sync-pool', [BiometricDeviceController::class, 'syncAllToPool'])->name('biometric-devices.sync-pool');
-        Route::post('settings/biometric-devices/{id}/regenerate-token', [BiometricDeviceController::class, 'regenerateToken'])->name('biometric-devices.regenerate-token');
+        Route::post('settings/biometric-devices/{id}/regenerate-token', [BiometricDeviceController::class, 'regenerateToken'])->whereNumber('id')->name('biometric-devices.regenerate-token');
+        Route::post('settings/biometric-devices/{id}/regenerate-adms-token', [BiometricDeviceController::class, 'regenerateAdmsToken'])->whereNumber('id')->name('biometric-devices.regenerate-adms-token');
         Route::get('settings/biometric-devices/active', [BiometricDeviceController::class, 'getActiveDevices'])->name('biometric-devices.active');
-        Route::post('settings/biometric-devices/{id}/ping', [BiometricDeviceController::class, 'pingDevice'])->name('biometric-devices.ping');
+        Route::post('settings/biometric-devices/{id}/ping', [BiometricDeviceController::class, 'pingDevice'])->whereNumber('id')->name('biometric-devices.ping');
         Route::get('settings/biometric-devices/logs', [BiometricDeviceController::class, 'getAdmsLogs'])->name('biometric-devices.logs');
         Route::get('settings/biometric-devices/health', [BiometricDeviceController::class, 'getHealthMetrics'])->name('biometric-devices.health');
         Route::get('settings/biometric-devices/operlogs', [BiometricDeviceController::class, 'getOperLogs'])->name('biometric-devices.operlogs');
         Route::get('settings/biometric-devices/attlogs', [BiometricDeviceController::class, 'getAttLogs'])->name('biometric-devices.attlogs');
 
+        // Device capabilities + device-internal settings.
+        // Every {id} route here MUST carry ->whereNumber('id'): an unconstrained
+        // {id} also matches the literal segment "bulk", which previously made
+        // POST settings/biometric-devices/bulk/ping resolve to the {id}/ping
+        // route with id="bulk" and silently broke every bulk action.
+        Route::get('settings/biometric-devices/settings-catalogue', [BiometricDeviceController::class, 'settingsCatalogue'])->name('biometric-devices.settings-catalogue');
+        Route::get('settings/biometric-devices/{id}/capabilities', [BiometricDeviceController::class, 'capabilities'])->whereNumber('id')->name('biometric-devices.capabilities');
+        Route::post('settings/biometric-devices/{id}/probe', [BiometricDeviceController::class, 'probe'])->whereNumber('id')->name('biometric-devices.probe');
+        Route::post('settings/biometric-devices/{id}/settings', [BiometricDeviceController::class, 'updateDeviceSettings'])->whereNumber('id')->name('biometric-devices.settings.update');
+
         // Bulk operations
         Route::post('settings/biometric-devices/bulk/ping', [BiometricDeviceController::class, 'bulkPing'])->name('biometric-devices.bulk.ping');
         Route::post('settings/biometric-devices/bulk/delete', [BiometricDeviceController::class, 'bulkDelete'])->name('biometric-devices.bulk.delete');
 
-        Route::post('settings/biometric-devices/{id}/download-logs', [BiometricDeviceController::class, 'downloadLogs'])->name('biometric-devices.download-logs');
+        Route::post('settings/biometric-devices/{id}/download-logs', [BiometricDeviceController::class, 'downloadLogs'])->whereNumber('id')->name('biometric-devices.download-logs');
         Route::post('settings/biometric-devices/bulk/download-logs', [BiometricDeviceController::class, 'bulkDownloadLogs'])->name('biometric-devices.bulk.download-logs');
         Route::get('settings/biometric-devices/download-history', [BiometricDeviceController::class, 'getDownloadHistory'])->name('biometric-devices.download-history');
-        Route::get('settings/biometric-devices/download-sessions/{id}/logs', [BiometricDeviceController::class, 'getSessionLogs'])->name('biometric-devices.download-sessions.logs');
+        Route::get('settings/biometric-devices/download-sessions/{id}/logs', [BiometricDeviceController::class, 'getSessionLogs'])->whereNumber('id')->name('biometric-devices.download-sessions.logs');
+        Route::post('settings/biometric-devices/download-sessions/{id}/import', [BiometricDeviceController::class, 'importSessionLogs'])->whereNumber('id')->name('biometric-devices.download-sessions.import');
 
         // Request logs routes
         Route::get('settings/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');
@@ -632,47 +664,47 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['permission:attendance.view|attendance.settings'])->group(function () {
         // Shift management routes
-        Route::get('/attendance/shifts', [\App\Http\Controllers\HRM\ShiftController::class, 'index'])->name('attendance.shifts.index');
-        Route::post('/attendance/shifts', [\App\Http\Controllers\HRM\ShiftController::class, 'store'])->name('attendance.shifts.store');
-        Route::put('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'update'])->name('attendance.shifts.update');
-        Route::delete('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
-        Route::get('/attendance/rotation-patterns', [\App\Http\Controllers\HRM\ShiftController::class, 'indexPatterns'])->name('attendance.patterns.index');
-        Route::post('/attendance/rotation-patterns', [\App\Http\Controllers\HRM\ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
-        Route::put('/attendance/rotation-patterns/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'updatePattern'])->name('attendance.patterns.update');
-        Route::delete('/attendance/rotation-patterns/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroyPattern'])->name('attendance.patterns.destroy');
-        Route::post('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
-        Route::post('/attendance/shift-assignments/bulk', [\App\Http\Controllers\HRM\ShiftController::class, 'storeBulkAssignment'])->name('attendance.assignments.storeBulk');
-        Route::get('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'assignmentsIndex'])->name('attendance.assignments.index');
-        Route::put('/attendance/shift-assignments/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'updateAssignment'])->name('attendance.assignments.update');
-        Route::delete('/attendance/shift-assignments/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroyAssignment'])->name('attendance.assignments.destroy');
+        Route::get('/attendance/shifts', [ShiftController::class, 'index'])->name('attendance.shifts.index');
+        Route::post('/attendance/shifts', [ShiftController::class, 'store'])->name('attendance.shifts.store');
+        Route::put('/attendance/shifts/{id}', [ShiftController::class, 'update'])->name('attendance.shifts.update');
+        Route::delete('/attendance/shifts/{id}', [ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
+        Route::get('/attendance/rotation-patterns', [ShiftController::class, 'indexPatterns'])->name('attendance.patterns.index');
+        Route::post('/attendance/rotation-patterns', [ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
+        Route::put('/attendance/rotation-patterns/{id}', [ShiftController::class, 'updatePattern'])->name('attendance.patterns.update');
+        Route::delete('/attendance/rotation-patterns/{id}', [ShiftController::class, 'destroyPattern'])->name('attendance.patterns.destroy');
+        Route::post('/attendance/shift-assignments', [ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
+        Route::post('/attendance/shift-assignments/bulk', [ShiftController::class, 'storeBulkAssignment'])->name('attendance.assignments.storeBulk');
+        Route::get('/attendance/shift-assignments', [ShiftController::class, 'assignmentsIndex'])->name('attendance.assignments.index');
+        Route::put('/attendance/shift-assignments/{id}', [ShiftController::class, 'updateAssignment'])->name('attendance.assignments.update');
+        Route::delete('/attendance/shift-assignments/{id}', [ShiftController::class, 'destroyAssignment'])->name('attendance.assignments.destroy');
 
         // Roster management routes
-        Route::get('/attendance/roster', [\App\Http\Controllers\HRM\RosterController::class, 'index'])->name('attendance.roster.index');
-        Route::post('/attendance/roster/generate', [\App\Http\Controllers\HRM\RosterController::class, 'generate'])->name('attendance.roster.generate');
-        Route::put('/attendance/roster/cell', [\App\Http\Controllers\HRM\RosterController::class, 'updateCell'])->name('attendance.roster.cell');
+        Route::get('/attendance/roster', [RosterController::class, 'index'])->name('attendance.roster.index');
+        Route::post('/attendance/roster/generate', [RosterController::class, 'generate'])->name('attendance.roster.generate');
+        Route::put('/attendance/roster/cell', [RosterController::class, 'updateCell'])->name('attendance.roster.cell');
     });
 
     Route::middleware(['permission:attendance.settings'])->group(function () {
 
         // Coverage (Phase 2)
-        Route::get('/attendance/coverage', [\App\Http\Controllers\HRM\CoverageController::class, 'index'])->name('attendance.coverage.index');
-        Route::get('/attendance/work-locations', [\App\Http\Controllers\HRM\CoverageController::class, 'workLocations'])->name('attendance.workLocations.index');
-        Route::get('/attendance/coverage-requirements', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'index'])->name('attendance.coverageRequirements.index');
-        Route::post('/attendance/coverage-requirements', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'store'])->name('attendance.coverageRequirements.store');
-        Route::put('/attendance/coverage-requirements/{id}', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'update'])->name('attendance.coverageRequirements.update');
-        Route::delete('/attendance/coverage-requirements/{id}', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'destroy'])->name('attendance.coverageRequirements.destroy');
+        Route::get('/attendance/coverage', [CoverageController::class, 'index'])->name('attendance.coverage.index');
+        Route::get('/attendance/work-locations', [CoverageController::class, 'workLocations'])->name('attendance.workLocations.index');
+        Route::get('/attendance/coverage-requirements', [CoverageRequirementController::class, 'index'])->name('attendance.coverageRequirements.index');
+        Route::post('/attendance/coverage-requirements', [CoverageRequirementController::class, 'store'])->name('attendance.coverageRequirements.store');
+        Route::put('/attendance/coverage-requirements/{id}', [CoverageRequirementController::class, 'update'])->name('attendance.coverageRequirements.update');
+        Route::delete('/attendance/coverage-requirements/{id}', [CoverageRequirementController::class, 'destroy'])->name('attendance.coverageRequirements.destroy');
 
         // Swap management routes (admin)
-        Route::get('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
-        Route::post('/attendance/swaps/{id}/approve', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');
-        Route::post('/attendance/swaps/{id}/reject', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'reject'])->name('attendance.swaps.reject');
+        Route::get('/attendance/swaps', [ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
+        Route::post('/attendance/swaps/{id}/approve', [ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');
+        Route::post('/attendance/swaps/{id}/reject', [ShiftSwapController::class, 'reject'])->name('attendance.swaps.reject');
 
         // Attendance Policy CRUD + activation + simulation
-        Route::get('/attendance/policies', [\App\Http\Controllers\HRM\PolicyController::class, 'index'])->name('attendance.policies.index');
-        Route::post('/attendance/policies/simulate', [\App\Http\Controllers\HRM\PolicyController::class, 'simulate'])->name('attendance.policies.simulate');
-        Route::post('/attendance/policies', [\App\Http\Controllers\HRM\PolicyController::class, 'store'])->name('attendance.policies.store');
-        Route::put('/attendance/policies/{id}', [\App\Http\Controllers\HRM\PolicyController::class, 'update'])->name('attendance.policies.update');
-        Route::post('/attendance/policies/{id}/activate', [\App\Http\Controllers\HRM\PolicyController::class, 'activate'])->name('attendance.policies.activate');
+        Route::get('/attendance/policies', [PolicyController::class, 'index'])->name('attendance.policies.index');
+        Route::post('/attendance/policies/simulate', [PolicyController::class, 'simulate'])->name('attendance.policies.simulate');
+        Route::post('/attendance/policies', [PolicyController::class, 'store'])->name('attendance.policies.store');
+        Route::put('/attendance/policies/{id}', [PolicyController::class, 'update'])->name('attendance.policies.update');
+        Route::post('/attendance/policies/{id}/activate', [PolicyController::class, 'activate'])->name('attendance.policies.activate');
     });
 
     // Task management routes
@@ -685,22 +717,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Work location routes (HR/Attendance) — gated by attendance settings, not project jurisdiction.
     Route::middleware(['permission:employees.view'])->group(function () {
-        Route::get('/work-location', [\App\Http\Controllers\WorkLocationController::class, 'showWorkLocations'])->name('showWorkLocations');
-        Route::get('/work-location_json', [\App\Http\Controllers\WorkLocationController::class, 'allWorkLocations'])->name('allWorkLocations');
+        Route::get('/work-location', [WorkLocationController::class, 'showWorkLocations'])->name('showWorkLocations');
+        Route::get('/work-location_json', [WorkLocationController::class, 'allWorkLocations'])->name('allWorkLocations');
     });
 
-    Route::middleware(['permission:attendance.settings'])->post('/work-locations/add', [\App\Http\Controllers\WorkLocationController::class, 'addWorkLocation'])->name('addWorkLocation');
-    Route::middleware(['permission:attendance.settings'])->post('/work-locations/delete', [\App\Http\Controllers\WorkLocationController::class, 'deleteWorkLocation'])->name('deleteWorkLocation');
-    Route::middleware(['permission:attendance.settings'])->post('/work-locations/update', [\App\Http\Controllers\WorkLocationController::class, 'updateWorkLocation'])->name('updateWorkLocation');
+    Route::middleware(['permission:attendance.settings'])->post('/work-locations/add', [WorkLocationController::class, 'addWorkLocation'])->name('addWorkLocation');
+    Route::middleware(['permission:attendance.settings'])->post('/work-locations/delete', [WorkLocationController::class, 'deleteWorkLocation'])->name('deleteWorkLocation');
+    Route::middleware(['permission:attendance.settings'])->post('/work-locations/update', [WorkLocationController::class, 'updateWorkLocation'])->name('updateWorkLocation');
 
     // Jurisdiction routes (Project chainages)
     Route::middleware(['permission:jurisdiction.view'])->group(function () {
-        Route::get('/jurisdictions/json', [\App\Http\Controllers\JurisdictionController::class, 'allJurisdictions'])->name('allJurisdictions');
+        Route::get('/jurisdictions/json', [JurisdictionController::class, 'allJurisdictions'])->name('allJurisdictions');
     });
 
-    Route::middleware(['permission:jurisdiction.create'])->post('/jurisdictions/add', [\App\Http\Controllers\JurisdictionController::class, 'addJurisdiction'])->name('addJurisdiction');
-    Route::middleware(['permission:jurisdiction.delete'])->post('/jurisdictions/delete', [\App\Http\Controllers\JurisdictionController::class, 'deleteJurisdiction'])->name('deleteJurisdiction');
-    Route::middleware(['permission:jurisdiction.update'])->post('/jurisdictions/update', [\App\Http\Controllers\JurisdictionController::class, 'updateJurisdiction'])->name('updateJurisdiction');
+    Route::middleware(['permission:jurisdiction.create'])->post('/jurisdictions/add', [JurisdictionController::class, 'addJurisdiction'])->name('addJurisdiction');
+    Route::middleware(['permission:jurisdiction.delete'])->post('/jurisdictions/delete', [JurisdictionController::class, 'deleteJurisdiction'])->name('deleteJurisdiction');
+    Route::middleware(['permission:jurisdiction.update'])->post('/jurisdictions/update', [JurisdictionController::class, 'updateJurisdiction'])->name('updateJurisdiction');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -888,16 +920,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Notification Settings Routes (admin)
 Route::middleware(['auth', 'verified', 'permission:notifications.settings'])->group(function () {
-    Route::get('/admin/settings/notifications', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'index'])->name('admin.settings.notifications');
-    Route::get('/admin/settings/notifications/list', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'list']);
-    Route::put('/admin/settings/notifications/{type}', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'update']);
+    Route::get('/admin/settings/notifications', [NotificationSettingsController::class, 'index'])->name('admin.settings.notifications');
+    Route::get('/admin/settings/notifications/list', [NotificationSettingsController::class, 'list']);
+    Route::put('/admin/settings/notifications/{type}', [NotificationSettingsController::class, 'update']);
 });
 
 // User notification preferences (any authenticated user manages their own prefs)
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'index'])->name('settings.notifications');
-    Route::get('/settings/notifications/list', [\App\Http\Controllers\NotificationPreferenceController::class, 'list']);
-    Route::put('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'update']);
+    Route::get('/settings/notifications', [NotificationPreferenceController::class, 'index'])->name('settings.notifications');
+    Route::get('/settings/notifications/list', [NotificationPreferenceController::class, 'list']);
+    Route::put('/settings/notifications', [NotificationPreferenceController::class, 'update']);
 });
 
 // In-app notification center — Inertia page + JSON endpoints for the SPA (session auth,

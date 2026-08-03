@@ -5,12 +5,13 @@ import { Panel } from '@/Components/ui/Panel';
  * Pure Radix UI.
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Badge, Box, Button, Checkbox, Code, Dialog, Flex, Grid, IconButton, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text, TextField, Tooltip } from '@radix-ui/themes';
+import { Badge, Box, Button, Callout, Checkbox, Code, Dialog, Flex, Grid, IconButton, Progress, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
     ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, ChevronLeftIcon,
     ChevronRightIcon, CopyIcon, Cross2Icon, DesktopIcon, DotsVerticalIcon,
-    EnvelopeClosedIcon, Link2Icon, LockClosedIcon, LockOpen1Icon,
-    MagnifyingGlassIcon, MobileIcon, Pencil1Icon, PlusIcon, ReloadIcon,
+    EnvelopeClosedIcon, GearIcon, InfoCircledIcon, Link2Icon, LockClosedIcon,
+    LockOpen1Icon, MagnifyingGlassIcon, MixerHorizontalIcon, MobileIcon,
+    Pencil1Icon, PlusIcon, ReloadIcon,
     TrashIcon, HeartIcon, CheckIcon, CrossCircledIcon, ExclamationTriangleIcon,
     DownloadIcon,
 } from '@radix-ui/react-icons';
@@ -27,6 +28,219 @@ const EMPTY_DEVICE = {
     model: '', protocol: 'push_sdk', is_active: true,
 };
 
+/**
+ * A device can hold TWO unrelated secrets. They are not interchangeable and an
+ * admin pasting one where the other belongs will silently break the integration,
+ * so every place they surface must name which one it is.
+ *
+ *  - webhook → biometric_devices.auth_token — legacy Push SDK webhook
+ *              (POST /api/biometric/webhook, X-Device-Token header).
+ *  - adms    → biometric_devices.adms_token — ADMS push protocol
+ *              (/iclock/*, ?token= or X-ADMS-Token), enforced by
+ *              EnsureAdmsDeviceAuthorized.
+ */
+const TOKEN_META = {
+    webhook: {
+        title: 'Push SDK Auth Token',
+        action: 'Regenerate Push SDK auth token (webhook)',
+        note: <>Send this as the <Code>X-Device-Token</Code> header on <Code>/api/biometric/webhook</Code>. This is the Push SDK webhook token — <strong>not</strong> the ADMS device token.</>,
+    },
+    adms: {
+        title: 'ADMS Device Token',
+        action: 'Regenerate ADMS device token (/iclock)',
+        note: <>Paste this into the device's ADMS push settings so it is sent as <Code>?token=</Code> or the <Code>X-ADMS-Token</Code> header on <Code>/iclock/*</Code>. This is the ADMS device token — <strong>not</strong> the Push SDK webhook token.</>,
+    },
+};
+
+/** Normalise a DateTimePicker `datetime` value (YYYY-MM-DDTHH:MM) to YYYY-MM-DD HH:MM:SS. */
+const toSqlDateTime = (val) => {
+    const formatted = val.replace('T', ' ');
+    return formatted.length === 16 ? `${formatted}:00` : formatted;
+};
+
+/**
+ * Command status → badge.
+ *
+ * `unsupported` is deliberately NOT red and NOT worded as an error. It is set by
+ * BiometricDeviceCommand::markAsExecuted() when the device acks with -1004
+ * ("not supported on this model") or -1 ("unsupported or no data") — see
+ * docs/zkteco-adms-capability-matrix.md §4. That is a permanent capability fact
+ * about the hardware, not something anyone should retry or escalate.
+ *
+ * Keys mirror BiometricDeviceCommand::STATUSES exactly; do not invent values here.
+ */
+const COMMAND_STATUS_META = {
+    pending:     { color: 'gray',  label: 'Pending' },
+    sent:        { color: 'blue',  label: 'Sent' },
+    executed:    { color: 'green', label: 'Executed' },
+    failed:      { color: 'red',   label: 'Failed' },
+    unsupported: { color: 'amber', label: 'Not supported' },
+};
+
+/**
+ * Ziggy throws on an unknown route name, which would take the whole sub-tab down
+ * with it. The capability / probe / settings endpoints ship in a separate change,
+ * so ask the router at runtime and degrade to an explanation instead of a crash.
+ */
+const hasRoute = (name) => {
+    try {
+        return typeof route === 'function' && route().has(name);
+    } catch {
+        return false;
+    }
+};
+
+const CAP_ROUTES = {
+    catalogue: 'biometric-devices.settings-catalogue',
+    snapshot:  'biometric-devices.capabilities',
+    probe:     'biometric-devices.probe',
+    save:      'biometric-devices.settings.update',
+};
+
+/**
+ * ADMS is device-initiated: the server cannot read a terminal on demand, it can
+ * only queue a command the device collects on its next poll. So every number on
+ * the capabilities screen is "what the device last volunteered", and is only
+ * meaningful next to the age of the snapshot it came from.
+ */
+const SNAPSHOT_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Pull a value out of a capability snapshot without betting on one envelope
+ * shape. The snapshot may expose device answers flat, split into counts/maxima,
+ * or as the raw `GET OPTION` key map — accept all of them rather than guessing.
+ */
+const pickSnapshotValue = (snapshot, keys) => {
+    if (!snapshot) return null;
+    const pools = [
+        snapshot, snapshot.counts, snapshot.maxima, snapshot.capacity,
+        snapshot.identity, snapshot.options, snapshot.settings, snapshot.values,
+    ];
+    for (const pool of pools) {
+        if (!pool || typeof pool !== 'object') continue;
+        for (const key of keys) {
+            const v = pool[key];
+            if (v !== undefined && v !== null && v !== '') return v;
+        }
+    }
+    return null;
+};
+
+/**
+ * Coerce a device-reported count. Negative values are ADMS return codes
+ * (-1004 / -1) leaking through as "no answer", never quantities — treat them as
+ * unknown rather than rendering "-1004 users".
+ */
+const toCount = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+/**
+ * Capacity axes per docs §5.2. Each carries the device option keys it can be
+ * satisfied by, most specific first, plus snake_case aliases a normalising
+ * backend is likely to emit.
+ */
+const CAPACITY_METRICS = [
+    {
+        id: 'users', label: 'Users',
+        usedKeys: ['UserCount', 'user_count', 'users_count', 'users'],
+        maxKeys:  ['MaxUserCount', 'max_user_count', 'max_users'],
+    },
+    {
+        id: 'fingerprints', label: 'Fingerprints',
+        usedKeys: ['FPCount', 'fp_count', 'finger_count', 'fingerprints'],
+        maxKeys:  ['MaxFingerCount', 'max_finger_count', 'max_fingerprints'],
+    },
+    {
+        id: 'faces', label: 'Faces',
+        usedKeys: ['FaceCount', 'face_count', 'faces'],
+        maxKeys:  ['MaxFaceCount', 'max_face_count', 'max_faces'],
+    },
+    {
+        id: 'attendance', label: 'Attendance records',
+        usedKeys: ['AttLogCount', 'attlog_count', 'att_log_count', 'TransactionCount', 'attendance_records'],
+        maxKeys:  ['MaxAttLogCount', 'max_attlog_count', 'max_att_log_count', 'max_attendance_records'],
+    },
+];
+
+/**
+ * Device-reported identity (docs §5.5). Kept explicitly separate from the
+ * admin-entered name/location/model on the Devices tab: one is what the unit
+ * says it is, the other is what somebody typed.
+ */
+const IDENTITY_FIELDS = [
+    { id: 'firmware', label: 'Firmware version', keys: ['FWVersion', 'firmware_version', 'firmware', 'FirmVer'] },
+    { id: 'platform', label: 'Platform',         keys: ['Platform', 'platform', '~Platform'] },
+    { id: 'mac',      label: 'MAC address',      keys: ['MACAddress', 'mac_address', 'MAC', 'mac'] },
+    { id: 'name',     label: 'Device-reported name', keys: ['DeviceName', 'device_name', '~DeviceName'] },
+    { id: 'serial',   label: 'Device-reported serial', keys: ['SerialNumber', '~SerialNumber', 'serial_number'] },
+    { id: 'ip',       label: 'Device-reported IP', keys: ['IPAddress', 'ip_address'] },
+];
+
+/**
+ * Two settings carry more operational weight than the rest (docs §4b) and are
+ * pinned above the grouped form so they are not lost among forty checkboxes.
+ */
+const PROMINENT_KEYS = {
+    MThreshold: {
+        heading: '1:N match threshold',
+        note: 'The dial behind false-accept vs. false-reject complaints. Lower accepts more readily (risking wrong matches); higher is stricter (risking rejected genuine fingers). Change in small steps and re-test on site.',
+    },
+    AlarmReRec: {
+        heading: 'Duplicate-punch window',
+        note: 'Device-side duplicate suppression, in minutes. Attendance already de-duplicates server-side, so raising this does not change what is recorded — it stops the device sending punches we only throw away.',
+    },
+};
+
+/** Turn a catalogue group key into something readable if the backend sent a slug. */
+const prettyGroup = (g) => {
+    if (!g) return 'Other';
+    if (/[A-Z ]/.test(g) && !/_/.test(g)) return g;
+    return g.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
+
+/**
+ * Normalise the settings catalogue. The endpoint may hand back a keyed object
+ * or a list; both are accepted so a shape change upstream degrades to "fewer
+ * fields" rather than an empty screen.
+ */
+const normaliseCatalogue = (raw) => {
+    const entries = Array.isArray(raw)
+        ? raw
+        : (raw && typeof raw === 'object')
+            ? Object.entries(raw).map(([key, v]) => ({ key, ...(v && typeof v === 'object' ? v : {}) }))
+            : [];
+
+    return entries
+        .map(e => ({
+            key:         e.key ?? e.name,
+            group:       e.group ?? e.category ?? 'Other',
+            label:       e.label ?? e.title ?? e.key ?? e.name,
+            type:        String(e.type ?? e.value_type ?? 'string').toLowerCase(),
+            danger:      Boolean(e.danger ?? e.dangerous),
+            description: e.description ?? e.help ?? e.hint ?? null,
+            choices:     e.options ?? e.choices ?? e.enum ?? null,
+            min:         e.min ?? null,
+            max:         e.max ?? null,
+            unit:        e.unit ?? null,
+        }))
+        .filter(e => e.key);
+};
+
+const isBoolType = (type) => type === 'bool' || type === 'boolean' || type === 'switch';
+const isNumberType = (type) => type === 'int' || type === 'integer' || type === 'number' || type === 'float';
+
+/** Render every value as a string so "changed?" is one unambiguous comparison. */
+const asFormValue = (entry, raw) => {
+    if (raw === null || raw === undefined) return '';
+    if (isBoolType(entry.type)) {
+        return (raw === true || raw === 1 || raw === '1' || raw === 'true' || raw === 'on') ? '1' : '0';
+    }
+    return String(raw);
+};
+
 /* ── Devices sub-tab ── */
 function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [editDevice, setEditDevice]   = useState(null);
@@ -34,8 +248,9 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [form, setForm]               = useState(EMPTY_DEVICE);
     const [saving, setSaving]           = useState(false);
     const [pinging, setPinging]         = useState(null);
-    const [tokenDialog, setTokenDialog] = useState({ open: false, device: null, token: '' });
+    const [tokenDialog, setTokenDialog] = useState({ open: false, device: null, token: '', kind: 'webhook' });
     const [downloadingDevice, setDownloadingDevice] = useState(null);
+    const [regeneratingToken, setRegeneratingToken] = useState(null);
 
     // Bulk selection state
     const [selectedIds, setSelectedIds] = useState([]);
@@ -49,6 +264,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [logStartDate, setLogStartDate] = useState('');
     const [logEndDate, setLogEndDate] = useState('');
     const [sendingCommand, setSendingCommand] = useState(false);
+    const [commandScheduledAt, setCommandScheduledAt] = useState('');
     const [commandHistory, setCommandHistory] = useState([]);
     const [loadingCommands, setLoadingCommands] = useState(false);
     const [isCommandOpen, setIsCommandOpen] = useState(false);
@@ -121,12 +337,31 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     };
 
     const regen = async d => {
-        if (!confirm('Regenerate token? Device must be reconfigured.')) return;
+        if (!confirm(`Regenerate the Push SDK auth token for "${d.name}"? The device must be reconfigured with the new X-Device-Token before it can post again.`)) return;
+        setRegeneratingToken(`webhook:${d.id}`);
         try {
             const { data } = await axios.post(route('biometric-devices.regenerate-token', d.id));
-            setTokenDialog({ open: true, device: d, token: data.auth_token });
-            showToast.success('Token regenerated.');
-        } catch { showToast.error('Failed.'); }
+            setTokenDialog({ open: true, device: d, token: data.auth_token, kind: 'webhook' });
+            showToast.success('Push SDK auth token regenerated.');
+        } catch (e) {
+            showToast.error(e.response?.data?.message ?? 'Failed to regenerate Push SDK auth token.');
+        } finally { setRegeneratingToken(null); }
+    };
+
+    const regenAdmsToken = async d => {
+        if (d.protocol !== 'adms') {
+            showToast.error('ADMS device tokens only apply to ADMS protocol devices.');
+            return;
+        }
+        if (!confirm(`Regenerate the ADMS device token for "${d.name}"? The new token must be entered on the device or its /iclock pushes will be rejected in strict mode.`)) return;
+        setRegeneratingToken(`adms:${d.id}`);
+        try {
+            const { data } = await axios.post(route('biometric-devices.regenerate-adms-token', d.id));
+            setTokenDialog({ open: true, device: d, token: data.adms_token, kind: 'adms' });
+            showToast.success(data.message || 'ADMS device token regenerated.');
+        } catch (e) {
+            showToast.error(e.response?.data?.message ?? 'Failed to regenerate ADMS device token.');
+        } finally { setRegeneratingToken(null); }
     };
 
     /* ── bulk selection handlers ── */
@@ -185,6 +420,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         setCommandPayload('');
         setLogStartDate('');
         setLogEndDate('');
+        setCommandScheduledAt('');
         setLoadingCommands(true);
         setIsCommandOpen(true);
         try {
@@ -238,11 +474,21 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                 }
             }
 
+            // CHECK_ATTLOG is routed through initiateLogDownload(), which creates its
+            // own command and ignores scheduled_at — so never offer/send it there.
+            const scheduledAt = (commandType !== 'CHECK_ATTLOG' && commandScheduledAt)
+                ? toSqlDateTime(commandScheduledAt)
+                : null;
+
             const { data } = await axios.post(
                 route('api.biometric-devices.commands.queue', commandDevice.id),
-                { device_id: commandDevice.id, command_type: commandType, payload },
+                { device_id: commandDevice.id, command_type: commandType, payload, scheduled_at: scheduledAt },
             );
-            showToast.success(`Command queued: ${data.command.adms_string}`);
+            showToast.success(
+                scheduledAt
+                    ? `Command scheduled for ${new Date(scheduledAt.replace(' ', 'T')).toLocaleString()}: ${data.command.adms_string}`
+                    : `Command queued: ${data.command.adms_string}`,
+            );
 
             const { data: historyData } = await axios.get(
                 route('api.biometric-devices.commands.index', commandDevice.id),
@@ -252,6 +498,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
             setCommandPayload('');
             setLogStartDate('');
             setLogEndDate('');
+            setCommandScheduledAt('');
         } catch (err) {
             showToast.error(err.response?.data?.message ?? 'Failed to queue command.');
         } finally {
@@ -375,11 +622,11 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                     <Table.Cell>
                                         <Flex gap="1">
                                             <Tooltip content="Ping device">
-                                                <IconButton size="1" variant="soft" color="indigo" onClick={() => handlePing(d)}>
-                                                    <ReloadIcon />
+                                                <IconButton size="1" variant="soft" color="indigo" onClick={() => ping(d)} disabled={pinging === d.id}>
+                                                    {pinging === d.id ? <Spinner size="1" /> : <ReloadIcon />}
                                                 </IconButton>
                                             </Tooltip>
-                                            {d.protocol === 'adms' && (
+                                            {d.protocol === 'adms' ? (
                                                 <>
                                                     <Tooltip content="Download Logs">
                                                         <IconButton
@@ -402,7 +649,30 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                                             <DotsVerticalIcon />
                                                         </IconButton>
                                                     </Tooltip>
+                                                    <Tooltip content={TOKEN_META.adms.action}>
+                                                        <IconButton
+                                                            size="1"
+                                                            variant="soft"
+                                                            color="amber"
+                                                            onClick={() => regenAdmsToken(d)}
+                                                            disabled={regeneratingToken === `adms:${d.id}`}
+                                                        >
+                                                            {regeneratingToken === `adms:${d.id}` ? <Spinner size="1" /> : <LockClosedIcon />}
+                                                        </IconButton>
+                                                    </Tooltip>
                                                 </>
+                                            ) : (
+                                                <Tooltip content={TOKEN_META.webhook.action}>
+                                                    <IconButton
+                                                        size="1"
+                                                        variant="soft"
+                                                        color="amber"
+                                                        onClick={() => regen(d)}
+                                                        disabled={regeneratingToken === `webhook:${d.id}`}
+                                                    >
+                                                        {regeneratingToken === `webhook:${d.id}` ? <Spinner size="1" /> : <LockOpen1Icon />}
+                                                    </IconButton>
+                                                </Tooltip>
                                             )}
                                             <Tooltip content="Edit device">
                                                 <IconButton size="1" variant="soft" color="gray" onClick={() => openEdit(d)}>
@@ -410,7 +680,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip content="Delete device">
-                                                <IconButton size="1" variant="soft" color="red" onClick={() => openDelete(d)}>
+                                                <IconButton size="1" variant="soft" color="red" onClick={() => deleteDevice(d)}>
                                                     <TrashIcon />
                                                 </IconButton>
                                             </Tooltip>
@@ -474,15 +744,15 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
             {/* Token Dialog */}
             <Dialog.Root open={tokenDialog.open} onOpenChange={o => setTokenDialog(p => ({ ...p, open: o }))}>
                 <Dialog.Content style={{ maxWidth: 460 }}>
-                    <Dialog.Title>New Auth Token — {tokenDialog.device?.name}</Dialog.Title>
+                    <Dialog.Title>New {TOKEN_META[tokenDialog.kind]?.title} — {tokenDialog.device?.name}</Dialog.Title>
                     <Dialog.Description size="2" color="gray">
-                        Save this token. It will not be shown again.
+                        This value is shown once. Copy it now and paste it into the device — it cannot be retrieved again.
                     </Dialog.Description>
                     <Panel variant="surface" mt="3" style={{ background: 'var(--amber-a3)' }}>
                         <Flex align="start" gap="2">
                             <ExclamationTriangleIcon style={{ color: 'var(--amber-11)', flexShrink: 0, marginTop: 2 }} />
                             <Text size="2" color="amber">
-                                Configure your device to send this as the <Code>X-Device-Token</Code> header.
+                                {TOKEN_META[tokenDialog.kind]?.note}
                             </Text>
                         </Flex>
                     </Panel>
@@ -527,6 +797,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                         <Select.Item value="ADD_USER">Add User</Select.Item>
                                         <Select.Item value="UPDATE_USER">Update User</Select.Item>
                                         <Select.Item value="DELETE_USER">Delete User</Select.Item>
+                                        <Select.Item value="GET_USERINFO">Get Enrolled Users (device roster)</Select.Item>
                                         <Select.Item value="CLEAR_LOG">Clear Attendance Logs</Select.Item>
                                         <Select.Item value="CLEAR_DATA">Clear All Data</Select.Item>
                                         <Select.Item value="CHECK_ATTLOG">Download Attendance Logs</Select.Item>
@@ -588,6 +859,21 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                     </Flex>
                                 )}
 
+                                {commandType !== 'CHECK_ATTLOG' && (
+                                    <Box>
+                                        <Text size="2" weight="medium" as="div" mb="1">Run At (Optional)</Text>
+                                        <DateTimePicker
+                                            mode="datetime"
+                                            value={commandScheduledAt}
+                                            onChange={setCommandScheduledAt}
+                                        />
+                                        <Text size="1" color="gray" mt="1" as="div">
+                                            Leave empty to run at the next device contact. A scheduled command is held
+                                            back until this time, then released on the next contact after it.
+                                        </Text>
+                                    </Box>
+                                )}
+
                                 <Button
                                     onClick={sendCommand}
                                     disabled={sendingCommand}
@@ -637,6 +923,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                             <Table.Row>
                                                 <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Scheduled</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Created</Table.ColumnHeaderCell>
                                             </Table.Row>
                                         </Table.Header>
@@ -647,17 +934,51 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                                         <Code size="1">{cmd.command_type}</Code>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <Badge
-                                                            color={
-                                                                cmd.status === 'executed' ? 'green' :
-                                                                cmd.status === 'sent' ? 'blue' :
-                                                                cmd.status === 'failed' ? 'red' : 'gray'
-                                                            }
-                                                            variant="soft"
-                                                            size="1"
-                                                        >
-                                                            {cmd.status}
-                                                        </Badge>
+                                                        {(() => {
+                                                            // `unsupported` is a distinct status the backend sets from the
+                                                            // device's own -1004 ack — it means this model cannot do this,
+                                                            // which is a capability fact, not a failure. Anything the map
+                                                            // does not know falls through showing the raw status rather
+                                                            // than being silently recoloured as an error.
+                                                            const meta = COMMAND_STATUS_META[cmd.status]
+                                                                ?? { color: 'gray', label: cmd.status };
+                                                            const isUnsupported = cmd.status === 'unsupported';
+                                                            return (
+                                                                <Flex direction="column" gap="1" align="start">
+                                                                    <Badge color={meta.color} variant="soft" size="1">
+                                                                        {meta.label}
+                                                                    </Badge>
+                                                                    {isUnsupported && (
+                                                                        <Text size="1" color="amber" style={{ maxWidth: 220 }}>
+                                                                            {cmd.error_message || 'Not supported on this model'}
+                                                                            {' — the device rejected the command as unavailable on this hardware. Nothing to retry.'}
+                                                                        </Text>
+                                                                    )}
+                                                                    {!isUnsupported && cmd.status === 'failed' && cmd.error_message && (
+                                                                        <Text size="1" color="red" style={{ maxWidth: 220 }}>
+                                                                            {cmd.error_message}
+                                                                        </Text>
+                                                                    )}
+                                                                    {cmd.return_code !== null && cmd.return_code !== undefined && cmd.return_code !== '' && (
+                                                                        <Tooltip content="Return code from the device acknowledgement">
+                                                                            <Code size="1" variant="soft">Return={cmd.return_code}</Code>
+                                                                        </Tooltip>
+                                                                    )}
+                                                                </Flex>
+                                                            );
+                                                        })()}
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        {cmd.scheduled_at ? (
+                                                            <Flex direction="column" gap="1" align="start">
+                                                                <Badge color="cyan" variant="soft" size="1">Scheduled</Badge>
+                                                                <Text size="1" color="gray" style={{ whiteSpace: 'nowrap' }}>
+                                                                    {new Date(cmd.scheduled_at).toLocaleString()}
+                                                                </Text>
+                                                            </Flex>
+                                                        ) : (
+                                                            <Text size="1" color="gray">Immediate</Text>
+                                                        )}
                                                     </Table.Cell>
                                                     <Table.Cell>
                                                         <Text size="1" color="gray">
@@ -756,7 +1077,7 @@ function LogsTab({ isMobile }) {
                         </TextField.Slot>
                     )}
                 </TextField.Root>
-                <Button size="2" variant="soft" color="indigo" onClick={load} disabled={loading}>
+                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
             </Flex>
@@ -767,120 +1088,6 @@ function LogsTab({ isMobile }) {
                 <Flex direction="column" align="center" justify="center" py="9" gap="2">
                     <ActivityLogIcon style={{ width: 40, height: 40, color: 'var(--gray-9)' }} />
                     <Text size="3" weight="medium">{search ? 'No matching logs' : 'No ADMS logs yet'}</Text>
-                </Flex>
-            ) : (
-                <Box style={{ overflowX: 'auto' }}>
-                    <Table.Root variant="surface">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.ColumnHeaderCell style={{ width: 80 }}>Level</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Message</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell style={{ width: 160 }}>Time</Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {filtered.map(log => (
-                                <Table.Row key={log.id}>
-                                    <Table.Cell>
-                                        <Badge color={levelColor(log.level)} variant="soft" size="1">
-                                            {(log.level ?? 'info').toUpperCase()}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="1">{log.message}</Text>
-                                        {log.context && Object.keys(log.context).length > 0 && (
-                                            <Code size="1" style={{ display: 'block', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                                {JSON.stringify(log.context, null, 2)}
-                                            </Code>
-                                        )}
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="1" color="gray">{new Date(log.created_at).toLocaleString()}</Text>
-                                    </Table.Cell>
-                                </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
-                </Box>
-            )}
-
-            {/* Pagination */}
-            {pagination.total > 0 && (
-                <TablePagination
-                    pagination={pagination}
-                    onPageChange={handlePageChange}
-                    onRowsPerPageChange={handleRowsPerPageChange}
-                    loading={loading}
-                />
-            )}
-        </Box>
-    );
-}
-
-/* ── Heartbeat sub-tab ── */
-function HeartbeatTab({ isMobile }) {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState('');
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
-
-    const load = useCallback(async (page = pagination.currentPage, pp = pagination.perPage) => {
-        setLoading(true);
-        try {
-            const { data } = await axios.get(route('biometric-devices.logs'), {
-                params: { page, per_page: pp }
-            });
-            setLogs(data.logs ?? []);
-            setPagination(prev => ({
-                ...prev,
-                currentPage: data.current_page || 1,
-                total: data.total || 0,
-            }));
-        } catch { showToast.error('Failed to load heartbeat logs.'); }
-        finally { setLoading(false); }
-    }, [pagination.currentPage, pagination.perPage]);
-
-    useEffect(() => { load(1); }, [load]);
-
-    const filtered = useMemo(() =>
-        logs.filter(l => !search ||
-            l.message?.toLowerCase().includes(search.toLowerCase()) ||
-            l.type?.toLowerCase().includes(search.toLowerCase())),
-        [logs, search]);
-
-    const handlePageChange = (page) => {
-        setPagination(prev => ({ ...prev, currentPage: page }));
-    };
-
-    const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
-    };
-
-    const levelColor = l => ({ error: 'red', warning: 'amber', info: 'blue' }[l] ?? 'gray');
-
-    return (
-        <Box>
-            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
-                <TextField.Root placeholder="Search heartbeat logs…" size="2" style={{ maxWidth: 360, flex: 1 }}
-                    onChange={e => setSearch(e.target.value)}>
-                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                    {search && (
-                        <TextField.Slot side="right">
-                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
-                        </TextField.Slot>
-                    )}
-                </TextField.Root>
-                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
-                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
-                </Button>
-            </Flex>
-
-            {loading ? (
-                <Flex justify="center" py="9"><Spinner size="3" /></Flex>
-            ) : filtered.length === 0 ? (
-                <Flex direction="column" align="center" justify="center" py="9" gap="2">
-                    <ActivityLogIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
-                    <Text size="3" weight="medium">{search ? 'No matching logs' : 'No heartbeat logs yet'}</Text>
                 </Flex>
             ) : (
                 <Box style={{ overflowX: 'auto' }}>
@@ -1049,8 +1256,10 @@ function OperLogTab({ isMobile }) {
 /* ── Webhook sub-tab ── */
 function WebhookTab() {
     const webhookUrl = `${window.location.origin}/api/biometric/webhook`;
-    const admsUrl    = `http://erp.dhakabypass.com/iclock/cdata`;
-    const admsDomain = 'erp.dhakabypass.com';
+    // Derived, not hardcoded — this panel must be correct on every environment
+    // (local, staging, production). `host` keeps the port when there is one.
+    const admsUrl    = `${window.location.origin}/iclock/cdata`;
+    const admsDomain = window.location.host;
     const copy = t => navigator.clipboard.writeText(t).then(() => showToast.success('Copied to clipboard.'));
 
     return (
@@ -1209,8 +1418,8 @@ function WebhookTab() {
                 <Flex direction="column" gap="2">
                     {[
                         'Register the device with the correct serial number in the Devices tab.',
-                        'For Push SDK: copy the auth token and configure X-Device-Token on the device.',
-                        'For ADMS: set the device server address to the ADMS URL above.',
+                        'For Push SDK: use the unlock icon in the Devices tab to generate the Push SDK auth token, then configure it as X-Device-Token on the device.',
+                        'For ADMS: set the device Server Domain Name to the domain above, then use the lock icon in the Devices tab to generate the ADMS device token and enter it on the device.',
                         'Enroll fingerprints on the device, then link device IDs to employees.',
                         'Verify events arrive via the ADMS Logs tab.',
                     ].map((step, i) => (
@@ -1395,24 +1604,29 @@ const STATUS_META = {
     failed:       { color: 'red',    label: 'Failed' },
     wrong_device: { color: 'red',    label: 'Wrong Device' },
     duplicate:    { color: 'gray',   label: 'Duplicate' },
+    // Captured by a log-download session but NOT yet turned into attendance —
+    // the label must not read as if these punches already count.
+    downloaded:   { color: 'blue',   label: 'Downloaded (not imported)' },
 };
 
-function AttLogTab({ isMobile }) {
+function AttLogTab({ isMobile, devices = [] }) {
     const [logs,     setLogs]     = useState([]);
-    const [stats,    setStats]    = useState({ total: 0, processed: 0, unknown_user: 0, failed: 0 });
+    const [stats,    setStats]    = useState({ total: 0, processed: 0, unknown_user: 0, downloaded: 0, failed: 0 });
     const [loading,  setLoading]  = useState(false);
     const [search,   setSearch]   = useState('');
     const [status,   setStatus]   = useState('all');
+    const [deviceId, setDeviceId] = useState('all');
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const debRef  = React.useRef(null);
 
-    const fetchLogs = React.useCallback(async (q = search, s = status, p = pagination.currentPage, pp = pagination.perPage) => {
+    const fetchLogs = React.useCallback(async (q = search, s = status, p = pagination.currentPage, pp = pagination.perPage, dev = deviceId) => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.attlogs'), {
                 params: {
                     search: q || undefined,
                     status: s !== 'all' ? s : undefined,
+                    device_id: dev !== 'all' ? dev : undefined,
                     page: p,
                     per_page: pp,
                 },
@@ -1426,7 +1640,7 @@ function AttLogTab({ isMobile }) {
         } finally {
             setLoading(false);
         }
-    }, [search, status, pagination.currentPage, pagination.perPage]);
+    }, [search, status, deviceId, pagination.currentPage, pagination.perPage]);
 
     React.useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
@@ -1434,13 +1648,19 @@ function AttLogTab({ isMobile }) {
         setSearch(val);
         setPagination(prev => ({ ...prev, currentPage: 1 }));
         clearTimeout(debRef.current);
-        debRef.current = setTimeout(() => fetchLogs(val, status, 1, pagination.perPage), 300);
+        debRef.current = setTimeout(() => fetchLogs(val, status, 1, pagination.perPage, deviceId), 300);
     };
 
     const triggerStatus = (val) => {
         setStatus(val);
         setPagination(prev => ({ ...prev, currentPage: 1 }));
-        fetchLogs(search, val, 1);
+        fetchLogs(search, val, 1, pagination.perPage, deviceId);
+    };
+
+    const triggerDevice = (val) => {
+        setDeviceId(val);
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
+        fetchLogs(search, status, 1, pagination.perPage, val);
     };
 
     const handlePageChange = (page) => {
@@ -1458,6 +1678,18 @@ function AttLogTab({ isMobile }) {
                 <Badge size="2" variant="soft" color="blue"   radius="full"><Text weight="bold">{stats.total}</Text> <Text style={{ opacity: 0.7 }}>Total</Text></Badge>
                 <Badge size="2" variant="soft" color="green"  radius="full"><Text weight="bold">{stats.processed}</Text> <Text style={{ opacity: 0.7 }}>Processed</Text></Badge>
                 <Badge size="2" variant="soft" color="orange" radius="full"><Text weight="bold">{stats.unknown_user}</Text> <Text style={{ opacity: 0.7 }}>Unknown User</Text></Badge>
+                {/*
+                  * `downloaded` rows were captured by a log-download session but have NOT
+                  * been replayed into attendance. They are not attendance and must never
+                  * be read alongside "Processed" as though they counted — hence the
+                  * explicit "awaiting import" wording and the pointer at the action that
+                  * actually converts them.
+                  */}
+                <Tooltip content="Punches pulled off a device by a download session. They are NOT attendance yet — run Import on the session in the Downloads tab to turn them into attendance records.">
+                    <Badge size="2" variant="soft" color="blue" radius="full">
+                        <Text weight="bold">{stats.downloaded ?? 0}</Text> <Text style={{ opacity: 0.7 }}>Downloaded — awaiting import</Text>
+                    </Badge>
+                </Tooltip>
                 <Badge size="2" variant="soft" color="red"    radius="full"><Text weight="bold">{stats.failed}</Text> <Text style={{ opacity: 0.7 }}>Failed/Rejected</Text></Badge>
                 <Button size="1" variant="soft" color="gray" ml="auto" onClick={() => fetchLogs(search, status, pagination.currentPage)}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
@@ -1479,6 +1711,16 @@ function AttLogTab({ isMobile }) {
                         <Select.Item value="failed">Failed</Select.Item>
                         <Select.Item value="wrong_device">Wrong Device</Select.Item>
                         <Select.Item value="duplicate">Duplicate</Select.Item>
+                        <Select.Item value="downloaded">Downloaded (not imported)</Select.Item>
+                    </Select.Content>
+                </Select.Root>
+                <Select.Root size="2" value={deviceId} onValueChange={triggerDevice}>
+                    <Select.Trigger style={{ width: 200 }} placeholder="Filter by device" />
+                    <Select.Content>
+                        <Select.Item value="all">All Devices</Select.Item>
+                        {devices.map(d => (
+                            <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                        ))}
                     </Select.Content>
                 </Select.Root>
                 {loading && <Spinner size="2" />}
@@ -1577,6 +1819,7 @@ function DownloadsTab({ isMobile, devices = [] }) {
     const [selectedDevice, setSelectedDevice] = useState('all');
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const [downloadingSessionLogs, setDownloadingSessionLogs] = useState(null);
+    const [importingSession, setImportingSession] = useState(null);
 
     const downloadSessionPunches = async (session) => {
         setDownloadingSessionLogs(session.id);
@@ -1685,6 +1928,32 @@ function DownloadsTab({ isMobile, devices = [] }) {
         }
     }, [selectedDevice, pagination.currentPage, pagination.perPage]);
 
+    // Downloaded punches sit in biometric_att_logs with punch_status = 'downloaded';
+    // they are NOT attendance until this import turns them into records.
+    const importSessionLogs = async (session) => {
+        if (!confirm(
+            `Import the punches from session #${session.id} (${session.device?.name ?? 'Unknown device'}) into attendance?\n\n`
+            + 'This writes attendance records. Already-imported punches are skipped as duplicates.'
+        )) return;
+
+        setImportingSession(session.id);
+        try {
+            const { data } = await axios.post(route('biometric-devices.download-sessions.import', session.id));
+            // The endpoint's own message already spells out the counts; only compose
+            // one if it is missing, so the toast never repeats itself.
+            showToast.success(
+                data.message
+                ?? `Imported ${data.imported ?? 0} punch(es). ${data.duplicates ?? 0} duplicate(s), `
+                   + `${data.skipped_unknown ?? 0} skipped (unknown user), ${data.failed ?? 0} failed.`
+            );
+            fetchHistory(selectedDevice, pagination.currentPage, pagination.perPage);
+        } catch (err) {
+            showToast.error(err.response?.data?.message ?? 'Failed to import session logs into attendance.');
+        } finally {
+            setImportingSession(null);
+        }
+    };
+
     useEffect(() => {
         fetchHistory();
     }, [selectedDevice, pagination.currentPage, pagination.perPage]);
@@ -1788,7 +2057,7 @@ function DownloadsTab({ isMobile, devices = [] }) {
                 <Button size="1" variant="soft" color="gray" onClick={() => fetchHistory()} disabled={loading}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
-                {(loading || downloadingSessionLogs) && <Spinner size="2" />}
+                {(loading || downloadingSessionLogs || importingSession) && <Spinner size="2" />}
             </Flex>
 
             {/* Downloads Table */}
@@ -1887,6 +2156,17 @@ function DownloadsTab({ isMobile, devices = [] }) {
                                                     {downloadingSessionLogs === session.id ? <Spinner size="1" /> : <DownloadIcon />}
                                                 </IconButton>
                                             </Tooltip>
+                                            <Tooltip content="Import downloaded punches into attendance">
+                                                <IconButton
+                                                    size="1"
+                                                    variant="soft"
+                                                    color="indigo"
+                                                    onClick={() => importSessionLogs(session)}
+                                                    disabled={importingSession === session.id}
+                                                >
+                                                    {importingSession === session.id ? <Spinner size="1" /> : <ArrowRightIcon />}
+                                                </IconButton>
+                                            </Tooltip>
                                         </Flex>
                                     ) : (
                                         <Text size="1" color="gray">—</Text>
@@ -1916,6 +2196,701 @@ function DownloadsTab({ isMobile, devices = [] }) {
                     loading={loading}
                 />
             )}
+        </Box>
+    );
+}
+
+/* ── Capabilities & Device Settings sub-tab ── */
+
+/**
+ * One capacity meter. Refuses to draw a bar it cannot honestly draw:
+ *  - the device said the key is unsupported  → say so, no bar
+ *  - the device never reported the count     → "not reported", no bar
+ *  - the count is known but the maximum is not → show the count, no bar
+ * A fabricated denominator here would read as "plenty of headroom" on a device
+ * that is actually full.
+ */
+function CapacityMeter({ label, used, max, unsupported }) {
+    if (unsupported) {
+        return (
+            <Panel variant="surface">
+                <Flex direction="column" gap="1">
+                    <Text size="1" color="gray">{label}</Text>
+                    <Badge color="amber" variant="soft" size="1" style={{ width: 'fit-content' }}>Not supported</Badge>
+                    <Text size="1" color="gray">This model answered −1004 for this counter, so it has no such store.</Text>
+                </Flex>
+            </Panel>
+        );
+    }
+
+    if (used === null) {
+        return (
+            <Panel variant="surface">
+                <Flex direction="column" gap="1">
+                    <Text size="1" color="gray">{label}</Text>
+                    <Text size="4" weight="bold" color="gray">—</Text>
+                    <Text size="1" color="gray">Not reported by the device.</Text>
+                </Flex>
+            </Panel>
+        );
+    }
+
+    if (max === null || max <= 0) {
+        return (
+            <Panel variant="surface">
+                <Flex direction="column" gap="1">
+                    <Text size="1" color="gray">{label}</Text>
+                    <Text size="4" weight="bold">{used.toLocaleString()}</Text>
+                    <Text size="1" color="gray">Device did not report a maximum — headroom unknown.</Text>
+                </Flex>
+            </Panel>
+        );
+    }
+
+    const pct = Math.min(100, Math.round((used / max) * 100));
+    const color = pct >= 90 ? 'red' : pct >= 75 ? 'amber' : 'green';
+
+    return (
+        <Panel variant="surface">
+            <Flex direction="column" gap="2">
+                <Text size="1" color="gray">{label}</Text>
+                <Flex align="baseline" gap="2">
+                    <Text size="4" weight="bold" color={color}>{used.toLocaleString()}</Text>
+                    <Text size="1" color="gray">/ {max.toLocaleString()}</Text>
+                </Flex>
+                <Progress value={pct} color={color} size="1" />
+                <Text size="1" color={color}>{pct}% used · {(max - used).toLocaleString()} free</Text>
+            </Flex>
+        </Panel>
+    );
+}
+
+/** One catalogue-driven control. */
+function SettingField({ entry, value, dirty, unsupported, locked, queuedValue, onChange }) {
+    const disabled = unsupported || locked;
+    const heading = PROMINENT_KEYS[entry.key]?.heading ?? entry.label;
+
+    let control;
+    if (isBoolType(entry.type)) {
+        control = (
+            <Switch
+                size="2"
+                checked={value === '1'}
+                disabled={disabled}
+                onCheckedChange={v => onChange(entry.key, v ? '1' : '0')}
+            />
+        );
+    } else if (Array.isArray(entry.choices) && entry.choices.length > 0) {
+        control = (
+            <Select.Root size="2" value={value || undefined} disabled={disabled} onValueChange={v => onChange(entry.key, v)}>
+                <Select.Trigger style={{ width: '100%' }} placeholder="Not set" />
+                <Select.Content>
+                    {entry.choices.map(c => {
+                        const val = String(typeof c === 'object' ? (c.value ?? c.key) : c);
+                        const lbl = typeof c === 'object' ? (c.label ?? val) : val;
+                        return <Select.Item key={val} value={val}>{lbl}</Select.Item>;
+                    })}
+                </Select.Content>
+            </Select.Root>
+        );
+    } else {
+        control = (
+            <TextField.Root
+                size="2"
+                type={isNumberType(entry.type) ? 'number' : 'text'}
+                value={value}
+                disabled={disabled}
+                min={entry.min ?? undefined}
+                max={entry.max ?? undefined}
+                placeholder={unsupported ? 'Unavailable' : 'Not set'}
+                onChange={e => onChange(entry.key, e.target.value)}
+            />
+        );
+    }
+
+    return (
+        <Box>
+            <Flex align="center" gap="2" mb="1" wrap="wrap">
+                <Text size="2" weight="medium">{heading}</Text>
+                <Code size="1" variant="soft">{entry.key}</Code>
+                {entry.unit && <Text size="1" color="gray">({entry.unit})</Text>}
+                {dirty && <Badge color="indigo" variant="soft" size="1">Changed</Badge>}
+                {queuedValue !== undefined && (
+                    <Tooltip content="A SET OPTION command carrying this value is waiting for the device to poll.">
+                        <Badge color="cyan" variant="soft" size="1">Queued: {queuedValue}</Badge>
+                    </Tooltip>
+                )}
+            </Flex>
+            {control}
+            {/* Unsupported keys are greyed out WITH the reason rather than hidden
+              * (docs §5.3): an admin must be able to tell "this unit cannot do it"
+              * apart from "the UI is broken". */}
+            {unsupported ? (
+                <Text size="1" color="amber" as="div" mt="1">
+                    Not supported on this model — the device answered −1004 for this key when probed.
+                </Text>
+            ) : PROMINENT_KEYS[entry.key]?.note ? (
+                <Text size="1" color="gray" as="div" mt="1">{PROMINENT_KEYS[entry.key].note}</Text>
+            ) : entry.description ? (
+                <Text size="1" color="gray" as="div" mt="1">{entry.description}</Text>
+            ) : null}
+        </Box>
+    );
+}
+
+/**
+ * Capabilities + device-internal settings for one ADMS terminal.
+ *
+ * Why its own sub-tab rather than an extension of Device Health: Device Health
+ * answers "can I reach this box right now" — heartbeat age, latency, uptime,
+ * online/offline — across the whole fleet in one table, and it repolls every 30s.
+ * Capability is a different axis entirely: what the unit *is* and what it can
+ * *hold*, per device, refreshed only when a probe the device collects on its own
+ * schedule comes back. Folding capacity meters, device identity and a ~40-field
+ * settings form into that fleet table would push it past a dozen columns and mix
+ * a live metric with a snapshot that may be days old.
+ */
+function CapabilitiesTab({ devices = [], isMobile }) {
+    const admsDevices = useMemo(() => devices.filter(d => d.protocol === 'adms'), [devices]);
+
+    const [deviceId, setDeviceId]               = useState('');
+    const [snapshot, setSnapshot]               = useState(null);
+    const [snapshotLoaded, setSnapshotLoaded]   = useState(false);
+    const [loadingSnapshot, setLoadingSnapshot] = useState(false);
+    const [catalogue, setCatalogue]             = useState([]);
+    const [loadingCatalogue, setLoadingCatalogue] = useState(false);
+    const [probing, setProbing]                 = useState(false);
+    const [probeQueuedAt, setProbeQueuedAt]     = useState(null);
+
+    const [values, setValues]         = useState({});
+    const [baseline, setBaseline]     = useState({});
+    const [queuedKeys, setQueuedKeys] = useState({});
+    const [dangerArmed, setDangerArmed] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmText, setConfirmText] = useState('');
+    const [saving, setSaving]           = useState(false);
+
+    const endpointsReady = hasRoute(CAP_ROUTES.snapshot) && hasRoute(CAP_ROUTES.catalogue);
+    const canProbe = hasRoute(CAP_ROUTES.probe);
+    const canSave  = hasRoute(CAP_ROUTES.save);
+
+    const selectedDevice = useMemo(
+        () => admsDevices.find(d => String(d.id) === String(deviceId)) ?? null,
+        [admsDevices, deviceId],
+    );
+
+    // Default to the first ADMS device once the list arrives. The parent repolls
+    // `devices` every 5s, so this must not fight the user's own selection.
+    useEffect(() => {
+        if (!deviceId && admsDevices.length > 0) setDeviceId(String(admsDevices[0].id));
+    }, [admsDevices, deviceId]);
+
+    const loadCatalogue = useCallback(async () => {
+        if (!hasRoute(CAP_ROUTES.catalogue)) return;
+        setLoadingCatalogue(true);
+        try {
+            const { data } = await axios.get(route(CAP_ROUTES.catalogue));
+            setCatalogue(normaliseCatalogue(data.catalogue ?? data.settings ?? data.data ?? data));
+        } catch {
+            showToast.error('Failed to load the device settings catalogue.');
+        } finally {
+            setLoadingCatalogue(false);
+        }
+    }, []);
+
+    useEffect(() => { loadCatalogue(); }, [loadCatalogue]);
+
+    const loadSnapshot = useCallback(async (id) => {
+        if (!id || !hasRoute(CAP_ROUTES.snapshot)) return;
+        setLoadingSnapshot(true);
+        try {
+            const { data } = await axios.get(route(CAP_ROUTES.snapshot, id));
+            setSnapshot(data.capabilities ?? data.snapshot ?? data.data ?? data);
+        } catch {
+            setSnapshot(null);
+            showToast.error('Failed to load the capability snapshot.');
+        } finally {
+            setSnapshotLoaded(true);
+            setLoadingSnapshot(false);
+        }
+    }, []);
+
+    // Switching device resets everything derived from the old one — a half-typed
+    // setting must never follow the admin onto a different terminal.
+    useEffect(() => {
+        setSnapshot(null);
+        setSnapshotLoaded(false);
+        setQueuedKeys({});
+        setDangerArmed(false);
+        setProbeQueuedAt(null);
+        if (deviceId) loadSnapshot(deviceId);
+    }, [deviceId, loadSnapshot]);
+
+    /** Keys the device explicitly told us it cannot do. */
+    const unsupportedKeys = useMemo(() => {
+        const set = new Set();
+        const push = (v) => { if (typeof v === 'string' && v) set.add(v); };
+        const lists = [snapshot?.unsupported_keys, snapshot?.unsupported, snapshot?.unsupportedKeys];
+        lists.forEach(list => { if (Array.isArray(list)) list.forEach(push); });
+        // A key→bool map is the other plausible shape. Only an explicit `false`
+        // means unsupported; a missing key just means "never answered".
+        [snapshot?.supported, snapshot?.support, snapshot?.capabilities].forEach(map => {
+            if (map && typeof map === 'object' && !Array.isArray(map)) {
+                Object.entries(map).forEach(([k, v]) => { if (v === false) set.add(k); });
+            }
+        });
+        return set;
+    }, [snapshot]);
+
+    const probedAt = useMemo(() => {
+        const raw = snapshot?.probed_at ?? snapshot?.probedAt ?? null;
+        if (!raw) return null;
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? null : d;
+    }, [snapshot]);
+
+    const neverProbed = snapshotLoaded && !probedAt;
+    const isStale = probedAt ? (Date.now() - probedAt.getTime()) > SNAPSHOT_STALE_AFTER_MS : false;
+
+    // Seed the form from the snapshot whenever a fresh one arrives.
+    useEffect(() => {
+        if (catalogue.length === 0) return;
+        const next = {};
+        catalogue.forEach(entry => { next[entry.key] = asFormValue(entry, pickSnapshotValue(snapshot, [entry.key])); });
+        setBaseline(next);
+        setValues(next);
+    }, [catalogue, snapshot]);
+
+    const setValue = useCallback((key, val) => setValues(p => ({ ...p, [key]: val })), []);
+
+    const dirtyKeys = useMemo(
+        () => catalogue
+            .filter(e => !unsupportedKeys.has(e.key))
+            .map(e => e.key)
+            .filter(k => String(values[k] ?? '') !== String(baseline[k] ?? '')),
+        [catalogue, values, baseline, unsupportedKeys],
+    );
+
+    const dangerEntries     = useMemo(() => catalogue.filter(e => e.danger), [catalogue]);
+    const dangerKeySet      = useMemo(() => new Set(dangerEntries.map(e => e.key)), [dangerEntries]);
+    const dirtyDangerKeys   = useMemo(() => dirtyKeys.filter(k => dangerKeySet.has(k)), [dirtyKeys, dangerKeySet]);
+
+    const prominentEntries = useMemo(
+        () => catalogue.filter(e => PROMINENT_KEYS[e.key] && !e.danger),
+        [catalogue],
+    );
+
+    /** Safe (non-danger) settings, grouped in the catalogue's own group order. */
+    const safeGroups = useMemo(() => {
+        const order = [];
+        const byGroup = new Map();
+        catalogue.forEach(entry => {
+            if (entry.danger || PROMINENT_KEYS[entry.key]) return;
+            const g = entry.group || 'Other';
+            if (!byGroup.has(g)) { byGroup.set(g, []); order.push(g); }
+            byGroup.get(g).push(entry);
+        });
+        return order.map(g => ({ group: g, entries: byGroup.get(g) }));
+    }, [catalogue]);
+
+    const probe = async () => {
+        if (!selectedDevice || !canProbe) return;
+        setProbing(true);
+        try {
+            const { data } = await axios.post(route(CAP_ROUTES.probe, selectedDevice.id));
+            const ids = data.command_ids ?? data.commands ?? [];
+            const count = Array.isArray(ids) ? ids.length : 0;
+            setProbeQueuedAt(new Date());
+            // Deliberately not "probing…" with a spinner: nothing is in flight.
+            // The commands sit in the queue until the terminal polls us.
+            showToast.success(
+                data.message
+                ?? `${count || 2} probe command(s) queued. The device collects them on its next poll — refresh the snapshot in a minute.`,
+            );
+        } catch (e) {
+            showToast.error(e.response?.data?.message ?? 'Failed to queue the probe commands.');
+        } finally {
+            setProbing(false);
+        }
+    };
+
+    const submitSettings = async () => {
+        if (!selectedDevice || !canSave || dirtyKeys.length === 0) return;
+        setSaving(true);
+        try {
+            const payload = {};
+            dirtyKeys.forEach(k => { payload[k] = values[k]; });
+            const { data } = await axios.post(route(CAP_ROUTES.save, selectedDevice.id), {
+                settings: payload,
+                // The backend enforces this too; this flag is the UI half of the
+                // same gate, never the only one.
+                confirm_dangerous: dirtyDangerKeys.length > 0,
+            });
+            setQueuedKeys(p => ({ ...p, ...payload }));
+            setBaseline(p => ({ ...p, ...payload }));
+            setDangerArmed(false);
+            setConfirmOpen(false);
+            setConfirmText('');
+            showToast.success(
+                data.message
+                ?? `${dirtyKeys.length} setting change(s) queued as SET OPTION commands. Nothing has changed on the device yet — it applies them when it next polls.`,
+            );
+        } catch (e) {
+            showToast.error(e.response?.data?.message ?? 'Failed to queue the setting changes.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const onSave = () => {
+        if (dirtyDangerKeys.length > 0) { setConfirmText(''); setConfirmOpen(true); return; }
+        submitSettings();
+    };
+
+    if (!endpointsReady) {
+        return (
+            <Callout.Root color="amber">
+                <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                <Callout.Text>
+                    Device capability endpoints are not registered on this server yet.
+                    This view needs <Code size="1">{CAP_ROUTES.snapshot}</Code> and{' '}
+                    <Code size="1">{CAP_ROUTES.catalogue}</Code>; until they ship, capacity,
+                    identity and device settings cannot be read. Nothing is broken in the
+                    other tabs.
+                </Callout.Text>
+            </Callout.Root>
+        );
+    }
+
+    if (admsDevices.length === 0) {
+        return (
+            <Flex direction="column" align="center" justify="center" py="9" gap="2">
+                <MixerHorizontalIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
+                <Text size="3" weight="medium">No ADMS devices registered</Text>
+                <Text size="2" color="gray">Capability probes and device settings use ADMS commands, which only ADMS-protocol terminals collect.</Text>
+            </Flex>
+        );
+    }
+
+    return (
+        <Box>
+            {/* Device picker + probe */}
+            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
+                <Select.Root size="2" value={deviceId} onValueChange={setDeviceId}>
+                    <Select.Trigger style={{ minWidth: 240 }} placeholder="Select a device" />
+                    <Select.Content>
+                        {admsDevices.map(d => (
+                            <Select.Item key={d.id} value={String(d.id)}>{d.name} — {d.serial_number}</Select.Item>
+                        ))}
+                    </Select.Content>
+                </Select.Root>
+                <Flex gap="2" align="center">
+                    <Button size="2" variant="soft" color="gray" onClick={() => loadSnapshot(deviceId)} disabled={loadingSnapshot}>
+                        {loadingSnapshot ? <Spinner size="1" /> : <ReloadIcon />} Refresh snapshot
+                    </Button>
+                    <Tooltip content={canProbe ? 'Queues INFO + GET OPTION. The device collects them on its next poll.' : 'Probe endpoint is not registered on this server yet.'}>
+                        <Button size="2" onClick={probe} disabled={!canProbe || probing || !selectedDevice}>
+                            {probing ? <Spinner size="1" /> : <MixerHorizontalIcon />} Probe device
+                        </Button>
+                    </Tooltip>
+                </Flex>
+            </Flex>
+
+            {/* Asynchrony is the defining property of this screen, so it is stated once, up front. */}
+            <Callout.Root color="gray" mb="4" size="1">
+                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                <Callout.Text>
+                    ADMS is device-initiated: the server cannot read or write a terminal on demand.
+                    Probes and setting changes are <strong>queued</strong> and collected by the device
+                    on its next poll — seconds to minutes later. Everything below is the last thing
+                    the device volunteered, not a live reading.
+                </Callout.Text>
+            </Callout.Root>
+
+            {/* Staleness */}
+            {loadingSnapshot ? (
+                <Flex justify="center" py="6"><Spinner size="3" /></Flex>
+            ) : neverProbed ? (
+                <Callout.Root color="amber" mb="4">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Callout.Text>
+                        <strong>This device has never been probed.</strong> Nothing below is known —
+                        blank counts mean "not asked", <em>not</em> "zero users". Run <strong>Probe device</strong>,
+                        then refresh once the terminal has polled.
+                    </Callout.Text>
+                </Callout.Root>
+            ) : (
+                <Callout.Root color={isStale ? 'amber' : 'green'} mb="4" size="1">
+                    <Callout.Icon>{isStale ? <ExclamationTriangleIcon /> : <CheckCircledIcon />}</Callout.Icon>
+                    <Callout.Text>
+                        Snapshot taken {probedAt.toLocaleString()}
+                        {isStale && ' — over a day old. Counts and capacity may have drifted; re-probe before acting on them.'}
+                    </Callout.Text>
+                </Callout.Root>
+            )}
+
+            {probeQueuedAt && (
+                <Callout.Root color="cyan" mb="4" size="1">
+                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                    <Callout.Text>
+                        Probe queued at {probeQueuedAt.toLocaleTimeString()}. Waiting for the device to poll —
+                        this page will not update by itself; use <strong>Refresh snapshot</strong>.
+                    </Callout.Text>
+                </Callout.Root>
+            )}
+
+            {/* Capacity */}
+            <Text size="2" weight="medium" as="div" mb="2">Capacity</Text>
+            <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
+                {CAPACITY_METRICS.map(metric => {
+                    const unsupported = metric.usedKeys.some(k => unsupportedKeys.has(k));
+                    return (
+                        <CapacityMeter
+                            key={metric.id}
+                            label={metric.label}
+                            used={unsupported ? null : toCount(pickSnapshotValue(snapshot, metric.usedKeys))}
+                            max={unsupported ? null : toCount(pickSnapshotValue(snapshot, metric.maxKeys))}
+                            unsupported={unsupported}
+                        />
+                    );
+                })}
+            </Grid>
+
+            {/* Identity — device-reported, explicitly distinct from the admin-entered record */}
+            <Panel variant="surface" mb="4">
+                <Flex align="center" gap="2" mb="1">
+                    <Text size="2" weight="medium">Reported by the device</Text>
+                    <Badge color="gray" variant="soft" size="1">From INFO / GET OPTION</Badge>
+                </Flex>
+                <Text size="1" color="gray" as="div" mb="3">
+                    These come from the terminal itself. The name, location and model on the Devices
+                    tab are admin-entered and may disagree — where they do, the device is right.
+                </Text>
+                <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="3">
+                    {IDENTITY_FIELDS.map(field => {
+                        const val = pickSnapshotValue(snapshot, field.keys);
+                        return (
+                            <Box key={field.id}>
+                                <Text size="1" color="gray" as="div">{field.label}</Text>
+                                {val ? (
+                                    <Code size="1" variant="soft">{String(val)}</Code>
+                                ) : (
+                                    <Text size="1" color="gray">Not reported</Text>
+                                )}
+                            </Box>
+                        );
+                    })}
+                </Grid>
+                {selectedDevice && (
+                    <Box mt="3">
+                        <Text size="1" color="gray" as="div">Admin-entered (Devices tab)</Text>
+                        <Text size="1">
+                            {selectedDevice.name}
+                            {selectedDevice.model ? ` · ${selectedDevice.model}` : ''}
+                            {selectedDevice.location ? ` · ${selectedDevice.location}` : ''}
+                        </Text>
+                    </Box>
+                )}
+            </Panel>
+
+            <Separator size="4" my="4" />
+
+            {/* ── Device settings ── */}
+            <Flex align="center" justify="between" gap="3" mb="2" wrap="wrap">
+                <Flex align="center" gap="2">
+                    <GearIcon />
+                    <Text size="2" weight="medium">Device Settings</Text>
+                    {dirtyKeys.length > 0 && (
+                        <Badge color="indigo" variant="soft" size="1">{dirtyKeys.length} changed</Badge>
+                    )}
+                </Flex>
+                <Button size="2" onClick={onSave} disabled={!canSave || saving || dirtyKeys.length === 0}>
+                    {saving
+                        ? <><Spinner size="1" /> Queueing…</>
+                        : dirtyKeys.length === 0
+                            ? 'No changes to queue'
+                            : `Queue ${dirtyKeys.length} change${dirtyKeys.length === 1 ? '' : 's'}`}
+                </Button>
+            </Flex>
+            <Text size="1" color="gray" as="div" mb="3">
+                Only the fields you actually change are sent — one <Code size="1">SET OPTION</Code> command
+                per key, queued for the device to collect. Saving an untouched form sends nothing.
+                Settings apply to <strong>this device only</strong>; there is deliberately no bulk apply.
+            </Text>
+
+            {!canSave && (
+                <Callout.Root color="amber" mb="3" size="1">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Callout.Text>
+                        <Code size="1">{CAP_ROUTES.save}</Code> is not registered on this server yet —
+                        settings are readable but cannot be queued.
+                    </Callout.Text>
+                </Callout.Root>
+            )}
+
+            {loadingCatalogue ? (
+                <Flex justify="center" py="6"><Spinner size="3" /></Flex>
+            ) : catalogue.length === 0 ? (
+                <Flex direction="column" align="center" justify="center" py="7" gap="2">
+                    <GearIcon style={{ width: 32, height: 32, color: 'var(--gray-9)' }} />
+                    <Text size="2" color="gray">The settings catalogue is empty.</Text>
+                </Flex>
+            ) : (
+                <Flex direction="column" gap="4">
+
+                    {/* Pinned: the two settings that get changed most and cost most to get wrong */}
+                    {prominentEntries.length > 0 && (
+                        <Panel variant="surface" style={{ borderColor: 'var(--indigo-a7)' }}>
+                            <Text size="2" weight="medium" as="div" mb="1">Most-tuned settings</Text>
+                            <Text size="1" color="gray" as="div" mb="3">
+                                These two answer the two complaints that actually reach a helpdesk:
+                                "it won't read my finger" and "it logged me four times".
+                            </Text>
+                            <Flex direction="column" gap="4">
+                                {prominentEntries.map(entry => (
+                                    <SettingField
+                                        key={entry.key}
+                                        entry={entry}
+                                        value={values[entry.key] ?? ''}
+                                        dirty={dirtyKeys.includes(entry.key)}
+                                        unsupported={unsupportedKeys.has(entry.key)}
+                                        locked={false}
+                                        queuedValue={queuedKeys[entry.key]}
+                                        onChange={setValue}
+                                    />
+                                ))}
+                            </Flex>
+                        </Panel>
+                    )}
+
+                    {/* Ordinary groups, in the catalogue's own order */}
+                    {safeGroups.map(({ group, entries }) => (
+                        <Panel key={group} variant="surface">
+                            <Text size="2" weight="medium" as="div" mb="3">{prettyGroup(group)}</Text>
+                            <Grid columns={{ initial: '1', md: '2' }} gap="4">
+                                {entries.map(entry => (
+                                    <SettingField
+                                        key={entry.key}
+                                        entry={entry}
+                                        value={values[entry.key] ?? ''}
+                                        dirty={dirtyKeys.includes(entry.key)}
+                                        unsupported={unsupportedKeys.has(entry.key)}
+                                        locked={false}
+                                        queuedValue={queuedKeys[entry.key]}
+                                        onChange={setValue}
+                                    />
+                                ))}
+                            </Grid>
+                        </Panel>
+                    ))}
+
+                    {/*
+                      * Danger zone. Per docs §4b these keys — NetworkOn, TCPPort, UDPPort,
+                      * DeviceID and the auto-power-off schedule — can strand the unit: a bad
+                      * value takes it off the network and the only recovery is somebody
+                      * physically standing in front of it, on a customer site. They are
+                      * pulled out of their normal groups entirely so they can never be
+                      * flipped in the same sweep as VoiceOn, they stay read-only until
+                      * explicitly armed, and submitting them needs a typed confirmation.
+                      */}
+                    {dangerEntries.length > 0 && (
+                        <Panel variant="surface" style={{ borderColor: 'var(--red-a7)', background: 'var(--red-a2)' }}>
+                            <Flex align="center" gap="2" mb="1">
+                                <ExclamationTriangleIcon style={{ color: 'var(--red-11)' }} />
+                                <Text size="2" weight="medium" color="red">Danger zone — can strand this device</Text>
+                            </Flex>
+                            <Text size="1" color="red" as="div" mb="3">
+                                A wrong value here takes the terminal off the network. It will stop
+                                polling, so no further command — including one undoing the change —
+                                can ever reach it. Recovery means physical access to the unit at its
+                                site. These are never offered in a bulk action.
+                            </Text>
+
+                            <Flex align="center" gap="2" mb="3">
+                                <Checkbox
+                                    checked={dangerArmed}
+                                    onCheckedChange={v => setDangerArmed(Boolean(v))}
+                                />
+                                <Text size="2">
+                                    I understand these settings can take {selectedDevice?.name ?? 'this device'} off
+                                    the network permanently, and that recovery requires physical access. Unlock them for editing.
+                                </Text>
+                            </Flex>
+
+                            <Grid columns={{ initial: '1', md: '2' }} gap="4">
+                                {dangerEntries.map(entry => (
+                                    <SettingField
+                                        key={entry.key}
+                                        entry={entry}
+                                        value={values[entry.key] ?? ''}
+                                        dirty={dirtyKeys.includes(entry.key)}
+                                        unsupported={unsupportedKeys.has(entry.key)}
+                                        locked={!dangerArmed}
+                                        queuedValue={queuedKeys[entry.key]}
+                                        onChange={setValue}
+                                    />
+                                ))}
+                            </Grid>
+                        </Panel>
+                    )}
+                </Flex>
+            )}
+
+            {/* Dangerous-change confirmation. Names the exact keys, the exact
+              * old → new values, and the exact consequence; requires the serial
+              * number typed out so it cannot be dismissed by reflex. */}
+            <Dialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <Dialog.Content style={{ maxWidth: 520 }}>
+                    <Dialog.Title>Confirm network / power changes</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        You are about to queue {dirtyDangerKeys.length} change(s) that can take{' '}
+                        <strong>{selectedDevice?.name}</strong> off the network.
+                    </Dialog.Description>
+
+                    <Callout.Root color="red" mt="3">
+                        <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                        <Callout.Text>
+                            If the device stops reaching this server it will no longer collect commands,
+                            so this change cannot be undone remotely. Recovery requires physically
+                            visiting {selectedDevice?.location || 'the device location'}.
+                        </Callout.Text>
+                    </Callout.Root>
+
+                    <Box mt="3">
+                        {dirtyDangerKeys.map(k => (
+                            <Flex key={k} align="center" gap="2" mb="1" wrap="wrap">
+                                <Code size="1">{k}</Code>
+                                <Text size="1" color="gray">{baseline[k] === '' ? '(not set)' : baseline[k]}</Text>
+                                <ArrowRightIcon />
+                                <Text size="1" weight="bold">{values[k] === '' ? '(cleared)' : values[k]}</Text>
+                            </Flex>
+                        ))}
+                    </Box>
+
+                    <Box mt="4">
+                        <Text size="2" weight="medium" as="div" mb="1">
+                            Type the device serial number <Code size="1">{selectedDevice?.serial_number}</Code> to confirm
+                        </Text>
+                        <TextField.Root
+                            size="2"
+                            value={confirmText}
+                            placeholder={selectedDevice?.serial_number}
+                            onChange={e => setConfirmText(e.target.value)}
+                        />
+                    </Box>
+
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
+                        <Button
+                            color="red"
+                            onClick={submitSettings}
+                            disabled={saving || confirmText.trim() !== (selectedDevice?.serial_number ?? '')}
+                        >
+                            {saving ? <><Spinner size="1" /> Queueing…</> : 'Queue these changes'}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
         </Box>
     );
 }
@@ -1988,8 +2963,14 @@ export default function BiometricPanel({
                     <Tabs.Trigger value="health">
                         <Flex align="center" gap="2"><HeartIcon /> Device Health</Flex>
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="heartbeat">
-                        <Flex align="center" gap="2"><ActivityLogIcon /> Heartbeat</Flex>
+                    {/* Capability is a different axis from Device Health: what the unit *is*
+                      * and can *hold*, from a snapshot the device volunteers on its own
+                      * schedule — not whether it answered a heartbeat in the last 30s. */}
+                    <Tabs.Trigger value="capabilities">
+                        <Flex align="center" gap="2"><GearIcon /> Capabilities</Flex>
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="logs">
+                        <Flex align="center" gap="2"><ActivityLogIcon /> ADMS Logs</Flex>
                     </Tabs.Trigger>
                     <Tabs.Trigger value="operlog">
                         <Flex align="center" gap="2"><LockClosedIcon /> OPERLOG</Flex>
@@ -2011,14 +2992,17 @@ export default function BiometricPanel({
                 <Tabs.Content value="health">
                     <HealthTab isMobile={isMobile} />
                 </Tabs.Content>
-                <Tabs.Content value="heartbeat">
-                    <HeartbeatTab isMobile={isMobile} />
+                <Tabs.Content value="capabilities">
+                    <CapabilitiesTab isMobile={isMobile} devices={devices} />
+                </Tabs.Content>
+                <Tabs.Content value="logs">
+                    <LogsTab isMobile={isMobile} />
                 </Tabs.Content>
                 <Tabs.Content value="operlog">
                     <OperLogTab isMobile={isMobile} />
                 </Tabs.Content>
                 <Tabs.Content value="attlog">
-                    <AttLogTab isMobile={isMobile} />
+                    <AttLogTab isMobile={isMobile} devices={devices} />
                 </Tabs.Content>
                 <Tabs.Content value="webhook">
                     <WebhookTab />

@@ -55,6 +55,28 @@ class BiometricDevice extends Model
     }
 
     /**
+     * Generate and persist a fresh ADMS shared secret (biometric_devices.adms_token),
+     * returning the plaintext so it can be shown to the admin exactly once.
+     *
+     * Deliberately NOT wired into the booted() creating hook: the
+     * EnsureAdmsDeviceAuthorized middleware treats a NULL adms_token as an
+     * intentional "allowlist-only" fallback so already-deployed hardware keeps
+     * working. Auto-generating a secret on create would silently start
+     * rejecting every un-reconfigured device the moment strict mode is enabled.
+     * NULL must stay meaningful — provisioning is an explicit admin action.
+     *
+     * Length matches regenerateToken()'s 48 chars for consistency; the column is
+     * string(64) so there is headroom, and Str::random() is CSPRNG-backed.
+     */
+    public function regenerateAdmsToken(): string
+    {
+        $token = Str::random(48);
+        $this->update(['adms_token' => $token]);
+
+        return $token;
+    }
+
+    /**
      * Check if device is online based on last heartbeat.
      * ADMS default polling interval is 30–120 s, so 1 min caused false "offline" flicker.
      * 5 minutes gives enough headroom without masking a genuinely disconnected device.

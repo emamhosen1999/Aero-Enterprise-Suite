@@ -13,6 +13,7 @@ use App\Services\Attendance\AttendancePunchService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -223,17 +224,23 @@ class BiometricProcessingService
      */
     public function getAttLogStats(): array
     {
+        // CASE WHEN rather than `SUM(col = 'x')`: the boolean-arithmetic form is a
+        // MySQL idiom and is not valid on SQLite/PostgreSQL, which the test suite
+        // (and any non-MySQL deployment) runs on.
         $stats = DB::table('biometric_att_logs')->selectRaw("
             COUNT(*) as total,
-            SUM(punch_status = 'processed')   as processed,
-            SUM(punch_status = 'unknown_user') as unknown_user,
-            SUM(punch_status IN ('failed','wrong_device','duplicate')) as failed
+            SUM(CASE WHEN punch_status = 'processed'    THEN 1 ELSE 0 END) as processed,
+            SUM(CASE WHEN punch_status = 'unknown_user' THEN 1 ELSE 0 END) as unknown_user,
+            SUM(CASE WHEN punch_status = 'downloaded'   THEN 1 ELSE 0 END) as downloaded,
+            SUM(CASE WHEN punch_status IN ('failed','wrong_device','duplicate') THEN 1 ELSE 0 END) as failed
         ")->first();
 
         return [
             'total' => (int) ($stats->total ?? 0),
             'processed' => (int) ($stats->processed ?? 0),
             'unknown_user' => (int) ($stats->unknown_user ?? 0),
+            // Captured by a download session but not yet replayed into attendance.
+            'downloaded' => (int) ($stats->downloaded ?? 0),
             'failed' => (int) ($stats->failed ?? 0),
         ];
     }
@@ -574,6 +581,318 @@ class BiometricProcessingService
     }
 
     // ──────────────────────────────────────────────────────────────
+    //  Downloaded log import (second half of the capture-then-import flow)
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Number of rows pulled per keyset page while importing a session.
+     */
+    private const IMPORT_CHUNK_SIZE = 250;
+
+    /**
+     * How long the per-session import lock is held before it self-expires.
+     *
+     * Long enough for a large backfill to finish, short enough that a worker
+     * killed mid-import unblocks the session within a single 15-minute
+     * scheduler tick instead of wedging it until someone intervenes.
+     */
+    private const IMPORT_LOCK_SECONDS = 600;
+
+    /**
+     * Cache key for a session's import lock.
+     */
+    public static function importLockKey(BiometricDownloadSession $session): string
+    {
+        return "biometric-import-session-{$session->id}";
+    }
+
+    /**
+     * Base query for the `downloaded` ATTLOG rows that belong to a session.
+     *
+     * Scoping intentionally mirrors BiometricDeviceController::getSessionLogs()
+     * exactly (same device, punch_status = 'downloaded', created_at inside the
+     * session window with a 10 s buffer on both ends) so the read-only session
+     * report and this importer always agree on what belongs to a session.
+     */
+    protected function downloadedLogsQuery(BiometricDownloadSession $session)
+    {
+        $start = $session->started_at ?? $session->created_at;
+        $end = $session->completed_at ?? now();
+
+        return BiometricAttLog::query()
+            ->where('biometric_device_id', $session->biometric_device_id)
+            ->where('punch_status', 'downloaded')
+            ->whereBetween('created_at', [
+                $start->copy()->subSeconds(10),
+                $end->copy()->addSeconds(10),
+            ]);
+    }
+
+    /**
+     * Promote a download session's captured `downloaded` ATTLOG rows into real
+     * attendance records.
+     *
+     * The ADMS push path deliberately only CAPTURES rows while a download session
+     * is active (see the $isDownloading branch in processAttendanceLogs) — it skips
+     * user resolution, eligibility, dedupe and the punch service entirely. This is
+     * the missing second step: it replays those captured rows through the very same
+     * rules the live push path applies.
+     *
+     * Idempotent: every row is moved off `downloaded` as it is handled, so a second
+     * run simply selects nothing; isDuplicatePunch() backstops anything that was
+     * captured twice. Rows are replayed in punch_time order because in/out pairing
+     * is order-sensitive.
+     *
+     * Concurrency: the import can now be kicked off from three places at once —
+     * the ProcessBiometricDownloadSession job when a session finalises, the
+     * every-15-minutes scheduler, and the pre-export sync. withoutOverlapping()
+     * only stops the scheduler racing itself, so a per-session lock is what stops
+     * two importers reading the same `downloaded` row before either flips its
+     * status. Losing the race is not an error: another importer already owns this
+     * session, so we return the zeroed contract immediately rather than blocking a
+     * queue worker or throwing into a report the user asked for.
+     *
+     * @return array{imported: int, duplicates: int, failed: int, skipped_unknown: int}
+     */
+    public function importDownloadedLogs(BiometricDownloadSession $session): array
+    {
+        $lock = Cache::lock(self::importLockKey($session), self::IMPORT_LOCK_SECONDS);
+
+        if (! $lock->get()) {
+            // Deliberately the same shape (and the same zeroes) as "nothing to do".
+            // The return contract is consumed by the console command, the job and
+            // the export, and existing tests assert the exact 4-key array; a fifth
+            // key would be a breaking change for a condition every caller treats
+            // identically — they all just move on. The distinction that matters is
+            // operational, not control-flow, so it goes to the log instead.
+            Log::info('Biometric downloaded-log import skipped: session already being imported', [
+                'session_id' => $session->id,
+                'biometric_device_id' => $session->biometric_device_id,
+            ]);
+
+            return [
+                'imported' => 0,
+                'duplicates' => 0,
+                'failed' => 0,
+                'skipped_unknown' => 0,
+            ];
+        }
+
+        try {
+            return $this->runDownloadedLogImport($session);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * The import itself, run under the per-session lock taken by
+     * importDownloadedLogs().
+     *
+     * @return array{imported: int, duplicates: int, failed: int, skipped_unknown: int}
+     */
+    protected function runDownloadedLogImport(BiometricDownloadSession $session): array
+    {
+        $imported = 0;
+        $duplicates = 0;
+        $failed = 0;
+        $skippedUnknown = 0;
+
+        $device = $session->device;
+
+        if (! $device) {
+            Log::warning('Biometric downloaded-log import: session has no device', [
+                'session_id' => $session->id,
+                'biometric_device_id' => $session->biometric_device_id,
+            ]);
+
+            return [
+                'imported' => 0,
+                'duplicates' => 0,
+                'failed' => 0,
+                'skipped_unknown' => 0,
+            ];
+        }
+
+        // Keyset cursor on (punch_time, id). A plain offset chunk() would skip rows
+        // because the result set shrinks as each row is moved off `downloaded`;
+        // a keyset cursor is both stable under that mutation and memory-bounded.
+        $cursorPunchTime = null;
+        $cursorId = 0;
+
+        while (true) {
+            $query = $this->downloadedLogsQuery($session);
+
+            if ($cursorPunchTime !== null) {
+                $query->where(function ($q) use ($cursorPunchTime, $cursorId) {
+                    $q->where('punch_time', '>', $cursorPunchTime)
+                        ->orWhere(function ($q2) use ($cursorPunchTime, $cursorId) {
+                            $q2->where('punch_time', $cursorPunchTime)->where('id', '>', $cursorId);
+                        });
+                });
+            }
+
+            $logs = $query->orderBy('punch_time')
+                ->orderBy('id')
+                ->limit(self::IMPORT_CHUNK_SIZE)
+                ->get();
+
+            if ($logs->isEmpty()) {
+                break;
+            }
+
+            foreach ($logs as $log) {
+                $cursorPunchTime = $log->getRawOriginal('punch_time');
+                $cursorId = $log->id;
+
+                $outcome = $this->importDownloadedLog($log, $device);
+
+                match ($outcome) {
+                    'imported' => $imported++,
+                    'duplicate' => $duplicates++,
+                    'unknown_user' => $skippedUnknown++,
+                    default => $failed++,
+                };
+            }
+        }
+
+        Log::info('Biometric downloaded-log import completed', [
+            'session_id' => $session->id,
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'imported' => $imported,
+            'duplicates' => $duplicates,
+            'failed' => $failed,
+            'skipped_unknown' => $skippedUnknown,
+        ]);
+
+        return [
+            'imported' => $imported,
+            'duplicates' => $duplicates,
+            'failed' => $failed,
+            'skipped_unknown' => $skippedUnknown,
+        ];
+    }
+
+    /**
+     * Replay a single captured `downloaded` row through the live punch rules.
+     *
+     * @return string one of imported|duplicate|unknown_user|failed
+     */
+    protected function importDownloadedLog(BiometricAttLog $log, BiometricDevice $device): string
+    {
+        $serialNumber = $log->serial_number ?: $device->serial_number;
+        $deviceUserId = (string) $log->user_pin;
+        $checkTime = $log->punch_time instanceof Carbon
+            ? $log->punch_time->format('Y-m-d H:i:s')
+            : (string) $log->getRawOriginal('punch_time');
+        $checkType = $log->check_type ?: 'in';
+
+        try {
+            // 1. Resolve the user — same helper the live push path uses.
+            $resolved = $this->resolveOrCreateUser($deviceUserId);
+            $user = $resolved['user'];
+
+            if ($resolved['is_new']) {
+                $this->markAttLog($log->id, 'unknown_user', 'Auto-created as inactive placeholder', $user->id);
+
+                Log::info('Biometric downloaded-log import: auto-created inactive user', [
+                    'device_serial' => $serialNumber,
+                    'device_user_id' => $deviceUserId,
+                    'new_user_id' => $user->id,
+                ]);
+
+                return 'unknown_user';
+            }
+
+            // 2. Zone / attendance-type eligibility.
+            $eligibility = $this->validateAttendanceEligibility($user, $device);
+
+            if (! $eligibility['valid']) {
+                $punchStatus = ($eligibility['reason'] === 'Device not in attendance zone') ? 'wrong_device' : 'failed';
+                $this->markAttLog($log->id, $punchStatus, $eligibility['reason'], $user->id);
+
+                Log::warning('Biometric downloaded-log import: attendance validation failed', [
+                    'device_serial' => $serialNumber,
+                    'user_id' => $user->id,
+                    'reason' => $eligibility['reason'],
+                ]);
+
+                return 'failed';
+            }
+
+            // 3. Idempotency backstop for a punch already recorded by any path.
+            if ($this->isDuplicatePunch($user->id, $checkTime)) {
+                $this->markAttLog($log->id, 'duplicate', 'Punch already recorded', $user->id);
+
+                Log::info('Biometric downloaded-log import: duplicate punch skipped', [
+                    'device_serial' => $serialNumber,
+                    'device_user_id' => $deviceUserId,
+                    'check_time' => $checkTime,
+                ]);
+
+                return 'duplicate';
+            }
+
+            // 4. Same synthetic request + punch service as the live path.
+            $syntheticRequest = $this->buildSyntheticPunchRequest($serialNumber, $deviceUserId, $checkTime, $checkType);
+            $result = $this->processPunch($user, $syntheticRequest);
+
+            if (($result['status'] ?? null) === 'success') {
+                $this->markAttLog($log->id, 'processed', null, $user->id);
+
+                event(new BiometricAttendanceReceived($device, $user, [
+                    'device_user_id' => $deviceUserId,
+                    'check_time' => $checkTime,
+                    'check_type' => $checkType,
+                    'result' => $result,
+                ]));
+
+                return 'imported';
+            }
+
+            $this->markAttLog($log->id, 'failed', $result['message'] ?? null, $user->id);
+
+            return 'failed';
+        } catch (\Throwable $e) {
+            // One bad row must never abort the whole import.
+            Log::error('Biometric downloaded-log import error: '.$e->getMessage(), [
+                'att_log_id' => $log->id,
+                'device_serial' => $serialNumber,
+                'device_user_id' => $deviceUserId,
+                'check_time' => $checkTime,
+            ]);
+
+            try {
+                $this->markAttLog($log->id, 'failed', Str::limit($e->getMessage(), 200));
+            } catch (\Throwable) {
+                // A failed status write must not escalate either — the keyset cursor
+                // has already advanced past this row, so the import still terminates.
+            }
+
+            return 'failed';
+        }
+    }
+
+    /**
+     * Move an ATTLOG row off `downloaded` and onto its resolved status.
+     */
+    protected function markAttLog(int $logId, string $status, ?string $reason = null, ?int $userId = null): void
+    {
+        $update = [
+            'punch_status' => $status,
+            'punch_status_reason' => $reason,
+            'updated_at' => now(),
+        ];
+
+        if ($userId !== null) {
+            $update['user_id'] = $userId;
+        }
+
+        DB::table('biometric_att_logs')->where('id', $logId)->update($update);
+    }
+
+    // ──────────────────────────────────────────────────────────────
     //  ADMS push: OPERLOG processing
     // ──────────────────────────────────────────────────────────────
 
@@ -866,6 +1185,7 @@ class BiometricProcessingService
                 'error_message' => $cmd->error_message,
                 'sent_at' => $cmd->sent_at,
                 'executed_at' => $cmd->executed_at,
+                'scheduled_at' => $cmd->scheduled_at,
                 'created_at' => $cmd->created_at,
                 'adms_string' => method_exists($cmd, 'toAdmsString') ? $cmd->toAdmsString() : null,
             ];
@@ -1112,7 +1432,17 @@ class BiometricProcessingService
                 $session->markCompleted();
             }
         } else {
-            $session->markFailed("Device returned error code: {$returnCode}");
+            // Decode rather than echoing the raw code: -1004 means the model does not
+            // support the command, which is a capability fact, not a device fault.
+            // Surfacing "Device returned error code: -1004" sends an admin hunting a
+            // failure that will never resolve on that hardware.
+            $decoded = BiometricDeviceCommand::decodeReturnCode($returnCode);
+
+            $session->markFailed(
+                $decoded['unsupported']
+                    ? "Not supported on this model (device returned {$returnCode})."
+                    : "Device returned error code: {$returnCode} — {$decoded['label']}."
+            );
         }
     }
 }

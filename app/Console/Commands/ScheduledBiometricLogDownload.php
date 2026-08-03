@@ -15,7 +15,9 @@ class ScheduledBiometricLogDownload extends Command
      *
      * @var string
      */
-    protected $signature = 'biometric:scheduled-log-download {--hours=6 : Time threshold in hours since last sync}';
+    protected $signature = 'biometric:scheduled-log-download
+                            {--hours=6 : Time threshold in hours since last sync}
+                            {--days=3 : Rolling window, in days, of attendance history the device is asked to re-push}';
 
     /**
      * The console command description.
@@ -41,7 +43,25 @@ class ScheduledBiometricLogDownload extends Command
     public function handle()
     {
         $hoursThreshold = (int) $this->option('hours');
+        $windowDays = max(0, (int) $this->option('days'));
+
+        // Bound what we ask the device for. CHECK_ATTLOG with no payload defaults to
+        // StartTime=2000-01-01, i.e. "re-push your ENTIRE attendance history", and the
+        // capture branch in processAttendanceLogs() inserts every pushed line without a
+        // dedupe. Unbounded on a 4-hour cadence was already bad; on a 30-minute cadence
+        // biometric_att_logs would grow by the full device history 48 times a day. A
+        // rolling window costs nothing (rows already imported come back as duplicates)
+        // and keeps the table proportional to recent traffic.
+        //
+        // Only the SCHEDULED path is bounded: a manual/UI-triggered download still
+        // passes no payload, so an admin asking for a full backfill still gets one.
+        $payload = [
+            'start_time' => now()->subDays($windowDays)->format('Y-m-d H:i:s'),
+            'end_time' => now()->addDay()->format('Y-m-d H:i:s'),
+        ];
+
         $this->info("Starting scheduled log download for devices not synced in the last {$hoursThreshold} hour(s)...");
+        $this->info("Requesting logs from {$payload['start_time']} to {$payload['end_time']} ({$windowDays}-day window).");
 
         // Fetch active ADMS devices
         $devices = BiometricDevice::active()->get()->filter(function ($device) {
@@ -70,7 +90,9 @@ class ScheduledBiometricLogDownload extends Command
                 $this->info("Triggering download for device {$device->name}...");
                 $session = $this->biometricService->initiateLogDownload(
                     $device,
-                    'scheduled'
+                    'scheduled',
+                    null,
+                    $payload
                 );
 
                 // Dispatch monitoring job

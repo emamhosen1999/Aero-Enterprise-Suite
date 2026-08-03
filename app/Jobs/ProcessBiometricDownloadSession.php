@@ -3,11 +3,13 @@
 namespace App\Jobs;
 
 use App\Models\HRM\BiometricDownloadSession;
+use App\Services\Biometric\BiometricProcessingService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class ProcessBiometricDownloadSession implements ShouldQueue
 {
@@ -31,7 +33,7 @@ class ProcessBiometricDownloadSession implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(BiometricProcessingService $biometricService): void
     {
         $this->session->refresh();
 
@@ -87,6 +89,14 @@ class ProcessBiometricDownloadSession implements ShouldQueue
                     } else {
                         $this->session->markCompleted();
                     }
+
+                    // Terminal, successful transition — this is the only place in this
+                    // job where a session settles (every other branch either releases
+                    // or fails), so importing here runs exactly once per session and
+                    // never on a release path.
+                    if (in_array($this->session->status, ['completed', 'partial'], true)) {
+                        $this->importDownloadedLogs($biometricService);
+                    }
                 }
 
                 return;
@@ -94,6 +104,37 @@ class ProcessBiometricDownloadSession implements ShouldQueue
         } else {
             // No command linked? Something went wrong
             $this->session->markFailed('No active command linked to this session.');
+        }
+    }
+
+    /**
+     * Drain the rows this session just captured into real attendance.
+     *
+     * A download session only parks device logs in biometric_att_logs with
+     * punch_status = 'downloaded'; this is what turns them into attendance.
+     *
+     * Failures are swallowed on purpose: the session state has already been
+     * written, and letting an import error bubble would fail the job, retry it
+     * (up to $tries) and — because the session is now terminal — hit the early
+     * return at the top of handle() and accomplish nothing. The every-15-minutes
+     * biometric:import-downloaded schedule is the backstop for anything missed.
+     */
+    protected function importDownloadedLogs(BiometricProcessingService $biometricService): void
+    {
+        try {
+            $result = $biometricService->importDownloadedLogs($this->session);
+
+            Log::info('Biometric download session auto-imported on completion', [
+                'session_id' => $this->session->id,
+                'status' => $this->session->status,
+                'result' => $result,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Biometric download session auto-import failed: '.$e->getMessage(), [
+                'session_id' => $this->session->id,
+                'status' => $this->session->status,
+                'exception' => $e,
+            ]);
         }
     }
 }

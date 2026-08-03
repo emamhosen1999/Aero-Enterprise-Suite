@@ -855,7 +855,7 @@
     "isEntry": true
   },
   "resources/js/Components/AdminUnified/BiometricPanel.jsx": {
-    "file": "assets/js/BiometricPanel-C6M_Ct-B.js",
+    "file": "assets/js/BiometricPanel-DgcWhsMk.js",
     "name": "BiometricPanel",
     "src": "resources/js/Components/AdminUnified/BiometricPanel.jsx",
     "isDynamicEntry": true,
@@ -1136,7 +1136,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-DshhaA_c.js",
+    "file": "assets/js/AttendancePage-DVEnfdn_.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -2473,6 +2473,32 @@
       "_client-Cz5iVfPv.js"
     ]
   },
+  "resources/js/Pages/Settings/BiometricDevices.jsx": {
+    "file": "assets/js/BiometricDevices-LrNAamTb.js",
+    "name": "BiometricDevices",
+    "src": "resources/js/Pages/Settings/BiometricDevices.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_reactQueryClient-CIFSkert.js",
+      "_vendor-radix-BVN_O40B.js",
+      "_vendor-inertia-BheeDqvO.js",
+      "resources/js/Pages/UserDevices.jsx",
+      "_ErrorBoundary-pRKLmBcK.js",
+      "_vendor-utils-Bd_1ICpc.js",
+      "resources/js/Pages/Project/Objections/components/ObjectionsStatsSection.jsx",
+      "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
+      "_useMediaQuery-iotCY5cT.js",
+      "_react-icons.esm-DiP7PXoF.js",
+      "_ClockIcon-DI4s8R_S.js",
+      "_ExclamationTriangleIcon-DwfbyD7z.js",
+      "_useQuery-DejKMXXC.js",
+      "_useMutation-Da_pdDh2.js",
+      "_client-Cz5iVfPv.js"
+    ],
+    "dynamicImports": [
+      "resources/js/Components/AdminUnified/BiometricPanel.jsx"
+    ]
+  },
   "resources/js/Pages/Settings/CompanySettings.jsx": {
     "file": "assets/js/CompanySettings-Najr1EAR.js",
     "name": "CompanySettings",
@@ -2573,7 +2599,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-E0szPAqs.js",
+    "file": "assets/js/app-e1_1h0TI.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2661,6 +2687,7 @@
       "resources/js/Pages/Project/Objections/components/ObjectionsStatsSection.jsx",
       "resources/js/Pages/Project/Objections/utils/buildObjectionsStats.jsx",
       "resources/js/Pages/Quality/NcrRegister.jsx",
+      "resources/js/Pages/Settings/BiometricDevices.jsx",
       "resources/js/Pages/Settings/CompanySettings.jsx",
       "resources/js/Pages/Settings/NotificationPreferences.jsx",
       "resources/js/Pages/Settings/RequestLogs.jsx",
