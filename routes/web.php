@@ -632,6 +632,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('settings/biometric-devices/operlogs', [BiometricDeviceController::class, 'getOperLogs'])->name('biometric-devices.operlogs');
         Route::get('settings/biometric-devices/attlogs', [BiometricDeviceController::class, 'getAttLogs'])->name('biometric-devices.attlogs');
 
+        // Unknown-user remediation: link a PIN that resolved to nobody onto a
+        // real employee and hand its stranded punches back to the importer.
+        // Collection-scoped, not {id}-scoped — an unknown PIN is not a property
+        // of one device, the same badge can have punched on several.
+        Route::post('settings/biometric-devices/attlogs/link-user', [BiometricDeviceController::class, 'linkAttLogUser'])->name('biometric-devices.attlogs.link-user');
+
+        // Template roaming (matrix §2). The listing is server-side only; the
+        // restore is the one action here that writes biometric data to hardware
+        // and requires confirm_restore=true.
+        Route::get('settings/biometric-devices/templates', [BiometricDeviceController::class, 'templates'])->name('biometric-devices.templates');
+        Route::post('settings/biometric-devices/{id}/restore-templates', [BiometricDeviceController::class, 'restoreTemplates'])->whereNumber('id')->name('biometric-devices.restore-templates');
+
         // Device capabilities + device-internal settings.
         // Every {id} route here MUST carry ->whereNumber('id'): an unconstrained
         // {id} also matches the literal segment "bulk", which previously made

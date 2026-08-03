@@ -3,9 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Models\HRM\BiometricAttLog;
+use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDownloadSession;
 use App\Services\Biometric\BiometricProcessingService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -62,13 +64,9 @@ class ImportDownloadedBiometricLogs extends Command
         } else {
             $sessions = $this->sessionsWithPendingRows();
 
-            if ($sessions->isEmpty()) {
-                $this->info('No completed download sessions with pending downloaded logs.');
-
-                return 0;
+            if ($sessions->isNotEmpty()) {
+                $this->info("Found {$sessions->count()} session(s) with pending downloaded logs.");
             }
-
-            $this->info("Found {$sessions->count()} session(s) with pending downloaded logs.");
         }
 
         $totals = ['imported' => 0, 'duplicates' => 0, 'failed' => 0, 'skipped_unknown' => 0];
@@ -99,6 +97,33 @@ class ImportDownloadedBiometricLogs extends Command
             ));
         }
 
+        // Devices holding `downloaded` rows that belong to no session at all —
+        // typically a live-push punch that was `unknown_user` until an admin
+        // linked the PIN. A session import already sweeps its own device, so this
+        // only matters for a device that has NO finished session to iterate;
+        // without it those rows would never be imported by anything.
+        if (! $sessionId) {
+            $orphanDevices = $this->devicesWithSessionlessRows($sessions);
+
+            if ($sessions->isEmpty() && $orphanDevices->isEmpty()) {
+                $this->info('No pending downloaded logs.');
+
+                return 0;
+            }
+
+            foreach ($orphanDevices as $device) {
+                $result = $this->biometricService->importSessionlessDownloadedLogs($device);
+
+                foreach ($totals as $key => $value) {
+                    $totals[$key] = $value + ($result[$key] ?? 0);
+                }
+
+                if ($result['imported'] > 0) {
+                    $this->info("Swept session-less rows for {$device->name}: imported {$result['imported']}.");
+                }
+            }
+        }
+
         $this->info(sprintf(
             'Done. Total imported: %d, duplicates: %d, failed: %d, skipped (unknown user): %d',
             $totals['imported'],
@@ -108,6 +133,35 @@ class ImportDownloadedBiometricLogs extends Command
         ));
 
         return 0;
+    }
+
+    /**
+     * Devices that still hold `downloaded` rows and were not already covered by
+     * a session import in this run.
+     *
+     * @param  Collection  $importedSessions
+     * @return Collection<int, BiometricDevice>
+     */
+    protected function devicesWithSessionlessRows($importedSessions)
+    {
+        $alreadySwept = $importedSessions
+            ->pluck('biometric_device_id')
+            ->filter()
+            ->unique()
+            ->all();
+
+        $deviceIds = BiometricAttLog::where('punch_status', 'downloaded')
+            ->whereNotNull('biometric_device_id')
+            ->whereNotIn('biometric_device_id', $alreadySwept)
+            ->distinct()
+            ->pluck('biometric_device_id')
+            ->all();
+
+        if (empty($deviceIds)) {
+            return collect();
+        }
+
+        return BiometricDevice::whereIn('id', $deviceIds)->get();
     }
 
     /**

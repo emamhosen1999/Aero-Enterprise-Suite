@@ -98,6 +98,21 @@ const CAP_ROUTES = {
 };
 
 /**
+ * Stored-template routes. Both ship in a separate change, so every use goes
+ * through hasRoute() first — a missing route explains itself instead of taking
+ * the sub-tab down with a Ziggy throw.
+ */
+const TEMPLATE_ROUTES = {
+    list:    'biometric-devices.templates',
+    restore: 'biometric-devices.restore-templates',
+};
+
+/** Remediation for ATTLOG rows the importer could not attribute to anyone. */
+const ATTLOG_ROUTES = {
+    linkUser: 'biometric-devices.attlogs.link-user',
+};
+
+/**
  * ADMS is device-initiated: the server cannot read a terminal on demand, it can
  * only queue a command the device collects on its next poll. So every number on
  * the capabilities screen is "what the device last volunteered", and is only
@@ -106,9 +121,120 @@ const CAP_ROUTES = {
 const SNAPSHOT_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Unwrap one entry from a snapshot pool.
+ *
+ * The documented `options` map stores each device answer as
+ * `{ value, unsupported, source, probed_at }`, so returning the bare object
+ * would render "[object Object]" on screen. An entry the device explicitly
+ * rejected reads as *no answer*, never as its (absent) value.
+ */
+const unwrapSnapshotValue = (v) => {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+        if (v.unsupported === true) return null;
+        const inner = v.value;
+        return (inner === undefined || inner === null || inner === '') ? null : inner;
+    }
+    return (v === undefined || v === null || v === '') ? null : v;
+};
+
+/**
+ * Normalise an option key for lookup: case-insensitive, tilde-insensitive.
+ *
+ * Real MB460 firmware answers `~MaxUserCount` where the matrix says
+ * `MaxUserCount`, and a lookup that only knows one spelling silently finds
+ * nothing. Both must land in the same bucket.
+ */
+const normaliseOptionKey = (k) => String(k ?? '').trim().replace(/^~+/, '').toLowerCase();
+
+/**
+ * Three device facts that are NOT the same fact, plus the absence of any fact.
+ * An admin acts differently on each, so they must never collapse into one
+ * greyed-out box:
+ *
+ *  - `answered`    the device was asked and gave a value.
+ *  - `unsupported` the device explicitly rejected the key with −1004,
+ *                  "not supported on this model" (docs §4). Permanent hardware
+ *                  fact; nothing to retry, nothing to escalate.
+ *  - `omitted`     the device called the reply a success and then simply left
+ *                  the key out. Real case: `MThreshold` was requested of an
+ *                  MB460 and never came back. That is firmware declining to
+ *                  answer, not the model lacking the feature — the distinction
+ *                  matters because one is worth re-probing and the other is not.
+ *  - `unprobed`    nobody has ever asked. Blank here means "not asked", never
+ *                  "zero" and never "unavailable".
+ */
+const KEY_STATE_META = {
+    answered:    { color: 'green',  label: 'Answered by the device' },
+    unsupported: { color: 'amber',  label: 'Not supported on this model' },
+    omitted:     { color: 'orange', label: "Device didn't answer for this key" },
+    unprobed:    { color: 'gray',   label: 'Not yet probed' },
+};
+
+const KEY_STATE_NOTE = {
+    unsupported: 'The device answered −1004 for this key — this model cannot do it. Re-probing will not change the answer.',
+    omitted:     'The key was requested, the device called the reply a success, and then left this key out of it. That is firmware declining to answer, not the model lacking the feature — worth re-probing, unlike a −1004.',
+    unprobed:    'This key has never been asked for on this device. Blank means "not asked", not "unavailable" and not "zero".',
+};
+
+/**
+ * Index a snapshot's raw `options` map by normalised key.
+ *
+ * Each entry is `{ value, unsupported, source, probed_at }`. When the same key
+ * arrives under two spellings, an entry that actually answered beats one that
+ * did not — a device that answered `~MaxUserCount` has told us the number
+ * whatever it did with the plain spelling.
+ */
+const buildOptionIndex = (snapshot) => {
+    const index = new Map();
+    const pool = snapshot?.options;
+    if (pool && typeof pool === 'object' && !Array.isArray(pool)) {
+        Object.entries(pool).forEach(([k, v]) => {
+            if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+            const nk = normaliseOptionKey(k);
+            const existing = index.get(nk);
+            if (!existing || (existing.unsupported && !v.unsupported)) {
+                index.set(nk, { ...v, key: k });
+            }
+        });
+    }
+    return index;
+};
+
+/**
+ * Resolve one key to `answered` / `unsupported` / `omitted` / `unprobed`.
+ *
+ * The backend flags both an explicit −1004 and a silent omission as
+ * `unsupported: true` — they are alike in that neither key should be offered —
+ * and separates them with `source === 'omitted'`. Printing "−1004" over an
+ * omission would be telling the admin something the device never said.
+ */
+const readKeyState = (optionIndex, key) => {
+    const entry = optionIndex instanceof Map ? optionIndex.get(normaliseOptionKey(key)) : null;
+    if (!entry) return 'unprobed';
+    if (entry.unsupported) return entry.source === 'omitted' ? 'omitted' : 'unsupported';
+    return 'answered';
+};
+
+/** The first non-`unprobed` state across a set of spellings for the same fact. */
+const readKeyStateAny = (optionIndex, keys) => {
+    let seen = 'unprobed';
+    for (const k of keys) {
+        const s = readKeyState(optionIndex, k);
+        if (s === 'answered') return 'answered';
+        if (s !== 'unprobed') seen = s;
+    }
+    return seen;
+};
+
+/**
  * Pull a value out of a capability snapshot without betting on one envelope
  * shape. The snapshot may expose device answers flat, split into counts/maxima,
  * or as the raw `GET OPTION` key map — accept all of them rather than guessing.
+ *
+ * Every key is also tried `~`-prefixed. Real MB460 firmware answers `INFO` with
+ * the SDK parameter spellings — `~MaxUserCount`, `~DeviceName`, `~Platform` —
+ * not the plain ones from the matrix, and a lookup that only knows the plain
+ * spelling silently finds nothing against real hardware.
  */
 const pickSnapshotValue = (snapshot, keys) => {
     if (!snapshot) return null;
@@ -116,11 +242,16 @@ const pickSnapshotValue = (snapshot, keys) => {
         snapshot, snapshot.counts, snapshot.maxima, snapshot.capacity,
         snapshot.identity, snapshot.options, snapshot.settings, snapshot.values,
     ];
+    const spellings = [];
+    keys.forEach(k => {
+        spellings.push(k);
+        if (!String(k).startsWith('~')) spellings.push(`~${k}`);
+    });
     for (const pool of pools) {
         if (!pool || typeof pool !== 'object') continue;
-        for (const key of keys) {
-            const v = pool[key];
-            if (v !== undefined && v !== null && v !== '') return v;
+        for (const key of spellings) {
+            const v = unwrapSnapshotValue(pool[key]);
+            if (v !== null) return v;
         }
     }
     return null;
@@ -178,6 +309,81 @@ const IDENTITY_FIELDS = [
     { id: 'serial',   label: 'Device-reported serial', keys: ['SerialNumber', '~SerialNumber', 'serial_number'] },
     { id: 'ip',       label: 'Device-reported IP', keys: ['IPAddress', 'ip_address'] },
 ];
+
+/**
+ * Biometric engines the terminal can report as present or absent.
+ *
+ * `FvFunOn = 0` and `PvFunOn = 0` — which is exactly what a real MB460 answers —
+ * mean the unit has *no finger-vein and no palm-vein engine at all*. That is a
+ * different sentence from "the engine is there and nobody is enrolled", and the
+ * two must never collapse into the same "0" on screen: one is a permanent fact
+ * about the model, the other is a work item.
+ *
+ * `snapshot.flags` is the preferred source (documented shape, already decoded).
+ * The raw option keys are the fallback for a snapshot that predates it — a key
+ * that is simply absent means "the device was never asked", a third state again.
+ */
+const ENGINE_FLAGS = [
+    { id: 'fingerprint', label: 'Fingerprint', keys: ['FingerFunOn'] },
+    { id: 'face',        label: 'Face',        keys: ['FaceFunOn'] },
+    { id: 'finger_vein', label: 'Finger vein', keys: ['FvFunOn'] },
+    { id: 'palm_vein',   label: 'Palm vein',   keys: ['PvFunOn'] },
+    { id: 'user_photo',  label: 'User photo',  keys: ['PhotoFunOn'] },
+];
+
+/**
+ * Resolve one engine to `true` (present), `false` (absent on this model) or
+ * `null` (never reported). Anything that cannot be read as a definite 0/1 stays
+ * `null` rather than being guessed into a boolean.
+ */
+const readEngineFlag = (snapshot, engine) => {
+    const fromFlags = snapshot?.flags?.[engine.id];
+    if (fromFlags === true || fromFlags === false) return fromFlags;
+    const raw = pickSnapshotValue(snapshot, engine.keys);
+    if (raw === null) return null;
+    const s = String(raw).trim().toLowerCase();
+    if (s === '1' || s === 'true' || s === 'on' || s === 'yes') return true;
+    if (s === '0' || s === 'false' || s === 'off' || s === 'no') return false;
+    return null;
+};
+
+const TEMPLATE_TYPE_META = {
+    fingerprint: { color: 'green',  label: 'Fingerprint' },
+    face:        { color: 'purple', label: 'Face' },
+    palm:        { color: 'orange', label: 'Palm' },
+};
+
+/** Template sizes are a few hundred bytes to a few KB; bytes alone read badly. */
+const formatBytes = (n) => {
+    const v = toCount(n);
+    if (v === null) return '—';
+    if (v < 1024) return `${v} B`;
+    return `${(v / 1024).toFixed(1)} KB`;
+};
+
+/** Backend reason keys are snake_case; make them readable without inventing text. */
+const prettyReason = (r) => String(r).replace(/[_-]+/g, ' ').replace(/^\w/, c => c.toUpperCase());
+
+/**
+ * `reasons` from restore-templates is a breakdown of why rows were skipped. It
+ * may arrive as a key→count map, a key→list map, or a list of objects; all three
+ * collapse to the same `{ reason, count }` rows so nothing is dropped silently.
+ */
+const normaliseReasons = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+        return raw.map(r => (r && typeof r === 'object')
+            ? { reason: String(r.reason ?? r.key ?? r.label ?? 'Unknown'), count: toCount(r.count ?? r.total) }
+            : { reason: String(r), count: null });
+    }
+    if (typeof raw === 'object') {
+        return Object.entries(raw).map(([reason, v]) => ({
+            reason,
+            count: Array.isArray(v) ? v.length : toCount(v),
+        }));
+    }
+    return [{ reason: String(raw), count: null }];
+};
 
 /**
  * Two settings carry more operational weight than the rest (docs §4b) and are
@@ -1609,7 +1815,7 @@ const STATUS_META = {
     downloaded:   { color: 'blue',   label: 'Downloaded (not imported)' },
 };
 
-function AttLogTab({ isMobile, devices = [] }) {
+function AttLogTab({ isMobile, devices = [], employees = [] }) {
     const [logs,     setLogs]     = useState([]);
     const [stats,    setStats]    = useState({ total: 0, processed: 0, unknown_user: 0, downloaded: 0, failed: 0 });
     const [loading,  setLoading]  = useState(false);
@@ -1618,6 +1824,67 @@ function AttLogTab({ isMobile, devices = [] }) {
     const [deviceId, setDeviceId] = useState('all');
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const debRef  = React.useRef(null);
+
+    /* ── unknown-user remediation ──
+     * These rows are punches whose PIN matched nobody. The importer minted a
+     * soft-deleted placeholder for each and parked the row; nothing revisits
+     * that state, so without this action they sit forever. */
+    const [linkRow,     setLinkRow]     = useState(null);
+    const [linkUserId,  setLinkUserId]  = useState('');
+    const [linkFilter,  setLinkFilter]  = useState('');
+    const [linking,     setLinking]     = useState(false);
+
+    const canLink = hasRoute(ATTLOG_ROUTES.linkUser);
+
+    const linkTarget = useMemo(
+        () => employees.find(e => String(e.id) === String(linkUserId)) ?? null,
+        [employees, linkUserId],
+    );
+
+    // The picker is a plain Select, so it is filtered rather than scrolled — a
+    // roster of a few hundred is unusable otherwise. Capped so an accidental
+    // empty filter cannot render the whole company at once.
+    const linkCandidates = useMemo(() => {
+        const q = linkFilter.trim().toLowerCase();
+        const matches = employees.filter(e =>
+            !q || String(e.name ?? '').toLowerCase().includes(q)
+               || String(e.employee_id ?? '').toLowerCase().includes(q));
+        return matches.slice(0, 50);
+    }, [employees, linkFilter]);
+
+    const openLink = (log) => {
+        setLinkRow(log);
+        setLinkUserId('');
+        setLinkFilter('');
+    };
+
+    const submitLink = async () => {
+        if (!linkRow || !linkTarget || !canLink) return;
+        setLinking(true);
+        try {
+            const { data } = await axios.post(route(ATTLOG_ROUTES.linkUser), {
+                pin: String(linkRow.user_pin),
+                user_id: linkTarget.id,
+            });
+            const relinked = data.logs_relinked ?? data.linked_rows ?? data.relinked ?? 0;
+            showToast.success(
+                data.message
+                ?? `PIN ${linkRow.user_pin} linked to ${linkTarget.name}. ${relinked} punch(es) re-queued for import.`,
+            );
+            setLinkRow(null);
+            // Both the rows and the counters above them are now wrong; the
+            // endpoint moved these punches out of unknown_user.
+            fetchLogs();
+        } catch (e) {
+            // The endpoint refuses re-keying an employee who already carries a
+            // different ID, a PIN a live user holds, and a PIN with nothing
+            // unresolved. Those messages name the exact conflict, so they are
+            // surfaced verbatim rather than replaced with a generic failure.
+            showToast.error(e.response?.data?.message ?? 'Failed to link this PIN to an employee.');
+        } finally {
+            setLinking(false);
+        }
+    };
 
     const fetchLogs = React.useCallback(async (q = search, s = status, p = pagination.currentPage, pp = pagination.perPage, dev = deviceId) => {
         setLoading(true);
@@ -1696,6 +1963,25 @@ function AttLogTab({ isMobile, devices = [] }) {
                 </Button>
             </Flex>
 
+            {/* Unknown-user backlog. These rows never resolve themselves — nothing
+              * in the pipeline revisits the unknown_user state — so an admin has
+              * to be told the pile exists and how to clear it. */}
+            {(stats.unknown_user ?? 0) > 0 && (
+                <Callout.Root color="orange" mb="3" size="1">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Callout.Text>
+                        <strong>{stats.unknown_user} punch(es) matched no employee.</strong> Each arrived for a
+                        device PIN nobody carries, so a soft-deleted placeholder was created and the punch was
+                        parked. Nothing revisits this state automatically — they stay out of attendance until
+                        the PIN is linked to a real employee.
+                        {!canLink && <> The <Code size="1">{ATTLOG_ROUTES.linkUser}</Code> endpoint is not
+                            registered on this server yet, so they cannot be resolved from here.</>}
+                        {canLink && employees.length === 0 && <> No employee list reached this page, so the
+                            picker has nobody to offer — open Settings → Biometric Devices, which loads one.</>}
+                    </Callout.Text>
+                </Callout.Root>
+            )}
+
             {/* Filters */}
             <Flex gap="3" mb="3" wrap="wrap" align="center">
                 <TextField.Root placeholder="Search PIN or name…" size="2" style={{ maxWidth: 280 }}
@@ -1739,6 +2025,7 @@ function AttLogTab({ isMobile, devices = [] }) {
                             <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                             {!isMobile && <Table.ColumnHeaderCell>Reason</Table.ColumnHeaderCell>}
+                            <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
@@ -1783,12 +2070,38 @@ function AttLogTab({ isMobile, devices = [] }) {
                                             </Text>
                                         </Table.Cell>
                                     )}
+                                    <Table.Cell>
+                                        {/* Only unknown_user rows are actionable: every other status
+                                          * already resolved to somebody, and re-keying an employee
+                                          * is not something to offer where there is nothing wrong. */}
+                                        {isUnknown ? (
+                                            <Tooltip content={
+                                                !canLink
+                                                    ? 'The link-user endpoint is not registered on this server yet.'
+                                                    : employees.length === 0
+                                                        ? 'No employee list is available on this page, so there is nobody to pick.'
+                                                        : `Attribute PIN ${log.user_pin} to a real employee and re-queue its punches.`
+                                            }>
+                                                <Button
+                                                    size="1"
+                                                    variant="soft"
+                                                    color="orange"
+                                                    disabled={!canLink || employees.length === 0 || !log.user_pin}
+                                                    onClick={() => openLink(log)}
+                                                >
+                                                    <Link2Icon /> Link to employee
+                                                </Button>
+                                            </Tooltip>
+                                        ) : (
+                                            <Text size="1" color="gray">—</Text>
+                                        )}
+                                    </Table.Cell>
                                 </Table.Row>
                             );
                         })}
                         {!loading && logs.length === 0 && (
                             <Table.Row>
-                                <Table.Cell colSpan={isMobile ? 6 : 7}>
+                                <Table.Cell colSpan={isMobile ? 7 : 8}>
                                     <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
                                         No att logs found.
                                     </Text>
@@ -1808,6 +2121,97 @@ function AttLogTab({ isMobile, devices = [] }) {
                     loading={loading}
                 />
             )}
+
+            {/* Link-to-employee confirmation.
+              *
+              * This is not a labelling fix. It re-keys an identity: the chosen
+              * employee takes this PIN as their employee_id, which is what every
+              * biometric punch — past and future — is attributed by. So the
+              * dialog spells out both halves of the consequence before the
+              * button is live, and the server refuses the dangerous cases
+              * (employee already carries a different ID, PIN held by a live or
+              * a genuinely-deleted user) regardless of what is clicked here. */}
+            <Dialog.Root open={Boolean(linkRow)} onOpenChange={o => { if (!o) setLinkRow(null); }}>
+                <Dialog.Content style={{ maxWidth: 540 }}>
+                    <Dialog.Title>Link PIN {linkRow?.user_pin} to an employee</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        This punch arrived for a device PIN no employee carries, so the importer parked it
+                        and created a placeholder. Pick the person the PIN actually belongs to.
+                    </Dialog.Description>
+
+                    <Box mt="4">
+                        <Text size="2" weight="medium" as="div" mb="1">Employee</Text>
+                        <TextField.Root
+                            size="2"
+                            placeholder="Filter by name or employee ID…"
+                            value={linkFilter}
+                            onChange={e => setLinkFilter(e.target.value)}
+                            mb="2"
+                        >
+                            <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                        </TextField.Root>
+                        <Select.Root size="2" value={linkUserId} onValueChange={setLinkUserId}>
+                            <Select.Trigger style={{ width: '100%' }} placeholder="Select an employee" />
+                            <Select.Content>
+                                {linkCandidates.map(e => (
+                                    <Select.Item key={e.id} value={String(e.id)}>
+                                        {e.name}{e.employee_id ? ` — ${e.employee_id}` : ' — no employee ID'}
+                                    </Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
+                        {linkCandidates.length === 0 && (
+                            <Text size="1" color="gray" as="div" mt="1">
+                                No employee matches this filter.
+                            </Text>
+                        )}
+                        {employees.length > linkCandidates.length && (
+                            <Text size="1" color="gray" as="div" mt="1">
+                                Showing {linkCandidates.length} of {employees.length} employees — narrow the filter to see the rest.
+                            </Text>
+                        )}
+                    </Box>
+
+                    <Callout.Root color="amber" mt="3" size="1">
+                        <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                        <Callout.Text>
+                            Confirming does two things at once:
+                            {' '}<strong>(1)</strong> it sets{' '}
+                            {linkTarget ? <strong>{linkTarget.name}</strong> : 'the chosen employee'}'s
+                            {' '}<Code size="1">employee_id</Code> to <Code size="1">{linkRow?.user_pin}</Code>,
+                            so every future punch from this PIN resolves to them automatically; and
+                            {' '}<strong>(2)</strong> it re-points the stranded punches for this PIN and puts them
+                            back in the <Code size="1">downloaded</Code> state, which re-queues them for import
+                            into attendance. Past attendance is re-attributed by that ID.
+                        </Callout.Text>
+                    </Callout.Root>
+
+                    {linkTarget?.employee_id && String(linkTarget.employee_id) !== String(linkRow?.user_pin ?? '') && (
+                        <Callout.Root color="red" mt="3" size="1">
+                            <Callout.Icon><CrossCircledIcon /></Callout.Icon>
+                            <Callout.Text>
+                                {linkTarget.name} already carries employee ID{' '}
+                                <Code size="1">{linkTarget.employee_id}</Code>. Linking a different PIN would
+                                re-key them and silently move their attendance history, so the server will
+                                refuse this. Fix the employee record first if the ID is genuinely wrong.
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
+
+                    <Text size="1" color="gray" as="div" mt="3">
+                        The punches are re-queued, not imported on the spot —{' '}
+                        <Code size="1">biometric:import-downloaded</Code> replays them into attendance on its
+                        next run.
+                    </Text>
+
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
+                        <Button onClick={submitLink} disabled={!canLink || linking || !linkTarget}>
+                            {linking ? <><Spinner size="1" /> Linking…</> : <><Link2Icon /> Link and re-queue</>}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
         </Box>
     );
 }
@@ -2203,51 +2607,121 @@ function DownloadsTab({ isMobile, devices = [] }) {
 /* ── Capabilities & Device Settings sub-tab ── */
 
 /**
- * One capacity meter. Refuses to draw a bar it cannot honestly draw:
- *  - the device said the key is unsupported  → say so, no bar
- *  - the device never reported the count     → "not reported", no bar
- *  - the count is known but the maximum is not → show the count, no bar
- * A fabricated denominator here would read as "plenty of headroom" on a device
- * that is actually full.
+ * One capacity meter. Refuses to draw a bar it cannot honestly draw.
+ *
+ * This is a capacity-planning surface, so a confidently wrong percentage here is
+ * worse than a blank: an admin acts on "94% full" and does not act on "unknown".
+ * Every path that cannot produce a trustworthy ratio therefore drops the bar and
+ * says why, in the caller's own words where it has better ones.
+ *
+ *  - `supported === false`   the device reported no such store (−1004, or the
+ *                            engine switched off) → "not available on this model"
+ *  - `known === false`       never probed → "—", explicitly not "zero"
+ *  - `used === null`         probed, but this counter went unanswered
+ *  - no usable maximum       show the live count, headroom unknown
+ *  - `used > max`            the denominator is provably not a record count —
+ *                            a real MB460 answers FPCount = 26 against
+ *                            ~MaxFingerCount = 20, because some maxima are
+ *                            expressed in thousands. Dividing gives 130%;
+ *                            clamping gives a full red bar on a near-empty
+ *                            device. Both are lies, so neither is drawn.
  */
-function CapacityMeter({ label, used, max, unsupported }) {
-    if (unsupported) {
-        return (
-            <Panel variant="surface">
-                <Flex direction="column" gap="1">
-                    <Text size="1" color="gray">{label}</Text>
-                    <Badge color="amber" variant="soft" size="1" style={{ width: 'fit-content' }}>Not supported</Badge>
-                    <Text size="1" color="gray">This model answered −1004 for this counter, so it has no such store.</Text>
-                </Flex>
-            </Panel>
+function CapacityMeter({ label, used, max, reportedMax = null, supported = true, known = true, unsupportedNote }) {
+    const shell = (children) => (
+        <Panel variant="surface">
+            <Flex direction="column" gap="1">
+                <Text size="1" color="gray">{label}</Text>
+                {children}
+            </Flex>
+        </Panel>
+    );
+
+    // The device told us this store does not exist. Permanent hardware fact.
+    if (supported === false) {
+        return shell(
+            <>
+                <Badge color="amber" variant="soft" size="1" style={{ width: 'fit-content' }}>
+                    Not available on this model
+                </Badge>
+                <Text size="1" color="gray">
+                    {unsupportedNote
+                        ?? 'The device reported no such store — it answered −1004, or the matching engine is switched off. This is a fact about the hardware, not a count of zero.'}
+                </Text>
+            </>,
         );
     }
 
-    if (used === null) {
-        return (
-            <Panel variant="surface">
-                <Flex direction="column" gap="1">
-                    <Text size="1" color="gray">{label}</Text>
-                    <Text size="4" weight="bold" color="gray">—</Text>
-                    <Text size="1" color="gray">Not reported by the device.</Text>
-                </Flex>
-            </Panel>
+    // Supported, but nothing has ever been asked. Distinct from "zero enrolled".
+    if (known === false) {
+        return shell(
+            <>
+                <Text size="4" weight="bold" color="gray">—</Text>
+                <Text size="1" color="gray">Never probed. Blank means "not asked", not "zero".</Text>
+            </>,
         );
     }
 
-    if (max === null || max <= 0) {
-        return (
-            <Panel variant="surface">
-                <Flex direction="column" gap="1">
-                    <Text size="1" color="gray">{label}</Text>
-                    <Text size="4" weight="bold">{used.toLocaleString()}</Text>
-                    <Text size="1" color="gray">Device did not report a maximum — headroom unknown.</Text>
-                </Flex>
-            </Panel>
+    if (used === null || used === undefined) {
+        return shell(
+            <>
+                <Text size="4" weight="bold" color="gray">—</Text>
+                <Text size="1" color="gray">Not reported by the device.</Text>
+            </>,
         );
     }
 
-    const pct = Math.min(100, Math.round((used / max) * 100));
+    const usable = (typeof max === 'number' && Number.isFinite(max) && max > 0) ? max : null;
+
+    if (usable === null) {
+        // The device may well have reported *a* figure that simply could not be
+        // used as a denominator — either its unit is undeclared, or it is below
+        // the live count. Saying "did not report" in that case would be false, so
+        // the reported figure is shown and named as unusable instead.
+        const withheld = (typeof reportedMax === 'number' && Number.isFinite(reportedMax) && reportedMax > 0);
+        return shell(
+            <>
+                <Text size="4" weight="bold">{used.toLocaleString()}</Text>
+                {withheld ? (
+                    <>
+                        <Badge color="amber" variant="soft" size="1" style={{ width: 'fit-content' }}>
+                            Maximum unusable
+                        </Badge>
+                        <Text size="1" color="amber">
+                            The device reported a maximum of {reportedMax.toLocaleString()}, which cannot be
+                            divided into: some ZKTeco maxima are literal counts and others are expressed in
+                            thousands, and this key's unit is undeclared
+                            {reportedMax < used ? ` — it is also below the live count of ${used.toLocaleString()}` : ''}.
+                            Headroom unknown; no percentage is shown rather than a wrong one.
+                        </Text>
+                    </>
+                ) : (
+                    <Text size="1" color="gray">Device did not report a usable maximum — headroom unknown.</Text>
+                )}
+            </>,
+        );
+    }
+
+    // A maximum below the live count cannot be a maximum. Refuse the ratio
+    // rather than clamp it: 100% on an almost-empty terminal is the single most
+    // misleading thing this screen could say.
+    if (used > usable) {
+        return shell(
+            <>
+                <Text size="4" weight="bold">{used.toLocaleString()}</Text>
+                <Flex align="center" gap="1" wrap="wrap">
+                    <Badge color="amber" variant="soft" size="1">Maximum unusable</Badge>
+                </Flex>
+                <Text size="1" color="amber">
+                    The device reported a maximum of {usable.toLocaleString()}, below the live count of{' '}
+                    {used.toLocaleString()} — so that figure is not a record count (some ZKTeco maxima
+                    are expressed in thousands). Headroom unknown; no percentage is shown rather than a
+                    wrong one.
+                </Text>
+            </>,
+        );
+    }
+
+    const pct = Math.min(100, Math.round((used / usable) * 100));
     const color = pct >= 90 ? 'red' : pct >= 75 ? 'amber' : 'green';
 
     return (
@@ -2256,17 +2730,30 @@ function CapacityMeter({ label, used, max, unsupported }) {
                 <Text size="1" color="gray">{label}</Text>
                 <Flex align="baseline" gap="2">
                     <Text size="4" weight="bold" color={color}>{used.toLocaleString()}</Text>
-                    <Text size="1" color="gray">/ {max.toLocaleString()}</Text>
+                    <Text size="1" color="gray">/ {usable.toLocaleString()}</Text>
                 </Flex>
                 <Progress value={pct} color={color} size="1" />
-                <Text size="1" color={color}>{pct}% used · {(max - used).toLocaleString()} free</Text>
+                <Text size="1" color={color}>{pct}% used · {(usable - used).toLocaleString()} free</Text>
             </Flex>
         </Panel>
     );
 }
 
-/** One catalogue-driven control. */
-function SettingField({ entry, value, dirty, unsupported, locked, queuedValue, onChange }) {
+/**
+ * One catalogue-driven control.
+ *
+ * `state` is the device's own answer about this key and drives whether the
+ * control is offered at all. The three unusable states are deliberately worded
+ * differently (see KEY_STATE_META): "this model cannot", "the device declined to
+ * answer" and "nobody has asked yet" lead to three different next actions, and
+ * collapsing them into one grey box loses the only information that decides
+ * which one to take.
+ */
+function SettingField({ entry, value, dirty, state = 'unprobed', locked, queuedValue, onChange }) {
+    // Both -1004 and a silent omission mean the key must not be offered; only
+    // the explanation differs. An unprobed key stays editable — asking for it is
+    // exactly how it stops being unprobed.
+    const unsupported = state === 'unsupported' || state === 'omitted';
     const disabled = unsupported || locked;
     const heading = PROMINENT_KEYS[entry.key]?.heading ?? entry.label;
 
@@ -2314,6 +2801,11 @@ function SettingField({ entry, value, dirty, unsupported, locked, queuedValue, o
                 <Text size="2" weight="medium">{heading}</Text>
                 <Code size="1" variant="soft">{entry.key}</Code>
                 {entry.unit && <Text size="1" color="gray">({entry.unit})</Text>}
+                <Tooltip content={KEY_STATE_NOTE[state] ?? 'The device returned a value for this key when it was last probed.'}>
+                    <Badge color={KEY_STATE_META[state]?.color ?? 'gray'} variant="soft" size="1">
+                        {KEY_STATE_META[state]?.label ?? state}
+                    </Badge>
+                </Tooltip>
                 {dirty && <Badge color="indigo" variant="soft" size="1">Changed</Badge>}
                 {queuedValue !== undefined && (
                     <Tooltip content="A SET OPTION command carrying this value is waiting for the device to poll.">
@@ -2322,18 +2814,463 @@ function SettingField({ entry, value, dirty, unsupported, locked, queuedValue, o
                 )}
             </Flex>
             {control}
-            {/* Unsupported keys are greyed out WITH the reason rather than hidden
+            {/* Unusable keys are greyed out WITH the reason rather than hidden
               * (docs §5.3): an admin must be able to tell "this unit cannot do it"
-              * apart from "the UI is broken". */}
+              * apart from "the device ignored the question" apart from "the UI is
+              * broken". Each gets its own sentence — see KEY_STATE_NOTE. */}
             {unsupported ? (
-                <Text size="1" color="amber" as="div" mt="1">
-                    Not supported on this model — the device answered −1004 for this key when probed.
+                <Text size="1" color={KEY_STATE_META[state]?.color ?? 'amber'} as="div" mt="1">
+                    {KEY_STATE_NOTE[state]}
                 </Text>
             ) : PROMINENT_KEYS[entry.key]?.note ? (
                 <Text size="1" color="gray" as="div" mt="1">{PROMINENT_KEYS[entry.key].note}</Text>
             ) : entry.description ? (
                 <Text size="1" color="gray" as="div" mt="1">{entry.description}</Text>
             ) : null}
+        </Box>
+    );
+}
+
+/**
+ * Normalise one stored-template row. The endpoint is written by another agent,
+ * so both the eager-loaded relation shape and a flattened one are accepted; a
+ * field that is genuinely absent renders as "—" rather than "undefined".
+ *
+ * `template_data` is deliberately absent from this mapping. The API does not
+ * return the raw template and this view must never ask for, display, or offer a
+ * download of one — it is the biometric itself, not a reference to it.
+ */
+const normaliseTemplate = (t, i) => ({
+    id:           t.id ?? `${t.device_user_id ?? t.pin ?? 'row'}-${t.template_type ?? ''}-${i}`,
+    userId:       t.user_id ?? t.user?.id ?? null,
+    employeeName: t.user?.name ?? t.employee?.name ?? t.user_name ?? t.employee_name ?? null,
+    employeeCode: t.user?.employee_id ?? t.employee?.employee_id ?? t.employee_id ?? t.employee_code ?? null,
+    pin:          t.pin ?? t.device_user_id ?? t.user_pin ?? null,
+    type:         String(t.template_type ?? t.type ?? '').toLowerCase(),
+    fingerIndex:  t.finger_index ?? null,
+    size:         t.template_size ?? t.size ?? null,
+    version:      t.template_version ?? null,
+    deviceName:   t.source_device_name ?? t.device?.name ?? t.device_name ?? null,
+    deviceSerial: t.source_device_serial ?? t.device?.serial_number ?? t.serial_number ?? null,
+    capturedAt:   t.captured_at ?? t.created_at ?? t.updated_at ?? null,
+    // The endpoint says outright which rows a restore can actually carry.
+    // Absent (older payload) is treated as "fingerprint only", which is what
+    // DATA UPDATE FINGERTMP can express — never as "everything is restorable".
+    restorable:   t.restorable ?? (String(t.template_type ?? t.type ?? '').toLowerCase() === 'fingerprint'),
+    notRestorableReason: t.not_restorable_reason ?? null,
+});
+
+/**
+ * Stored biometric templates, and the one action that can put them back.
+ *
+ * ── Why this lives inside the Capabilities sub-tab ───────────────────────────
+ * A ninth top-level tab was the obvious move and is the wrong one. Templates are
+ * not a separate subject from capability — they are the same subject seen from
+ * the other side. The Capacity grid two blocks up says "this terminal holds 26
+ * fingerprints and 0 faces"; this table says "and we hold templates for 13
+ * people". Those two numbers are only meaningful next to each other, and the
+ * question an admin actually arrives with — "this unit was wiped/replaced, can I
+ * put the enrolments back?" — needs both halves plus a target device.
+ *
+ * That target is the deciding argument. `restore-templates` takes a device id,
+ * and this sub-tab is the only place in the panel with a device already in hand.
+ * Splitting the two halves across two tabs would mean answering one question in
+ * two places, and would take the tab strip to nine — already past what fits on a
+ * phone at eight.
+ *
+ * It is rendered outside the capability-endpoint guard on purpose: templates
+ * have been captured since day one and are readable whether or not the newer
+ * probe/settings routes exist yet.
+ */
+function TemplatesSection({ devices = [] }) {
+    const admsDevices = useMemo(() => devices.filter(d => d.protocol === 'adms'), [devices]);
+
+    const [rows, setRows]         = useState([]);
+    const [loading, setLoading]   = useState(false);
+    const [loaded, setLoaded]     = useState(false);
+    const [search, setSearch]     = useState('');
+    const [typeFilter, setType]   = useState('all');
+
+    const [restoreOpen, setRestoreOpen] = useState(false);
+    const [targetId, setTargetId]       = useState('');
+    const [acknowledged, setAck]        = useState(false);
+    const [restoring, setRestoring]     = useState(false);
+    const [result, setResult]           = useState(null);
+
+    const canList    = hasRoute(TEMPLATE_ROUTES.list);
+    const canRestore = hasRoute(TEMPLATE_ROUTES.restore);
+
+    const targetDevice = useMemo(
+        () => admsDevices.find(d => String(d.id) === String(targetId)) ?? null,
+        [admsDevices, targetId],
+    );
+
+    const load = useCallback(async () => {
+        if (!hasRoute(TEMPLATE_ROUTES.list)) return;
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route(TEMPLATE_ROUTES.list));
+            const raw = data.templates?.data ?? data.templates ?? data.data ?? (Array.isArray(data) ? data : []);
+            setRows((Array.isArray(raw) ? raw : []).map(normaliseTemplate));
+        } catch {
+            showToast.error('Failed to load stored biometric templates.');
+        } finally {
+            setLoaded(true);
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return rows.filter(r => {
+            if (typeFilter !== 'all' && r.type !== typeFilter) return false;
+            if (!q) return true;
+            return [r.employeeName, r.employeeCode, r.pin, r.deviceName, r.deviceSerial]
+                .some(v => v && String(v).toLowerCase().includes(q));
+        });
+    }, [rows, search, typeFilter]);
+
+    const summary = useMemo(() => {
+        const employees = new Set();
+        const byType = {};
+        let restorable = 0;
+        rows.forEach(r => {
+            if (r.pin) employees.add(String(r.pin));
+            byType[r.type || 'unknown'] = (byType[r.type || 'unknown'] ?? 0) + 1;
+            if (r.restorable) restorable++;
+        });
+        return { total: rows.length, employees: employees.size, byType, restorable };
+    }, [rows]);
+
+    const openRestore = () => {
+        setResult(null);
+        setAck(false);
+        setTargetId(admsDevices.length === 1 ? String(admsDevices[0].id) : '');
+        setRestoreOpen(true);
+    };
+
+    const submitRestore = async () => {
+        if (!targetDevice || !canRestore) return;
+        setRestoring(true);
+        try {
+            // `confirm_restore` is not decoration: the endpoint refuses with 422
+            // unless it is explicitly true, which is the server half of the same
+            // gate as the acknowledgement checkbox above. Omitting user_ids means
+            // "every user we hold a template for" — the fleet-replacement case
+            // this screen exists for.
+            const { data } = await axios.post(route(TEMPLATE_ROUTES.restore, targetDevice.id), {
+                confirm_restore: true,
+            });
+            setResult({
+                queued:  toCount(data.queued),
+                skipped: toCount(data.skipped),
+                users:   Array.isArray(data.users) ? data.users.length : toCount(data.users),
+                reasons: normaliseReasons(data.reasons),
+                message: data.message ?? null,
+            });
+            setAck(false);
+            // Deliberately not "restored" and deliberately no progress indicator:
+            // nothing has reached the hardware. ADMS is device-initiated, so the
+            // writes sit in the command queue until the terminal polls.
+            showToast.success(
+                data.message
+                ?? `${toCount(data.queued) ?? 0} template write(s) queued for ${targetDevice.name}. The device collects them on its next poll.`,
+            );
+        } catch (e) {
+            showToast.error(e.response?.data?.message ?? 'Failed to queue the template restore.');
+        } finally {
+            setRestoring(false);
+        }
+    };
+
+    return (
+        <Box>
+            <Flex align="center" justify="between" gap="3" mb="1" wrap="wrap">
+                <Flex align="center" gap="2">
+                    <LockClosedIcon />
+                    <Text size="2" weight="medium">Stored Biometric Templates</Text>
+                    {loaded && !loading && (
+                        <Badge color="gray" variant="soft" size="1">{summary.total} stored</Badge>
+                    )}
+                </Flex>
+                <Flex gap="2" align="center">
+                    <Button size="2" variant="soft" color="gray" onClick={load} disabled={!canList || loading}>
+                        {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+                    </Button>
+                    <Tooltip content={
+                        !canRestore
+                            ? 'The restore endpoint is not registered on this server yet.'
+                            : admsDevices.length === 0
+                                ? 'Restoring writes ADMS commands, which only ADMS-protocol terminals collect.'
+                                : 'Queues the stored templates to be written back onto a terminal.'
+                    }>
+                        <Button
+                            size="2"
+                            onClick={openRestore}
+                            disabled={!canRestore || admsDevices.length === 0 || rows.length === 0}
+                        >
+                            <ArrowRightIcon /> Restore to device
+                        </Button>
+                    </Tooltip>
+                </Flex>
+            </Flex>
+
+            <Text size="1" color="gray" as="div" mb="3">
+                Fingerprint and face templates the terminals have pushed to us since ADMS was
+                switched on. The raw template is <strong>never</strong> returned by the API and is
+                not displayable or downloadable here — only the fact that one exists, who it belongs
+                to, and where it came from.
+            </Text>
+
+            {!canList ? (
+                <Callout.Root color="amber" size="1">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Callout.Text>
+                        <Code size="1">{TEMPLATE_ROUTES.list}</Code> is not registered on this server yet,
+                        so stored templates cannot be listed. They are still being captured — nothing is
+                        being lost, and nothing else on this page is affected.
+                    </Callout.Text>
+                </Callout.Root>
+            ) : (
+                <>
+                    {/* Summary */}
+                    <Flex wrap="wrap" gap="2" mb="3">
+                        <Badge size="2" variant="soft" color="blue" radius="full">
+                            <Text weight="bold">{summary.total}</Text> <Text style={{ opacity: 0.7 }}>Templates</Text>
+                        </Badge>
+                        <Badge size="2" variant="soft" color="violet" radius="full">
+                            <Text weight="bold">{summary.employees}</Text> <Text style={{ opacity: 0.7 }}>Enrolled PINs</Text>
+                        </Badge>
+                        {Object.entries(summary.byType).map(([t, n]) => (
+                            <Badge key={t} size="2" variant="soft" radius="full"
+                                color={TEMPLATE_TYPE_META[t]?.color ?? 'gray'}>
+                                <Text weight="bold">{n}</Text>{' '}
+                                <Text style={{ opacity: 0.7 }}>{TEMPLATE_TYPE_META[t]?.label ?? prettyReason(t)}</Text>
+                            </Badge>
+                        ))}
+                    </Flex>
+
+                    {/* Filters */}
+                    <Flex gap="3" mb="3" wrap="wrap" align="center">
+                        <TextField.Root
+                            placeholder="Search employee, PIN or device…"
+                            size="2"
+                            style={{ maxWidth: 300 }}
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        >
+                            <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                        </TextField.Root>
+                        <Select.Root size="2" value={typeFilter} onValueChange={setType}>
+                            <Select.Trigger style={{ width: 170 }} />
+                            <Select.Content>
+                                <Select.Item value="all">All types</Select.Item>
+                                <Select.Item value="fingerprint">Fingerprint</Select.Item>
+                                <Select.Item value="face">Face</Select.Item>
+                                <Select.Item value="palm">Palm</Select.Item>
+                            </Select.Content>
+                        </Select.Root>
+                        {loading && <Spinner size="2" />}
+                        <Text size="1" color="gray" ml="auto">{filtered.length} shown</Text>
+                    </Flex>
+
+                    {/* Table */}
+                    <Box style={{ overflowX: 'auto' }}>
+                        <Table.Root variant="surface" size="1">
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>PIN</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Size</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Source device</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Captured</Table.ColumnHeaderCell>
+                                </Table.Row>
+                            </Table.Header>
+                            <Table.Body>
+                                {filtered.map(r => {
+                                    const meta = TEMPLATE_TYPE_META[r.type] ?? { color: 'gray', label: r.type || 'Unknown' };
+                                    return (
+                                        <Table.Row key={r.id}>
+                                            <Table.Cell>
+                                                {r.employeeName ? (
+                                                    <Flex direction="column">
+                                                        <Text size="1" weight="medium">{r.employeeName}</Text>
+                                                        {r.employeeCode && <Text size="1" color="gray">{r.employeeCode}</Text>}
+                                                    </Flex>
+                                                ) : (
+                                                    <Tooltip content="The template is stored, but the PIN it was captured under no longer resolves to an employee.">
+                                                        <Badge size="1" color="orange" variant="soft" radius="full">Unlinked</Badge>
+                                                    </Tooltip>
+                                                )}
+                                            </Table.Cell>
+                                            <Table.Cell><Code size="1" variant="soft">{r.pin ?? '—'}</Code></Table.Cell>
+                                            <Table.Cell>
+                                                <Flex align="center" gap="1" wrap="wrap">
+                                                    <Badge size="1" variant="soft" color={meta.color} radius="full">{meta.label}</Badge>
+                                                    {r.type === 'fingerprint' && r.fingerIndex !== null && r.fingerIndex !== undefined && (
+                                                        <Text size="1" color="gray">#{r.fingerIndex}</Text>
+                                                    )}
+                                                    {/* Stored and listed, but a restore cannot carry it:
+                                                      * DATA UPDATE FINGERTMP is a fingerprint command.
+                                                      * Saying so on the row is better than letting the
+                                                      * skipped count explain it after the fact. */}
+                                                    {!r.restorable && (
+                                                        <Tooltip content={r.notRestorableReason ?? 'Only fingerprint templates can be written back to a device. This one is stored and listed, but a restore will skip it.'}>
+                                                            <Badge size="1" variant="soft" color="gray" radius="full">Listed only</Badge>
+                                                        </Tooltip>
+                                                    )}
+                                                </Flex>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Text size="1">{formatBytes(r.size)}</Text>
+                                                {r.version && <Text size="1" color="gray"> · {r.version}</Text>}
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Flex direction="column">
+                                                    <Text size="1">{r.deviceName ?? '—'}</Text>
+                                                    {r.deviceSerial && <Text size="1" color="gray">{r.deviceSerial}</Text>}
+                                                </Flex>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Text size="1" color="gray">
+                                                    {r.capturedAt ? new Date(r.capturedAt).toLocaleString() : '—'}
+                                                </Text>
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    );
+                                })}
+                                {!loading && filtered.length === 0 && (
+                                    <Table.Row>
+                                        <Table.Cell colSpan={6}>
+                                            <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
+                                                {rows.length === 0
+                                                    ? 'No biometric templates have been captured yet. Terminals push them on enrolment.'
+                                                    : 'No templates match this filter.'}
+                                            </Text>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                )}
+                            </Table.Body>
+                        </Table.Root>
+                    </Box>
+                </>
+            )}
+
+            {/* Restore confirmation. Writing biometric data onto hardware is not
+              * something to trigger from a single unlabelled button, so the target
+              * device is named in full and the acknowledgement repeats it. */}
+            <Dialog.Root open={restoreOpen} onOpenChange={setRestoreOpen}>
+                <Dialog.Content style={{ maxWidth: 560 }}>
+                    <Dialog.Title>Restore templates to a device</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        This writes stored fingerprint and face templates onto a terminal. It adds
+                        enrolments to the device; it does not remove anything already on it.
+                    </Dialog.Description>
+
+                    <Box mt="4">
+                        <Text size="2" weight="medium" as="div" mb="1">Target device</Text>
+                        <Select.Root size="2" value={targetId} onValueChange={v => { setTargetId(v); setAck(false); }}>
+                            <Select.Trigger style={{ width: '100%' }} placeholder="Select the device to write to" />
+                            <Select.Content>
+                                {admsDevices.map(d => (
+                                    <Select.Item key={d.id} value={String(d.id)}>
+                                        {d.name} — {d.serial_number}
+                                    </Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
+                    </Box>
+
+                    <Callout.Root color="amber" mt="3" size="1">
+                        <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                        <Callout.Text>
+                            The restore is <strong>queued, not applied</strong>. ADMS is device-initiated:
+                            the server cannot write to a terminal on demand, so these commands sit in the
+                            queue until the device next polls — seconds to minutes later, and never at all
+                            if the unit is offline. Watch Device Commands on the Devices tab for the acks.
+                        </Callout.Text>
+                    </Callout.Root>
+
+                    {targetDevice && (
+                        <>
+                            <Flex align="start" gap="2" mt="3">
+                                <Checkbox checked={acknowledged} onCheckedChange={v => setAck(Boolean(v))} />
+                                <Text size="2">
+                                    Write biometric data onto <strong>{targetDevice.name}</strong>{' '}
+                                    (<Code size="1">{targetDevice.serial_number}</Code>
+                                    {targetDevice.location ? ` at ${targetDevice.location}` : ''}). Up to{' '}
+                                    {summary.restorable} of {summary.total} stored template
+                                    {summary.total === 1 ? '' : 's'}, covering {summary.employees} PIN
+                                    {summary.employees === 1 ? '' : 's'}, will be queued for it.
+                                </Text>
+                            </Flex>
+                            {summary.restorable < summary.total && (
+                                <Text size="1" color="gray" as="div" mt="2" ml="6">
+                                    {summary.total - summary.restorable} stored template
+                                    {summary.total - summary.restorable === 1 ? ' is' : 's are'} not restorable —
+                                    the write-back command is <Code size="1">DATA UPDATE FINGERTMP</Code>, so face and
+                                    palm templates are listed here but never pushed. They will appear in the skipped
+                                    breakdown.
+                                </Text>
+                            )}
+                            <Text size="1" color="gray" as="div" mt="2" ml="6">
+                                Templates the target already holds are skipped, so re-running this is safe and does
+                                not duplicate enrolments.
+                            </Text>
+                        </>
+                    )}
+
+                    {/* Outcome. Reported in the dialog rather than a toast because the
+                      * skipped/reasons breakdown is the part worth reading. */}
+                    {result && (
+                        <Panel variant="surface" mt="4">
+                            <Text size="2" weight="medium" as="div" mb="2">Queued</Text>
+                            <Flex wrap="wrap" gap="2" mb="2">
+                                <Badge size="2" variant="soft" color="green" radius="full">
+                                    <Text weight="bold">{result.queued ?? 0}</Text> <Text style={{ opacity: 0.7 }}>Queued</Text>
+                                </Badge>
+                                <Badge size="2" variant="soft" color="amber" radius="full">
+                                    <Text weight="bold">{result.skipped ?? 0}</Text> <Text style={{ opacity: 0.7 }}>Skipped</Text>
+                                </Badge>
+                                {result.users !== null && result.users !== undefined && (
+                                    <Badge size="2" variant="soft" color="violet" radius="full">
+                                        <Text weight="bold">{result.users}</Text> <Text style={{ opacity: 0.7 }}>Employees</Text>
+                                    </Badge>
+                                )}
+                            </Flex>
+                            {result.reasons.length > 0 ? (
+                                <Box>
+                                    <Text size="1" color="gray" as="div" mb="1">Why rows were skipped</Text>
+                                    {result.reasons.map(r => (
+                                        <Flex key={r.reason} align="center" gap="2" mb="1" wrap="wrap">
+                                            <Badge color="gray" variant="soft" size="1">{r.count ?? '—'}</Badge>
+                                            <Text size="1">{prettyReason(r.reason)}</Text>
+                                        </Flex>
+                                    ))}
+                                </Box>
+                            ) : (
+                                <Text size="1" color="gray">No skip reasons reported.</Text>
+                            )}
+                            <Text size="1" color="gray" as="div" mt="2">
+                                Nothing has changed on the hardware yet. These are pending commands.
+                            </Text>
+                        </Panel>
+                    )}
+
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close><Button variant="soft" color="gray">Close</Button></Dialog.Close>
+                        <Button
+                            onClick={submitRestore}
+                            disabled={!canRestore || restoring || !targetDevice || !acknowledged}
+                        >
+                            {restoring ? <><Spinner size="1" /> Queueing…</> : 'Queue restore'}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
         </Box>
     );
 }
@@ -2426,21 +3363,45 @@ function CapabilitiesTab({ devices = [], isMobile }) {
         if (deviceId) loadSnapshot(deviceId);
     }, [deviceId, loadSnapshot]);
 
-    /** Keys the device explicitly told us it cannot do. */
+    /** Every raw device answer, indexed case- and tilde-insensitively. */
+    const optionIndex = useMemo(() => buildOptionIndex(snapshot), [snapshot]);
+
+    /**
+     * Keys the device will not answer for — an explicit −1004, or a key it
+     * silently dropped from a reply it called successful. Stored normalised so
+     * `MThreshold` and `~MThreshold` cannot disagree about the same fact.
+     */
     const unsupportedKeys = useMemo(() => {
         const set = new Set();
-        const push = (v) => { if (typeof v === 'string' && v) set.add(v); };
+        const push = (v) => { if (typeof v === 'string' && v) set.add(normaliseOptionKey(v)); };
         const lists = [snapshot?.unsupported_keys, snapshot?.unsupported, snapshot?.unsupportedKeys];
         lists.forEach(list => { if (Array.isArray(list)) list.forEach(push); });
         // A key→bool map is the other plausible shape. Only an explicit `false`
         // means unsupported; a missing key just means "never answered".
-        [snapshot?.supported, snapshot?.support, snapshot?.capabilities].forEach(map => {
+        [snapshot?.supported, snapshot?.support].forEach(map => {
             if (map && typeof map === 'object' && !Array.isArray(map)) {
-                Object.entries(map).forEach(([k, v]) => { if (v === false) set.add(k); });
+                Object.entries(map).forEach(([k, v]) => { if (v === false) push(k); });
             }
         });
         return set;
     }, [snapshot]);
+
+    const isUnsupportedKey = useCallback(
+        (k) => unsupportedKeys.has(normaliseOptionKey(k)),
+        [unsupportedKeys],
+    );
+
+    /**
+     * Device state for one key. The raw `options` entry is authoritative because
+     * it is the only place that separates a −1004 from a silent omission; the
+     * flat `unsupported_keys` list is the fallback for a snapshot shape that
+     * carries no options map, and can only ever say "unsupported".
+     */
+    const keyStateFor = useCallback((key) => {
+        const state = readKeyState(optionIndex, key);
+        if (state === 'unprobed' && isUnsupportedKey(key)) return 'unsupported';
+        return state;
+    }, [optionIndex, isUnsupportedKey]);
 
     const probedAt = useMemo(() => {
         const raw = snapshot?.probed_at ?? snapshot?.probedAt ?? null;
@@ -2465,10 +3426,10 @@ function CapabilitiesTab({ devices = [], isMobile }) {
 
     const dirtyKeys = useMemo(
         () => catalogue
-            .filter(e => !unsupportedKeys.has(e.key))
+            .filter(e => !isUnsupportedKey(e.key))
             .map(e => e.key)
             .filter(k => String(values[k] ?? '') !== String(baseline[k] ?? '')),
-        [catalogue, values, baseline, unsupportedKeys],
+        [catalogue, values, baseline, isUnsupportedKey],
     );
 
     const dangerEntries     = useMemo(() => catalogue.filter(e => e.danger), [catalogue]);
@@ -2643,18 +3604,94 @@ function CapabilitiesTab({ devices = [], isMobile }) {
             <Text size="2" weight="medium" as="div" mb="2">Capacity</Text>
             <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
                 {CAPACITY_METRICS.map(metric => {
-                    const unsupported = metric.usedKeys.some(k => unsupportedKeys.has(k));
+                    /*
+                     * The service computes each meter itself, and it is the only
+                     * side that can: it knows which spelling of a maximum is a
+                     * literal count and which is in some undeclared unit, and it
+                     * withholds `max` entirely rather than hand down a
+                     * denominator it cannot vouch for. Prefer that block. The
+                     * key-scavenging below is the fallback for a snapshot that
+                     * predates it, and it stays conservative for the same reason.
+                     */
+                    const server = snapshot?.capacity?.[metric.id];
+                    const fromServer = server && typeof server === 'object' && !Array.isArray(server);
+
+                    const usedState = readKeyStateAny(optionIndex, metric.usedKeys);
+                    const rejected = usedState === 'unsupported' || usedState === 'omitted'
+                        || metric.usedKeys.some(isUnsupportedKey);
+
+                    const used = fromServer
+                        ? toCount(server.used)
+                        : (rejected ? null : toCount(pickSnapshotValue(snapshot, metric.usedKeys)));
+                    const max = fromServer
+                        ? toCount(server.max)
+                        : (rejected ? null : toCount(pickSnapshotValue(snapshot, metric.maxKeys)));
+
+                    // What the device literally said the maximum was, whether or
+                    // not it survived as a usable denominator. Only used to
+                    // explain a withheld ratio, never to compute one.
+                    const reportedMax = toCount(pickSnapshotValue(snapshot, metric.maxKeys));
+
+                    const supported = fromServer ? server.supported !== false : !rejected;
+                    const known = fromServer
+                        ? server.known !== false
+                        : (used !== null || max !== null);
+
                     return (
                         <CapacityMeter
                             key={metric.id}
                             label={metric.label}
-                            used={unsupported ? null : toCount(pickSnapshotValue(snapshot, metric.usedKeys))}
-                            max={unsupported ? null : toCount(pickSnapshotValue(snapshot, metric.maxKeys))}
-                            unsupported={unsupported}
+                            used={used}
+                            max={max}
+                            reportedMax={reportedMax}
+                            supported={supported}
+                            known={known}
+                            unsupportedNote={usedState === 'omitted'
+                                ? 'The device was asked for this counter and left it out of a reply it called successful — so it never said how many, and never said it could not. Re-probe; unlike a −1004 this can change.'
+                                : undefined}
                         />
                     );
                 })}
             </Grid>
+
+            {/*
+              * Engine presence. `FvFunOn = 0` / `PvFunOn = 0` — exactly what a
+              * real MB460 answers — mean the unit has no finger-vein and no
+              * palm-vein engine at all. That is a permanent fact about the model,
+              * not "nobody is enrolled yet", and the two must never read the same.
+              */}
+            <Text size="2" weight="medium" as="div" mb="2">Biometric engines</Text>
+            <Panel variant="surface" mb="4">
+                <Text size="1" color="gray" as="div" mb="3">
+                    Whether the terminal has each engine at all. <strong>Absent</strong> is a property of the
+                    model — no amount of enrolling will change it. It is a different statement from a
+                    capacity meter reading zero, which means the engine is there and nobody has enrolled.
+                </Text>
+                <Grid columns={{ initial: '2', sm: '3', md: '5' }} gap="3">
+                    {ENGINE_FLAGS.map(engine => {
+                        const present = readEngineFlag(snapshot, engine);
+                        const state = readKeyStateAny(optionIndex, engine.keys);
+                        const meta = present === true
+                            ? { color: 'green', label: 'Present' }
+                            : present === false
+                                ? { color: 'gray', label: 'Absent on this model' }
+                                : { color: KEY_STATE_META[state]?.color ?? 'gray', label: KEY_STATE_META[state]?.label ?? 'Unknown' };
+                        const note = present === true
+                            ? 'The device reported this engine as on.'
+                            : present === false
+                                ? 'The device reported this engine as off — the hardware has no such sensor. Nothing enrolled here, ever.'
+                                : (KEY_STATE_NOTE[state] ?? 'The device has not said either way.');
+                        return (
+                            <Box key={engine.id}>
+                                <Text size="1" color="gray" as="div">{engine.label}</Text>
+                                <Tooltip content={note}>
+                                    <Badge color={meta.color} variant="soft" size="1">{meta.label}</Badge>
+                                </Tooltip>
+                            </Box>
+                        );
+                    })}
+                </Grid>
+            </Panel>
 
             {/* Identity — device-reported, explicitly distinct from the admin-entered record */}
             <Panel variant="surface" mb="4">
@@ -2753,7 +3790,7 @@ function CapabilitiesTab({ devices = [], isMobile }) {
                                         entry={entry}
                                         value={values[entry.key] ?? ''}
                                         dirty={dirtyKeys.includes(entry.key)}
-                                        unsupported={unsupportedKeys.has(entry.key)}
+                                        state={keyStateFor(entry.key)}
                                         locked={false}
                                         queuedValue={queuedKeys[entry.key]}
                                         onChange={setValue}
@@ -2774,7 +3811,7 @@ function CapabilitiesTab({ devices = [], isMobile }) {
                                         entry={entry}
                                         value={values[entry.key] ?? ''}
                                         dirty={dirtyKeys.includes(entry.key)}
-                                        unsupported={unsupportedKeys.has(entry.key)}
+                                        state={keyStateFor(entry.key)}
                                         locked={false}
                                         queuedValue={queuedKeys[entry.key]}
                                         onChange={setValue}
@@ -2824,7 +3861,7 @@ function CapabilitiesTab({ devices = [], isMobile }) {
                                         entry={entry}
                                         value={values[entry.key] ?? ''}
                                         dirty={dirtyKeys.includes(entry.key)}
-                                        unsupported={unsupportedKeys.has(entry.key)}
+                                        state={keyStateFor(entry.key)}
                                         locked={!dangerArmed}
                                         queuedValue={queuedKeys[entry.key]}
                                         onChange={setValue}
@@ -2902,13 +3939,38 @@ export default function BiometricPanel({
 }) {
     const [devices, setDevices] = useState(initialDevices);
     const [subTab, setSubTab]   = useState('devices');
+    const [fetchedEmployees, setFetchedEmployees] = useState([]);
+
+    /**
+     * The `employees` prop is real and populated — but only from one of the two
+     * places that mount this panel. Settings/BiometricDevices passes the roster
+     * the controller loads; Attendance → Biometric passes a hardcoded `[]`, so
+     * the unknown-user picker there would have nobody to offer.
+     *
+     * `biometric-devices.index` returns that same roster alongside the devices
+     * when asked for JSON — and it is the exact request this panel already makes
+     * on its device poll. So the fallback is free, needs no change to the panel's
+     * props, and needs no change to either page.
+     */
+    const employeePool = employees.length > 0 ? employees : fetchedEmployees;
 
     const refreshDevices = useCallback(async () => {
         try {
             const { data } = await axios.get(route('biometric-devices.index'));
             setDevices(data.devices ?? []);
+            if (Array.isArray(data.employees) && data.employees.length > 0) {
+                setFetchedEmployees(data.employees);
+            }
         } catch { /* silently fail */ }
     }, []);
+
+    // One immediate fetch when the panel was handed no roster. The 5s device
+    // poll below would eventually supply one, but not before an admin can open
+    // an ATTLOG row. Deliberately separate from that poll, which is unchanged.
+    useEffect(() => {
+        if (!isActive || employees.length > 0 || fetchedEmployees.length > 0) return;
+        refreshDevices();
+    }, [isActive, employees.length, fetchedEmployees.length, refreshDevices]);
 
     // Poll devices and logs when active
     useEffect(() => {
@@ -2966,8 +4028,11 @@ export default function BiometricPanel({
                     {/* Capability is a different axis from Device Health: what the unit *is*
                       * and can *hold*, from a snapshot the device volunteers on its own
                       * schedule — not whether it answered a heartbeat in the last 30s. */}
+                    {/* Named for both halves: the stored-template table under this
+                      * tab is the only recovery path if a terminal dies, and a
+                      * label that does not mention it makes that path unfindable. */}
                     <Tabs.Trigger value="capabilities">
-                        <Flex align="center" gap="2"><GearIcon /> Capabilities</Flex>
+                        <Flex align="center" gap="2"><GearIcon /> Capabilities &amp; Templates</Flex>
                     </Tabs.Trigger>
                     <Tabs.Trigger value="logs">
                         <Flex align="center" gap="2"><ActivityLogIcon /> ADMS Logs</Flex>
@@ -2992,8 +4057,21 @@ export default function BiometricPanel({
                 <Tabs.Content value="health">
                     <HealthTab isMobile={isMobile} />
                 </Tabs.Content>
+                {/*
+                  * Templates share the Capabilities tab rather than taking a
+                  * ninth. See the TemplatesSection docblock for the argument: it
+                  * is the same subject as capacity seen from our side, and the
+                  * restore needs a target device, which is what this tab is
+                  * already about. Mounted as a sibling of CapabilitiesTab, not
+                  * inside it, because CapabilitiesTab returns early when the
+                  * capability endpoints are missing or no ADMS device exists —
+                  * and stored templates are readable and worth reading in both
+                  * of those cases.
+                  */}
                 <Tabs.Content value="capabilities">
                     <CapabilitiesTab isMobile={isMobile} devices={devices} />
+                    <Separator size="4" my="5" />
+                    <TemplatesSection devices={devices} />
                 </Tabs.Content>
                 <Tabs.Content value="logs">
                     <LogsTab isMobile={isMobile} />
@@ -3002,7 +4080,7 @@ export default function BiometricPanel({
                     <OperLogTab isMobile={isMobile} />
                 </Tabs.Content>
                 <Tabs.Content value="attlog">
-                    <AttLogTab isMobile={isMobile} devices={devices} />
+                    <AttLogTab isMobile={isMobile} devices={devices} employees={employeePool} />
                 </Tabs.Content>
                 <Tabs.Content value="webhook">
                     <WebhookTab />

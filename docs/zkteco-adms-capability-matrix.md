@@ -30,9 +30,10 @@ a generic failure.
 | `[V]` | `POST /iclock/cdata?table=templatev10` | Fingerprint template | Stored, never restorable |
 | `[V]` | `POST /iclock/cdata?table=facetmpv10` | Face template | Stored, never restorable |
 | `[D]` | `POST /iclock/cdata?table=BIODATA` | Unified biometric payload on newer firmware (finger/face/palm/vein) | **Not handled** — falls through to the ATTLOG parser |
-| `[D]` | `POST /iclock/cdata?table=ATTPHOTO` | Capture photo attached to a punch | **Not handled**, yet we advertise `ATTPHOTOStamp` in the handshake |
+| `[D]` | `POST /iclock/cdata?table=ATTPHOTO` | Capture photo attached to a punch | Not handled — and no longer invited: `ATTPHOTOStamp` was removed from the handshake |
 | `[D]` | `POST /iclock/cdata?table=options&c=registry` | Registration payload: `DeviceType`, `FirmVer`, `IPAddress`, `MACAddress`, `Platform` | **Not handled** |
-| `[?]` | `table=errorlog`, `table=rtlog` | Device faults / realtime event stream | Not handled |
+| `[?]` | `table=errorlog` | Device faults | Persisted to `biometric_oper_logs` as `Device Error` (capped per push); never parsed as attendance |
+| `[?]` | `table=rtlog` | Realtime event stream | Accepted, logged, dropped on purpose — it mirrors punches ATTLOG already delivers |
 | `[V]` | `GET /iclock/getrequest` | Device polls for a pending command | Handled |
 | `[V]` | `POST /iclock/devicecmd` | Command acknowledgement `ID=&Return=&CMD=` | Handled |
 
@@ -101,18 +102,25 @@ learn a given unit has no face engine, which should then hide face-related UI.
 Currently emitted from `buildHandshakeOptionsBody()`:
 
 ```
-ATTLOGStamp, OPERLOGStamp, ATTPHOTOStamp, errorDelay, delay,
-transTimes, transFlag, encrypt, ServerVer=2.4.1, PushProtVer=2.4.1
+ATTLOGStamp, OPERLOGStamp, errorDelay, delay,
+transTimes, transFlag, encrypt, ServerVer=2.4.1, PushProtVer=<negotiated>
 ```
 
 Documented keys we omit: `BIODATAStamp`, `TransInterval`, `Realtime`, `TimeZone`.
 
-Two concrete problems:
+Both problems in this section are now closed:
 
-1. **`PushProtVer` is hardcoded to 2.4.1** while the device tells us its actual `pushver`
-   on every init. We should echo/negotiate rather than assert.
-2. **`ATTPHOTOStamp` is advertised without a handler.** We are inviting a push we then
-   misparse.
+1. **`PushProtVer` is negotiated, not asserted.** The device's announced `pushver` is
+   echoed back when it is a plain dotted-numeric version; anything else — absent, a
+   firmware string such as the MB460's `Ver 2.0.33S-20220623`, or a CRLF injection
+   attempt — falls back to the hardcoded `2.4.1`, i.e. the body that works in
+   production today. Agreeing with the device is the safe direction: claiming a
+   *higher* version than a terminal speaks is what makes it expect behaviour we do
+   not implement. `ServerVer` still describes this server and stays asserted.
+2. **`ATTPHOTOStamp` is no longer advertised.** A `*Stamp` key is the per-table sync
+   cursor that invites that push; removing it removes the invitation. `transFlag` is
+   deliberately untouched — its bit ordering is single-source `[?]` and its leading
+   digits enable the ATTLOG/OPERLOG/USERINFO pushes we do consume.
 
 ---
 

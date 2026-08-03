@@ -49,6 +49,114 @@ class DeviceCapabilityTest extends TestCase
         return app(DeviceCapabilityService::class);
     }
 
+    /**
+     * The `INFO` reply from a real ZKTeco MB460 — serial AF6P231260266, firmware
+     * Ver 8.0.4.6-20230217, push 2.0.33S — captured in production, where the
+     * command came back `status=executed, return=0` and stored 74 keys.
+     *
+     * Synthetic fixtures are what let three defects reach a live device: the
+     * `~` prefix on every maximum and on most of the identity fields, `MAC`
+     * rather than `MACAddress`, and `~Max…` values that are not record counts.
+     * So this is the device's own vocabulary, not ours.
+     *
+     * ── Provenance, because it is the whole point ────────────────────────────
+     * The device sent 74 keys; the incident notes kept an excerpt. Verbatim
+     * from that excerpt — every value below is the device's own — are:
+     *
+     *   ~SerialNumber ~DeviceName ~Platform ~OEMVendor ~MaxUserCount
+     *   ~MaxFingerCount ~MaxFaceCount ~MaxAttLogCount ~MaxUserPhotoCount
+     *   ~MaxPvCount FWVersion PushVersion MAC IPAddress FPCount FaceCount
+     *   FvCount PvCount FingerFunOn FaceFunOn FvFunOn PvFunOn FlashSize
+     *   FreeFlashSize
+     *
+     * The rest are reconstructed from the same unit's behaviour rather than
+     * copied from the excerpt, and are kept only because a 24-key INFO would be
+     * an unrealistically tidy payload:
+     *
+     *   UserCount        — the production snapshot rendered `users.used = 13`,
+     *                      which only this key can have supplied
+     *   TransactionCount — 1009, confirmed by a later six-key GET OPTION probe
+     *                      as a value this device "already had from INFO"
+     *   ~MaxFvCount      — noted alongside ~MaxUserPhotoCount/~MaxPvCount as the
+     *                      2000/10/0 trio in DeviceCapabilityService
+     *   PhotoFunOn, ATTPhotoCount, ~ZKFPVersion, ~AlgVer, ~DSTF, FPVersion,
+     *   FaceVersion, Language, IsTFT — routine ZK INFO filler
+     *
+     * Assertions that carry weight are pinned to the verbatim group. The one
+     * exception is `PhotoFunOn`, which drives `flags.user_photo`; treat that
+     * single assertion as covering the ENGINE_FLAGS mechanism, not as evidence
+     * about this model.
+     *
+     * @var array<string, string>
+     */
+    private const MB460_INFO = [
+        '~SerialNumber' => 'AF6P231260266',
+        '~DeviceName' => 'MB460/ID',
+        '~Platform' => 'ZMM220_TFT',
+        '~OEMVendor' => 'ZKTECO CO.',
+        '~MaxUserCount' => '20',
+        '~MaxFingerCount' => '20',
+        '~MaxFaceCount' => '1500',
+        '~MaxAttLogCount' => '10',
+        '~MaxUserPhotoCount' => '2000',
+        '~MaxFvCount' => '10',
+        '~MaxPvCount' => '0',
+        '~ZKFPVersion' => '10',
+        '~AlgVer' => '10',
+        '~DSTF' => '1',
+        'FWVersion' => 'Ver 8.0.4.6-20230217',
+        'PushVersion' => 'Ver 2.0.33S-20220623',
+        'MAC' => '00:17:61:11:65:1b',
+        'IPAddress' => '192.168.68.100',
+        'UserCount' => '13',
+        'TransactionCount' => '1009',
+        'FPCount' => '26',
+        'FaceCount' => '1',
+        'FvCount' => '0',
+        'PvCount' => '0',
+        'FingerFunOn' => '1',
+        'FaceFunOn' => '1',
+        'FvFunOn' => '0',
+        'PvFunOn' => '0',
+        'PhotoFunOn' => '1',
+        'ATTPhotoCount' => '0',
+        'FlashSize' => '202880',
+        'FreeFlashSize' => '136752',
+        'FPVersion' => '10',
+        'FaceVersion' => '7',
+        'Language' => '69',
+        'IsTFT' => '1',
+    ];
+
+    /**
+     * The fixture above on the wire. ZK terminals stream `key=value` pairs
+     * separated by tabs/newlines; the column layout in the incident notes is
+     * presentation, not protocol.
+     */
+    private function mb460InfoPayload(): string
+    {
+        $pairs = [];
+
+        foreach (self::MB460_INFO as $key => $value) {
+            $pairs[] = $key.'='.$value;
+        }
+
+        return implode("\t", $pairs);
+    }
+
+    /**
+     * The device record as it exists in production for this unit — the admin
+     * typed an IP the device has since drifted away from.
+     */
+    private function mb460(): BiometricDevice
+    {
+        return $this->device([
+            'name' => 'Head Office Gate',
+            'serial_number' => 'AF6P231260266',
+            'ip_address' => '192.168.1.132',
+        ]);
+    }
+
     // ──────────────────────────────────────────────────────────────
     //  Task 1 — command vocabulary
     // ──────────────────────────────────────────────────────────────
@@ -516,6 +624,578 @@ class DeviceCapabilityTest extends TestCase
         $device->save();
 
         $this->assertTrue($this->service()->snapshot($device->fresh())['is_stale']);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Real hardware — ZKTeco MB460, serial AF6P231260266
+    // ──────────────────────────────────────────────────────────────
+
+    public function test_real_mb460_info_payload_populates_identity(): void
+    {
+        $device = $this->mb460();
+
+        $parsed = $this->service()->parseInfoResponse($device, $this->mb460InfoPayload());
+
+        // Every key the device sent survives the parser, `~` and all.
+        $this->assertSame(self::MB460_INFO, $parsed);
+
+        $snapshot = $this->service()->snapshot($device->fresh());
+
+        $this->assertSame([
+            // `~DeviceName`, not `DeviceName`.
+            'device_name' => 'MB460/ID',
+            'device_type' => null,
+            // `~Platform`, not `Platform`.
+            'platform' => 'ZMM220_TFT',
+            'firmware' => 'Ver 8.0.4.6-20230217',
+            // `MAC`, not `MACAddress`.
+            'mac_address' => '00:17:61:11:65:1b',
+            'ip_address' => '192.168.68.100',
+            'record_ip_address' => '192.168.1.132',
+            'record_model' => null,
+        ], $snapshot['identity']);
+
+        $this->assertTrue($snapshot['has_data']);
+        $this->assertFalse($snapshot['is_stale']);
+        $this->assertSame([], $snapshot['unsupported_keys']);
+
+        // The serial the device reports under `~SerialNumber`, and the fact
+        // that it agrees with the record an admin registered the unit under —
+        // a mismatch here is how a swapped/RMA'd terminal is spotted.
+        $this->assertContains('~SerialNumber', $snapshot['supported_keys']);
+        $this->assertSame('AF6P231260266', $snapshot['options']['~SerialNumber']['value']);
+        $this->assertSame('AF6P231260266', $snapshot['serial_number']);
+
+        // Firmware and push protocol both survive: the values carry spaces and
+        // must not be truncated at the first one.
+        $this->assertSame('Ver 8.0.4.6-20230217', $snapshot['options']['FWVersion']['value']);
+        $this->assertSame('Ver 2.0.33S-20220623', $snapshot['options']['PushVersion']['value']);
+        $this->assertSame('ZKTECO CO.', $snapshot['options']['~OEMVendor']['value']);
+
+        foreach ($snapshot['options'] as $key => $option) {
+            $this->assertSame('info', $option['source'], "{$key} came from the wrong source");
+            $this->assertFalse($option['unsupported'], "{$key} was wrongly flagged unsupported");
+        }
+    }
+
+    public function test_capacity_maxima_resolve_despite_the_tilde_prefix(): void
+    {
+        $device = $this->mb460();
+        $this->service()->parseInfoResponse($device, $this->mb460InfoPayload());
+
+        $capacity = $this->service()->snapshot($device->fresh())['capacity'];
+
+        // `~MaxFaceCount = 1500` is the MB460's published face capacity as a
+        // literal count, so this meter is the one that can be drawn honestly.
+        $this->assertSame([
+            'label' => 'Faces',
+            'used' => 1,
+            'max' => 1500,
+            'percent' => 0.1,
+            'supported' => true,
+            'known' => true,
+        ], $capacity['faces']);
+
+        // The prefix no longer hides the answer: the live counts land too.
+        $this->assertSame(13, $capacity['users']['used']);
+        $this->assertSame(26, $capacity['fingerprints']['used']);
+        $this->assertTrue($capacity['users']['known']);
+        $this->assertTrue($capacity['fingerprints']['known']);
+    }
+
+    public function test_a_maximum_below_the_live_count_never_renders_a_percentage(): void
+    {
+        $device = $this->mb460();
+        $this->service()->parseInfoResponse($device, $this->mb460InfoPayload());
+
+        $snapshot = $this->service()->snapshot($device->fresh());
+        $capacity = $snapshot['capacity'];
+
+        // FPCount=26 against ~MaxFingerCount=20 would be "130% full" on a device
+        // with thousands of slots free. The denominator is withheld, not merely
+        // excluded from `percent`: consumers divide used/max themselves.
+        $this->assertSame(26, $capacity['fingerprints']['used']);
+        $this->assertNull($capacity['fingerprints']['max']);
+        $this->assertNull($capacity['fingerprints']['percent']);
+        // The fingerprint engine is present, so this is "headroom unknown",
+        // not "no such store".
+        $this->assertTrue($capacity['fingerprints']['supported']);
+
+        // `~MaxUserCount = 20` passes used <= max (13 of 20) and would render a
+        // plausible-looking 65% on a unit specced in the thousands. Only the
+        // per-key unit declaration catches that one.
+        $this->assertNull($capacity['users']['max']);
+        $this->assertNull($capacity['users']['percent']);
+
+        $this->assertNull($capacity['attendance']['max']);
+        $this->assertNull($capacity['attendance']['percent']);
+
+        // Nothing anywhere may render an impossible meter.
+        foreach ($capacity as $id => $meter) {
+            if ($meter['percent'] !== null) {
+                $this->assertGreaterThanOrEqual(0, $meter['percent'], "{$id} percent below zero");
+                $this->assertLessThanOrEqual(100, $meter['percent'], "{$id} percent above 100");
+            }
+
+            if ($meter['max'] !== null && $meter['used'] !== null) {
+                $this->assertLessThanOrEqual(
+                    $meter['max'],
+                    $meter['used'],
+                    "{$id} publishes a maximum below its own live count"
+                );
+            }
+        }
+
+        // The device's own number is still on record for a human to read.
+        $this->assertSame('20', $snapshot['options']['~MaxFingerCount']['value']);
+    }
+
+    public function test_an_absent_engine_is_distinguishable_from_an_empty_one(): void
+    {
+        $device = $this->mb460();
+        $this->service()->parseInfoResponse($device, $this->mb460InfoPayload());
+
+        $snapshot = $this->service()->snapshot($device->fresh());
+
+        // FvFunOn/PvFunOn = 0: those engines do not exist on this model.
+        // FaceFunOn = 1 with FaceCount = 1: that one exists and is in use.
+        $this->assertFalse($snapshot['flags']['finger_vein']);
+        $this->assertFalse($snapshot['flags']['palm_vein']);
+        $this->assertTrue($snapshot['flags']['face']);
+        $this->assertTrue($snapshot['flags']['fingerprint']);
+        $this->assertTrue($snapshot['flags']['user_photo']);
+        $this->assertNull($snapshot['flags']['work_code']);
+
+        // `~MaxPvCount = 0` is a real zero, corroborated by PvCount = 0 and
+        // PvFunOn = 0 — a store of nought because there is no palm engine, not
+        // a store that has filled up.
+        $this->assertSame('0', $snapshot['options']['~MaxPvCount']['value']);
+        $this->assertSame('0', $snapshot['options']['PvCount']['value']);
+        $this->assertSame('0', $snapshot['options']['PvFunOn']['value']);
+
+        // Feature-absent is carried by the flag, not by pretending the device
+        // rejected the key: it answered all three perfectly well.
+        foreach (['~MaxPvCount', 'PvCount', 'PvFunOn'] as $key) {
+            $this->assertContains($key, $snapshot['supported_keys']);
+            $this->assertFalse($snapshot['options'][$key]['unsupported']);
+        }
+
+        foreach ($snapshot['capacity'] as $id => $meter) {
+            $this->assertNotSame(100.0, $meter['percent'], "{$id} reported as completely full");
+        }
+    }
+
+    public function test_a_zero_maximum_with_its_engine_off_is_the_palm_vein_case(): void
+    {
+        // The MB460 has no palm-vein meter of its own, so the exact shape
+        // `~MaxPvCount = 0` + `PvFunOn = 0` produces is asserted here on the
+        // meter that shares its code path. 0 of 0 is "no such store", never
+        // "100% full", and never a division.
+        $device = $this->device();
+        $this->service()->parseOptionResponse($device, "FaceCount=0\t~MaxFaceCount=0\tFaceFunOn=0");
+
+        $faces = $this->service()->snapshot($device->fresh())['capacity']['faces'];
+
+        $this->assertSame(0, $faces['used']);
+        $this->assertSame(0, $faces['max']);
+        $this->assertNull($faces['percent']);
+        $this->assertFalse($faces['supported']);
+    }
+
+    public function test_a_zero_maximum_reads_as_feature_absent_rather_than_full(): void
+    {
+        // Palm vein has no meter of its own, so the same rule is asserted on a
+        // meter that does: a device reporting a face store of zero has no face
+        // engine, and 0 of 0 is not "100% full".
+        $device = $this->device();
+        $this->service()->parseOptionResponse($device, "FaceCount=0\t~MaxFaceCount=0\tFaceFunOn=0");
+
+        $faces = $this->service()->snapshot($device->fresh())['capacity']['faces'];
+
+        $this->assertFalse($faces['supported']);
+        $this->assertNull($faces['percent']);
+        $this->assertFalse($this->service()->snapshot($device->fresh())['flags']['face']);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Silently omitted keys
+    // ──────────────────────────────────────────────────────────────
+
+    public function test_a_key_omitted_from_a_successful_reply_is_recorded_as_unavailable(): void
+    {
+        // Real probe against the MB460: seven keys asked for, Return=0, six
+        // answered. MThreshold came back neither as a value nor as an error.
+        $device = $this->mb460();
+
+        $command = BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => [
+                'MThreshold', 'AlarmReRec', 'LockOn', 'VoiceOn', 'WorkCode', '~MaxUserCount', 'FPCount',
+            ]],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+        $command->markAsExecuted('0');
+        $this->assertSame('executed', $command->fresh()->status);
+
+        $parsed = $this->service()->parseOptionResponse($device, implode("\t", [
+            'AlarmReRec=30', 'LockOn=10', 'VoiceOn=1', 'WorkCode=0', '~MaxUserCount=20', 'FPCount=26',
+        ]));
+
+        $this->assertSame([
+            'AlarmReRec' => '30',
+            'LockOn' => '10',
+            'VoiceOn' => '1',
+            'WorkCode' => '0',
+            '~MaxUserCount' => '20',
+            'FPCount' => '26',
+        ], $parsed);
+
+        $this->assertDatabaseHas('biometric_device_capabilities', [
+            'biometric_device_id' => $device->id,
+            'capability_key' => 'MThreshold',
+            'value' => null,
+            'is_unsupported' => true,
+            'source' => DeviceCapabilityService::SOURCE_OMITTED,
+        ]);
+
+        $snapshot = $this->service()->snapshot($device->fresh());
+
+        // Unavailable, and legibly so: 'omitted' is not the same fact as -1004,
+        // and the UI must not print "the device answered -1004" over it.
+        $this->assertContains('MThreshold', $snapshot['unsupported_keys']);
+        $this->assertNotContains('MThreshold', $snapshot['supported_keys']);
+        $this->assertTrue($snapshot['options']['MThreshold']['unsupported']);
+        $this->assertSame('omitted', $snapshot['options']['MThreshold']['source']);
+        $this->assertNull($snapshot['options']['MThreshold']['value']);
+
+        // …and specifically not "never probed", which is what it looked like
+        // before: no row at all.
+        $this->assertArrayNotHasKey('MSpeed', $snapshot['options']);
+
+        // The six that did answer are untouched and carry their values.
+        foreach (['AlarmReRec' => '30', 'LockOn' => '10', 'VoiceOn' => '1', 'WorkCode' => '0', 'FPCount' => '26'] as $key => $value) {
+            $this->assertSame($value, $snapshot['options'][$key]['value'], "{$key} lost its value");
+            $this->assertFalse($snapshot['options'][$key]['unsupported']);
+            $this->assertContains($key, $snapshot['supported_keys']);
+        }
+
+        $this->assertSame('20', $snapshot['options']['~MaxUserCount']['value']);
+        $this->assertFalse($snapshot['flags']['work_code']);
+    }
+
+    public function test_omission_never_erases_a_value_the_device_already_gave_us(): void
+    {
+        $device = $this->mb460();
+        $service = $this->service();
+
+        // INFO volunteered the face maximum…
+        $service->parseInfoResponse($device, $this->mb460InfoPayload());
+
+        BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => ['~MaxFaceCount', 'FPCount']],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        // …and a later GET OPTION left it out. Reconciliation fills in
+        // unknowns; it does not overwrite an answer we already have.
+        $service->parseOptionResponse($device, 'FPCount=26');
+
+        $snapshot = $service->snapshot($device->fresh());
+        $this->assertSame('1500', $snapshot['options']['~MaxFaceCount']['value']);
+        $this->assertFalse($snapshot['options']['~MaxFaceCount']['unsupported']);
+        $this->assertSame(1500, $snapshot['capacity']['faces']['max']);
+    }
+
+    public function test_a_reply_matching_none_of_the_requested_keys_condemns_nothing(): void
+    {
+        $device = $this->mb460();
+
+        BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => ['MThreshold', 'VThreshold']],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        // An unsolicited push that overlaps the outstanding probe not at all is
+        // most likely not its reply, so it may not condemn its keys.
+        $this->service()->parseOptionResponse($device, 'UserCount=13');
+
+        $snapshot = $this->service()->snapshot($device->fresh());
+        $this->assertSame([], $snapshot['unsupported_keys']);
+        $this->assertArrayNotHasKey('MThreshold', $snapshot['options']);
+    }
+
+    public function test_an_omitted_key_recovers_when_a_later_probe_answers_it(): void
+    {
+        $device = $this->mb460();
+        $service = $this->service();
+
+        BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => ['MThreshold', 'VoiceOn']],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        $service->parseOptionResponse($device, 'VoiceOn=1');
+        $this->assertContains('MThreshold', $service->snapshot($device->fresh())['unsupported_keys']);
+
+        $service->parseOptionResponse($device, "MThreshold=45\tVoiceOn=1");
+
+        $snapshot = $service->snapshot($device->fresh());
+        $this->assertSame('45', $snapshot['options']['MThreshold']['value']);
+        $this->assertFalse($snapshot['options']['MThreshold']['unsupported']);
+        $this->assertSame([], $snapshot['unsupported_keys']);
+    }
+
+    public function test_an_explicit_minus_1004_is_distinguishable_from_a_silent_omission(): void
+    {
+        // Both end up unavailable, but they are different sentences on screen:
+        // "not supported on this model (the device answered -1004)" versus "the
+        // device ignored this key when probed". Only `source` separates them, so
+        // a later omission must not be allowed to relabel a -1004.
+        $device = $this->mb460();
+        $service = $this->service();
+
+        $rejected = BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => ['VThreshold']],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now()->subMinute(),
+        ]);
+        $rejected->markAsExecuted('-1004');
+        $service->markUnsupported($rejected, '-1004');
+
+        // A second probe asks for the already-rejected key alongside a fresh one
+        // and comes back Return=0 carrying neither.
+        BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => ['MThreshold', 'VThreshold', 'VoiceOn']],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        $service->parseOptionResponse($device, 'VoiceOn=1');
+
+        $snapshot = $service->snapshot($device->fresh());
+
+        // Unavailable, both of them.
+        $this->assertContains('MThreshold', $snapshot['unsupported_keys']);
+        $this->assertContains('VThreshold', $snapshot['unsupported_keys']);
+        $this->assertTrue($snapshot['options']['MThreshold']['unsupported']);
+        $this->assertTrue($snapshot['options']['VThreshold']['unsupported']);
+
+        // …but told apart. The -1004 keeps the source that recorded the code;
+        // the silent omission is the only one labelled 'omitted'.
+        $this->assertSame(
+            DeviceCapabilityService::SOURCE_OMITTED,
+            $snapshot['options']['MThreshold']['source'],
+            'a silently omitted key must be recorded as omitted'
+        );
+        $this->assertSame(
+            DeviceCapabilityService::SOURCE_GET_OPTION,
+            $snapshot['options']['VThreshold']['source'],
+            'a later omission must not relabel a key the device explicitly answered -1004'
+        );
+        $this->assertNotSame(
+            $snapshot['options']['MThreshold']['source'],
+            $snapshot['options']['VThreshold']['source']
+        );
+
+        // The command row carries the same distinction for command history.
+        $this->assertSame('unsupported', $rejected->fresh()->status);
+        $this->assertSame('-1004', $rejected->fresh()->return_code);
+
+        // And the key that did answer is untouched.
+        $this->assertSame('1', $snapshot['options']['VoiceOn']['value']);
+        $this->assertContains('VoiceOn', $snapshot['supported_keys']);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Real hardware — the six-key attendance probe
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * The second live GET_OPTION probe against the same MB460, run to fill the
+     * attendance meter the first snapshot reported as `known: false`.
+     *
+     * Six keys asked for, `return=0`, five answered. `AttLogCount` came back
+     * neither as a value nor as an error — the same silent omission as
+     * `MThreshold`, and the second independent instance of it, which is what
+     * makes SOURCE_OMITTED a model of the hardware rather than a one-off.
+     *
+     * @return array{0: BiometricDeviceCommand, 1: string}
+     */
+    private function mb460AttendanceProbe(BiometricDevice $device): array
+    {
+        $command = BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => [
+                'AttLogCount', '~MaxAttLogCount', 'UserCount',
+                'TransactionCount', 'LockCount', 'FaceCount',
+            ]],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+        $command->markAsExecuted('0');
+
+        // Five of six, verbatim. AttLogCount is absent, not empty.
+        $reply = implode("\t", [
+            '~MaxAttLogCount=10',
+            'LockCount=1',
+            'TransactionCount=1009',
+            'UserCount=13',
+            'FaceCount=1',
+        ]);
+
+        return [$command, $reply];
+    }
+
+    public function test_attendance_count_falls_back_to_transaction_count_when_the_model_omits_attlogcount(): void
+    {
+        $device = $this->mb460();
+        $service = $this->service();
+
+        [$command, $reply] = $this->mb460AttendanceProbe($device);
+        $parsed = $service->parseOptionResponse($device, $reply, $command);
+
+        $this->assertSame([
+            '~MaxAttLogCount' => '10',
+            'LockCount' => '1',
+            'TransactionCount' => '1009',
+            'UserCount' => '13',
+            'FaceCount' => '1',
+        ], $parsed);
+
+        $snapshot = $service->snapshot($device->fresh());
+
+        // The omitted key is recorded as unavailable, exactly as MThreshold was.
+        $this->assertContains('AttLogCount', $snapshot['unsupported_keys']);
+        $this->assertTrue($snapshot['options']['AttLogCount']['unsupported']);
+        $this->assertSame(
+            DeviceCapabilityService::SOURCE_OMITTED,
+            $snapshot['options']['AttLogCount']['source']
+        );
+        $this->assertNull($snapshot['options']['AttLogCount']['value']);
+
+        // …and the meter populates anyway, from the key this model does answer.
+        // Before the fallback existed it read `used: null, known: false` for
+        // ever, however many times an admin pressed Probe.
+        $attendance = $snapshot['capacity']['attendance'];
+        $this->assertSame(1009, $attendance['used']);
+        $this->assertTrue($attendance['known']);
+
+        // The fallback must not be mistaken for a rejection: AttLogCount is
+        // flagged unsupported, but TransactionCount answered, so the store is
+        // plainly there and the meter stays supported.
+        $this->assertTrue($attendance['supported']);
+
+        // The other four land normally.
+        $this->assertSame(1, $snapshot['counters']['locks']);
+        $this->assertSame(1009, $snapshot['counters']['transactions']);
+        $this->assertSame(13, $snapshot['capacity']['users']['used']);
+        $this->assertSame(1, $snapshot['capacity']['faces']['used']);
+    }
+
+    public function test_a_documented_attlogcount_still_wins_over_the_fallback(): void
+    {
+        // The fallback is an order, not a replacement: a model that answers the
+        // documented spelling must not have its own number overridden by a
+        // transaction counter that may well count something else.
+        $device = $this->device();
+        $this->service()->parseOptionResponse(
+            $device,
+            "AttLogCount=50000\tTransactionCount=7\tMaxAttLogCount=100000"
+        );
+
+        $snapshot = $this->service()->snapshot($device->fresh());
+
+        $this->assertSame(50000, $snapshot['capacity']['attendance']['used']);
+        $this->assertSame(100000, $snapshot['capacity']['attendance']['max']);
+        $this->assertSame(50.0, $snapshot['capacity']['attendance']['percent']);
+        $this->assertSame(7, $snapshot['counters']['transactions']);
+    }
+
+    public function test_max_attlog_of_ten_against_a_thousand_records_withholds_the_denominator(): void
+    {
+        // `~MaxAttLogCount = 10` against 1009 live records is the second
+        // real-world instance of the units problem, and a starker one than the
+        // fingerprint case: dividing raw would render 10,090% full.
+        //
+        // Two independent gates would each catch it. MAX_KEY_UNITS is the one
+        // that actually fires — `~maxattlogcount` is declared UNKNOWN, so the
+        // value never becomes a denominator at all. The used-greater-than-max
+        // guard in meter() is the backstop that would still catch it if anyone
+        // ever promoted that key to RAW. The assertion is on the outcome, so it
+        // holds whichever gate is doing the work.
+        $device = $this->mb460();
+        $service = $this->service();
+
+        [$command, $reply] = $this->mb460AttendanceProbe($device);
+        $service->parseOptionResponse($device, $reply, $command);
+
+        $attendance = $service->snapshot($device->fresh())['capacity']['attendance'];
+
+        $this->assertSame(1009, $attendance['used']);
+        $this->assertNull($attendance['max'], 'a maximum of 10 must never be a denominator for 1009 records');
+        $this->assertNull($attendance['percent']);
+
+        // The device's own answer is still on record for a human to read, and
+        // it is not flagged as a rejection — the device answered it happily.
+        $this->assertSame('10', $service->snapshot($device->fresh())['options']['~MaxAttLogCount']['value']);
+        $this->assertContains('~MaxAttLogCount', $service->snapshot($device->fresh())['supported_keys']);
+    }
+
+    public function test_the_full_mb460_picture_after_info_then_the_attendance_probe(): void
+    {
+        // Both real payloads in the order they happened. Nothing the INFO reply
+        // established may be lost by the later, narrower probe.
+        $device = $this->mb460();
+        $service = $this->service();
+
+        $service->parseInfoResponse($device, $this->mb460InfoPayload());
+        [$command, $reply] = $this->mb460AttendanceProbe($device);
+        $service->parseOptionResponse($device, $reply, $command);
+
+        $snapshot = $service->snapshot($device->fresh());
+
+        // Identity, established by INFO, is untouched by the option probe.
+        $this->assertSame('MB460/ID', $snapshot['identity']['device_name']);
+        $this->assertSame('00:17:61:11:65:1b', $snapshot['identity']['mac_address']);
+
+        // Every meter is either honest or silent — never absurd.
+        $this->assertSame(1009, $snapshot['capacity']['attendance']['used']);
+        $this->assertNull($snapshot['capacity']['attendance']['percent']);
+        $this->assertSame(1500, $snapshot['capacity']['faces']['max']);
+        $this->assertSame(0.1, $snapshot['capacity']['faces']['percent']);
+        $this->assertNull($snapshot['capacity']['fingerprints']['max']);
+        $this->assertNull($snapshot['capacity']['users']['max']);
+
+        foreach ($snapshot['capacity'] as $id => $meter) {
+            if ($meter['percent'] !== null) {
+                $this->assertGreaterThanOrEqual(0, $meter['percent'], "{$id} percent below zero");
+                $this->assertLessThanOrEqual(100, $meter['percent'], "{$id} percent above 100");
+            }
+
+            if ($meter['max'] !== null && $meter['used'] !== null) {
+                $this->assertLessThanOrEqual($meter['max'], $meter['used'], "{$id} max below its own count");
+            }
+        }
+
+        // The only unavailable key across both real payloads is the one the
+        // device silently dropped.
+        $this->assertSame(['AttLogCount'], $snapshot['unsupported_keys']);
     }
 
     // ──────────────────────────────────────────────────────────────

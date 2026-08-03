@@ -11,6 +11,7 @@ use App\Models\HRM\BiometricDownloadSession;
 use App\Models\User;
 use App\Services\Biometric\BiometricProcessingService;
 use App\Services\Biometric\DeviceCapabilityService;
+use App\Services\Biometric\TemplateRoamingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -1373,6 +1374,343 @@ class BiometricDeviceController extends Controller
             'commands' => $queued,
             'command_ids' => array_column($queued, 'id'),
         ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Template roaming (matrix §2 — DATA UPDATE FINGERTMP)
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * List the biometric templates this server holds.
+     *
+     * Until now capture was one-way: templatev10 / facetmpv10 pushes were
+     * stored and nothing could ever read them back, so the 13 employees whose
+     * fingerprints only exist on one MB460 were invisible in the UI. This is
+     * the read side of that — no device is contacted, it reports what is on our
+     * side.
+     *
+     * Template payloads themselves are never returned; the service returns
+     * metadata only. A base64 fingerprint template is the biometric secret, and
+     * an admin list screen has no use for it.
+     */
+    public function templates(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'nullable|integer',
+            'device_id' => 'nullable|integer',
+        ]);
+
+        $userId = $request->filled('user_id') ? (int) $request->input('user_id') : null;
+        $deviceId = $request->filled('device_id') ? (int) $request->input('device_id') : null;
+
+        // Resolved from the container at call time rather than injected into the
+        // constructor on purpose: template roaming is one feature of this
+        // controller, and a missing binding must not take down ping, health or
+        // the device CRUD with it.
+        $templates = app(TemplateRoamingService::class)->listTemplates($userId, $deviceId);
+
+        return response()->json([
+            'templates' => $templates,
+            'total' => $templates->count(),
+            'filters' => ['user_id' => $userId, 'device_id' => $deviceId],
+        ]);
+    }
+
+    /**
+     * Queue write-back of stored templates onto a device.
+     *
+     * This is the only action in this controller that puts BIOMETRIC data onto
+     * hardware, so it is gated harder than the rest:
+     *
+     *  - `confirm_restore` must be explicitly true. There is no "are you sure"
+     *    dialog on the server side of an API, so the confirmation has to be a
+     *    field on the request, the same shape used for the strand-the-device
+     *    setting keys above.
+     *  - ADMS only. DATA UPDATE FINGERTMP is an ADMS/PUSH command; a push_sdk
+     *    row has no queue to put it on.
+     *  - `user_ids` narrows the restore. Omitted means every user with a stored
+     *    template — the fleet-replication case — which is exactly why the
+     *    confirmation is not optional.
+     *  - who triggered it is logged, always. Copying a fingerprint template onto
+     *    a second reader is an act someone has to be answerable for.
+     *
+     * ADMS is device-initiated, so nothing is written now: the commands sit in
+     * the queue until the unit next polls /iclock/getrequest.
+     */
+    public function restoreTemplates(Request $request, $id)
+    {
+        $request->validate([
+            'confirm_restore' => 'sometimes|boolean',
+            'user_ids' => 'sometimes|array',
+            'user_ids.*' => 'integer',
+        ]);
+
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        if (! $device->isAdms()) {
+            return response()->json([
+                'message' => 'Template restore is only supported for ADMS protocol devices.',
+            ], 400);
+        }
+
+        if (! $device->is_active) {
+            return response()->json(['message' => 'Device is inactive.'], 403);
+        }
+
+        if (! $request->boolean('confirm_restore')) {
+            return response()->json([
+                'message' => 'Restoring templates writes fingerprint/face data onto this device. Re-send with confirm_restore=true to proceed.',
+                'requires_confirmation' => true,
+                'confirmation_field' => 'confirm_restore',
+            ], 422);
+        }
+
+        $userIds = array_values(array_unique(array_map('intval', $request->input('user_ids', []))));
+
+        $result = app(TemplateRoamingService::class)->restoreTemplatesToDevice($device, $userIds);
+
+        Log::info('Biometric template restore queued', [
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'requested_user_ids' => $userIds,
+            'scope' => $userIds === [] ? 'all_users_with_templates' : 'selected_users',
+            'queued' => $result['queued'] ?? null,
+            'skipped' => $result['skipped'] ?? null,
+            'users' => $result['users'] ?? null,
+            'user_id' => auth()->id(),
+        ]);
+
+        $queued = (int) ($result['queued'] ?? 0);
+
+        return response()->json([
+            'message' => $queued.' template write(s) queued for '.$device->name
+                .'. ADMS is device-initiated: the device applies them on its next poll, so this page will not update immediately.',
+            'asynchronous' => true,
+            'queued' => $queued,
+            'skipped' => (int) ($result['skipped'] ?? 0),
+            'users' => (int) ($result['users'] ?? 0),
+            'reasons' => $result['reasons'] ?? [],
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Unknown-user remediation
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Link a device PIN that resolved to nobody onto a real employee, and put
+     * its stranded punches back in front of the importer.
+     *
+     * When a punch arrives for a PIN no user carries, resolveOrCreateUser()
+     * mints a soft-deleted placeholder and the row is parked as
+     * punch_status='unknown_user'. Nothing ever revisits that state, so those
+     * punches are lost until someone fixes the PIN by hand in the database.
+     *
+     * Three things have to happen together, hence the transaction:
+     *  1. the real user takes the PIN as their employee_id, so FUTURE punches
+     *     resolve without any of this,
+     *  2. the placeholder releases the PIN — leaving it would let
+     *     resolveOrCreateUser() keep matching the soft-deleted row and the fix
+     *     would appear to do nothing,
+     *  3. the stranded rows are re-pointed and set back to 'downloaded', which
+     *     is the status importDownloadedLogs() selects on.
+     *
+     * The guards are the point of this endpoint. Setting employee_id is
+     * re-keying an identity: every biometric punch, past and future, is
+     * attributed by it. So we refuse if the target already carries a DIFFERENT
+     * employee_id, refuse if a live user already holds this PIN, refuse if the
+     * PIN is held by a soft-deleted REAL user (an ex-employee's history, not a
+     * placeholder), and refuse a PIN that has nothing unresolved — an
+     * already-fixed PIN must not be silently re-pointed at someone else.
+     *
+     * ── Response contract ──────────────────────────────────────────────────
+     * EVERY response from this endpoint — success and refusal alike — carries
+     * the same three keys:
+     *
+     *   message          human-readable, safe to surface verbatim
+     *   pin              the PIN as evaluated (trimmed)
+     *   unresolved_count how many unknown_user rows this PIN had when the
+     *                    request was evaluated
+     *
+     * unresolved_count is on the refusals too, and deliberately so: it is the
+     * number that explains the decision. A caller that gets a 422 needs to know
+     * whether it refused because there was nothing to do (0) or because
+     * something was in the way despite there being work (>0), and a UI listing
+     * stranded PINs wants that count either way. Making it conditional would
+     * force every consumer to null-check a field that is always knowable.
+     * Refusals add one or two diagnostic keys on top (current_employee_id /
+     * requested_pin, or conflicting_user_id); the success path adds the counts
+     * of what it changed.
+     *
+     * The "nothing to remediate" precondition is checked FIRST, before any of
+     * the identity guards. This endpoint exists to drain the unknown_user
+     * backlog; if a PIN has no stranded rows there is no work to authorise, so
+     * reasoning about who may hold the PIN is moot. Checking it first also
+     * makes a double-submit say "already done" rather than reporting the
+     * employee linked by the first request as a conflict.
+     */
+    public function linkAttLogUser(Request $request)
+    {
+        $data = $request->validate([
+            'pin' => 'required|string|max:191',
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $pin = trim($data['pin']);
+
+        if ($pin === '') {
+            return response()->json([
+                'message' => 'PIN is required.',
+                'pin' => $pin,
+                'unresolved_count' => 0,
+            ], 422);
+        }
+
+        // Evaluated up front, before any guard, because it is reported on every
+        // branch — see the response contract above.
+        $unresolvedCount = BiometricAttLog::where('user_pin', $pin)
+            ->where('punch_status', 'unknown_user')
+            ->count();
+
+        if ($unresolvedCount === 0) {
+            return response()->json([
+                'message' => "PIN {$pin} has no unresolved punches — there is nothing to remediate. This endpoint only links PINs that are still in the unknown_user state.",
+                'pin' => $pin,
+                'unresolved_count' => 0,
+            ], 422);
+        }
+
+        // Not withTrashed(): the target of a link must be a live employee.
+        $user = User::find($data['user_id']);
+
+        if (! $user) {
+            return response()->json([
+                'message' => 'Target user not found, or is deleted. Templates and punches can only be linked to an active employee.',
+                'pin' => $pin,
+                'unresolved_count' => $unresolvedCount,
+            ], 422);
+        }
+
+        $currentEmployeeId = $user->employee_id === null ? null : (string) $user->employee_id;
+
+        if ($currentEmployeeId !== null && $currentEmployeeId !== '' && $currentEmployeeId !== $pin) {
+            return response()->json([
+                'message' => "{$user->name} already has employee ID {$currentEmployeeId}. Linking PIN {$pin} would re-key this employee and silently re-attribute their attendance history. Fix the employee record first if the ID is genuinely wrong.",
+                'pin' => $pin,
+                'unresolved_count' => $unresolvedCount,
+                'current_employee_id' => $currentEmployeeId,
+                'requested_pin' => $pin,
+            ], 422);
+        }
+
+        // Anyone else already carrying this PIN. A live holder is a genuine
+        // collision; a soft-deleted holder is only safe to release if it is one
+        // of our own auto-created placeholders.
+        $holders = User::withTrashed()
+            ->where('employee_id', $pin)
+            ->where('id', '!=', $user->id)
+            ->get();
+
+        $liveHolder = $holders->first(fn (User $holder) => $holder->deleted_at === null);
+
+        if ($liveHolder) {
+            return response()->json([
+                'message' => "PIN {$pin} is already assigned to {$liveHolder->name} (user #{$liveHolder->id}). Resolve that conflict before linking.",
+                'pin' => $pin,
+                'unresolved_count' => $unresolvedCount,
+                'conflicting_user_id' => $liveHolder->id,
+            ], 422);
+        }
+
+        $realDeletedHolder = $holders->first(fn (User $holder) => ! $this->isAutoCreatedPlaceholder($holder));
+
+        if ($realDeletedHolder) {
+            return response()->json([
+                'message' => "PIN {$pin} belongs to deleted employee {$realDeletedHolder->name} (user #{$realDeletedHolder->id}), not to an auto-created placeholder. Reassigning it would move that employee's attendance history.",
+                'pin' => $pin,
+                'unresolved_count' => $unresolvedCount,
+                'conflicting_user_id' => $realDeletedHolder->id,
+            ], 422);
+        }
+
+        $reason = 'Linked to user #'.$user->id.' by user #'.(auth()->id() ?? 0).' on '.now()->toDateTimeString();
+
+        $result = DB::transaction(function () use ($user, $pin, $holders, $reason) {
+            $released = 0;
+
+            foreach ($holders as $holder) {
+                // Only placeholders reach here — the guards above rejected
+                // everything else. Release the PIN so resolveOrCreateUser()
+                // stops matching the soft-deleted row.
+                $holder->employee_id = null;
+                $holder->saveQuietly();
+                $released++;
+            }
+
+            $user->employee_id = $pin;
+            $user->save();
+
+            $relinked = BiometricAttLog::where('user_pin', $pin)
+                ->where('punch_status', 'unknown_user')
+                ->update([
+                    'user_id' => $user->id,
+                    // 'downloaded' is what BiometricProcessingService::importDownloadedLogs()
+                    // selects on, so this is what "retry me" means here.
+                    'punch_status' => 'downloaded',
+                    'punch_status_reason' => $reason,
+                    'updated_at' => now(),
+                ]);
+
+            return ['released' => $released, 'relinked' => $relinked];
+        });
+
+        Log::info('Biometric unknown-user PIN linked', [
+            'pin' => $pin,
+            'linked_user_id' => $user->id,
+            'logs_relinked' => $result['relinked'],
+            'placeholders_released' => $result['released'],
+            'user_id' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => "PIN {$pin} linked to {$user->name}. {$result['relinked']} punch(es) queued for re-import; {$result['released']} placeholder record(s) released.",
+            'pin' => $pin,
+            // The count as it stood when the request was evaluated — same key,
+            // same meaning as on every refusal. logs_relinked is what actually
+            // moved; they differ only if a concurrent push added a row.
+            'unresolved_count' => $unresolvedCount,
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'logs_relinked' => $result['relinked'],
+            'placeholders_released' => $result['released'],
+            'punch_status' => 'downloaded',
+            'note' => 'The punches are back in the downloaded state; biometric:import-downloaded replays them into attendance on its next run.',
+        ]);
+    }
+
+    /**
+     * Is this one of the soft-deleted stand-ins resolveOrCreateUser() mints for
+     * an unrecognised PIN, rather than a real person who was deleted?
+     *
+     * Matched on the shape that helper actually writes (name / email /
+     * user_name), and only ever consulted for users that are already
+     * soft-deleted, so a live account can never be classed as disposable.
+     */
+    private function isAutoCreatedPlaceholder(User $user): bool
+    {
+        if ($user->deleted_at === null) {
+            return false;
+        }
+
+        $pin = (string) $user->employee_id;
+
+        return $user->email === 'device_user_'.$pin.'@placeholder.local'
+            || $user->user_name === 'device_user_'.$pin
+            || $user->name === 'Device User '.$pin;
     }
 
     /**

@@ -183,6 +183,48 @@ class BiometricDeviceCommand extends Model
                 $command .= 'SET OPTION '.$key.'='.($payload['value'] ?? '');
                 break;
 
+            case 'UPDATE_FINGERTMP':
+                // Write a fingerprint template back to a device — the missing half of
+                // biometric roaming (docs/zkteco-adms-capability-matrix.md §2, marked
+                // [D]: documented across independent implementations, NOT yet verified
+                // against our own hardware). Until an MB460 has acked one of these with
+                // Return=0, treat a -1002/-1004 here as "the string is wrong or the model
+                // cannot do it", not as a device fault.
+                //
+                // Field order follows the documented form. Size is the byte length of the
+                // template as sent, and Valid=1 marks the finger as enrolled/usable
+                // (0 would register it as a duress finger on models that support that).
+                // Some implementations tab-separate these; we use single spaces to match
+                // `DATA UPDATE USERINFO` above, which our hardware demonstrably accepts.
+                //
+                // TMP must be the last field: it is the only value that can be long, so
+                // anything a device truncates falls off the end of the payload rather
+                // than corrupting a field the parser needs.
+                $tmp = preg_replace('/\s+/', '', (string) ($payload['template'] ?? ''));
+                $command .= 'DATA UPDATE FINGERTMP';
+                $command .= ' PIN='.($payload['pin'] ?? '');
+                // FID is the finger index (0-9). biometric_templates.finger_index is
+                // nullable and is never populated on capture, so the caller passes 0
+                // when it is unknown — see TemplateRoamingService::FALLBACK_FINGER_INDEX.
+                $command .= ' FID='.($payload['fid'] ?? 0);
+                $command .= ' Size='.($payload['size'] ?? strlen($tmp));
+                $command .= ' Valid='.($payload['valid'] ?? 1);
+                $command .= ' TMP='.$tmp;
+                break;
+
+            case 'DELETE_FINGERTMP':
+                // Matrix §2 marks this `[?]` — single-source. Lower confidence than the
+                // update verb above; expect -1004 on some models.
+                $command .= 'DATA DELETE FINGERTMP PIN='.($payload['pin'] ?? '');
+                // FID is deliberately omitted when absent rather than sent as an empty
+                // or zero value: `FID=` is a syntax error and `FID=0` would silently
+                // delete only the first finger when the caller asked for all of them.
+                $fid = $payload['fid'] ?? null;
+                if ($fid !== null && $fid !== '') {
+                    $command .= ' FID='.$fid;
+                }
+                break;
+
             case 'CHECK_ATTLOG':
                 $startTime = $payload['start_time'] ?? '2000-01-01 00:00:00';
                 $endTime = $payload['end_time'] ?? now()->addDay()->format('Y-m-d H:i:s');

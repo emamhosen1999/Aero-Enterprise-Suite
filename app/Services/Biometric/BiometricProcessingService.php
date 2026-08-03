@@ -11,6 +11,8 @@ use App\Models\HRM\BiometricDownloadSession;
 use App\Models\User;
 use App\Services\Attendance\AttendancePunchService;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -93,6 +95,57 @@ class BiometricProcessingService
     public function createAttLog(array $data): BiometricAttLog
     {
         return BiometricAttLog::create($data);
+    }
+
+    /**
+     * Create an ATTLOG record unless this device has already recorded that punch.
+     *
+     * Same as createAttLog(), but returns null instead of throwing when the punch
+     * natural key (device + PIN + punch_time + check_type) is already staged, so
+     * the direct webhook answers a device that retries a delivery with "already
+     * recorded" instead of a 500.
+     */
+    public function createAttLogIfNotStaged(array $data): ?BiometricAttLog
+    {
+        try {
+            return $this->createAttLog($data);
+        } catch (UniqueConstraintViolationException $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Insert one staged punch row, idempotently.
+     *
+     * `biometric_att_logs` carries a unique key over the punch natural key
+     * (biometric_device_id, user_pin, punch_time, check_type). Re-staging is
+     * therefore no longer possible at the database level; this turns that
+     * guarantee into a return value the callers can branch on.
+     *
+     * Why catch the violation instead of `insertOrIgnore()`: on MySQL,
+     * `insertOrIgnore()` compiles to `INSERT IGNORE`, which downgrades *every*
+     * error on the statement to a warning — a truncated column or a bad foreign
+     * key would silently vanish along with the duplicates. `insertGetId()` also
+     * returns the new id, which the live push path needs to stamp the row's
+     * outcome, and `INSERT IGNORE` would leave us unable to tell "already there"
+     * from "quietly mangled".
+     *
+     * The narrow catch is Laravel's own driver-aware
+     * UniqueConstraintViolationException, so only a unique/primary key rejection
+     * is swallowed. Foreign-key and not-null failures share SQLSTATE 23000 and
+     * must keep surfacing as errors; they arrive as plain QueryExceptions and are
+     * not caught here.
+     *
+     * @param  array<string, mixed>  $row
+     * @return int|null the new row id, or null when the punch was already staged
+     */
+    protected function insertAttLogRow(array $row): ?int
+    {
+        try {
+            return DB::table('biometric_att_logs')->insertGetId($row);
+        } catch (UniqueConstraintViolationException $e) {
+            return null;
+        }
     }
 
     /**
@@ -272,9 +325,42 @@ class BiometricProcessingService
     }
 
     /**
-     * Build the ADMS handshake options response body.
+     * Push protocol version asserted when the device announces nothing usable.
+     *
+     * Also the version of this server implementation (`ServerVer`), which is
+     * ours to state unconditionally — unlike `PushProtVer`, which describes a
+     * protocol two parties have to agree on.
      */
-    public function buildHandshakeOptionsBody(string $serialNumber): string
+    public const DEFAULT_PUSH_PROTO_VER = '2.4.1';
+
+    /**
+     * Build the ADMS handshake options response body.
+     *
+     * Two deliberate omissions, both matrix §3:
+     *
+     *  - **`ATTPHOTOStamp` is not advertised.** A `*Stamp` key is the per-table
+     *    sync cursor that invites the device to push that table; advertising one
+     *    for `ATTPHOTO` asked an MB460 with ~136 MB of free flash to upload
+     *    capture photos over a shared-hosting link so we could drop them on the
+     *    floor (admsPush() has no ATTPHOTO handler and nobody has asked for punch
+     *    photos). Removing the key removes the invitation without touching a
+     *    single attendance key: `ATTLOGStamp` and `transFlag` are unchanged, so
+     *    the live push flow is bit-for-bit identical to what works today.
+     *
+     *    `transFlag` is deliberately NOT touched even though its third digit is
+     *    commonly documented as the attendance-photo bit. That bit ordering is
+     *    single-source `[?]`, and digits 1–4 currently enable the attendance,
+     *    operation-log and user-enrolment pushes we DO consume — guessing wrong
+     *    there would silently switch off a working feature to remove an
+     *    invitation the missing Stamp has already removed.
+     *
+     *  - **`PushProtVer` is negotiated, not asserted** — see
+     *    negotiatePushProtoVersion().
+     *
+     * @param  string|null  $announcedPushVer  the `pushver` the device sent on this
+     *                                         init handshake, if any
+     */
+    public function buildHandshakeOptionsBody(string $serialNumber, ?string $announcedPushVer = null): string
     {
         $attlogStamp = 9999;
 
@@ -298,16 +384,55 @@ class BiometricProcessingService
             "GET OPTION FROM: {$serialNumber}",
             "ATTLOGStamp={$attlogStamp}",
             'OPERLOGStamp=9999',
-            'ATTPHOTOStamp=9999',
             'errorDelay=30',
             'delay=10',
             'transTimes=00:00;14:05',
             'transFlag=1111000000',
             'encrypt=None',
-            'ServerVer=2.4.1',
-            'PushProtVer=2.4.1',
+            'ServerVer='.self::DEFAULT_PUSH_PROTO_VER,
+            'PushProtVer='.$this->negotiatePushProtoVersion($announcedPushVer, $serialNumber),
             '',
         ]);
+    }
+
+    /**
+     * Decide which push protocol version to claim back at the device.
+     *
+     * The device announces its own `pushver` on every init handshake and we then
+     * ignored it and asserted 2.4.1 — a version the terminal never agreed to.
+     * Echoing what it announced is the conservative direction of the two: the
+     * failure mode that actually breaks a live terminal is claiming a HIGHER
+     * protocol version than it speaks, because the device then expects keys and
+     * behaviours we do not implement. Agreeing with the device cannot do that.
+     *
+     * Guards, because this value is device-supplied and goes straight onto the
+     * wire on the one request that keeps attendance collection alive:
+     *
+     *  - only a strict dotted-numeric version is echoed. Anything else — empty,
+     *    absent, `Ver 2.0.33S-20220623` (that is the FIRMWARE push version the
+     *    MB460 reports, not the protocol version), or an injection attempt with
+     *    CRLF in it — falls back to the hardcoded default, i.e. exactly today's
+     *    behaviour.
+     *  - the fallback is the current constant, so a device that announces
+     *    nothing sees a byte-identical handshake to the one working in prod.
+     */
+    public function negotiatePushProtoVersion(?string $announced, ?string $serialNumber = null): string
+    {
+        $candidate = trim((string) $announced);
+
+        if ($candidate === '' || ! preg_match('/^\d{1,3}(\.\d{1,3}){0,3}$/', $candidate)) {
+            return self::DEFAULT_PUSH_PROTO_VER;
+        }
+
+        if ($candidate !== self::DEFAULT_PUSH_PROTO_VER) {
+            Log::info('ADMS handshake: echoing device-announced push protocol version', [
+                'serial' => $serialNumber,
+                'announced_pushver' => $candidate,
+                'default' => self::DEFAULT_PUSH_PROTO_VER,
+            ]);
+        }
+
+        return $candidate;
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -396,7 +521,7 @@ class BiometricProcessingService
             if ($isDownloading) {
                 $user = User::withTrashed()->where('employee_id', $deviceUserId)->first();
 
-                DB::table('biometric_att_logs')->insert([
+                $stagedId = $this->insertAttLogRow([
                     'biometric_device_id' => $device->id,
                     'serial_number' => $serialNumber,
                     'user_pin' => $deviceUserId,
@@ -413,6 +538,23 @@ class BiometricProcessingService
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                // Already staged by an earlier download of the same window. This
+                // is the 48k-duplicate case: every CHECK_ATTLOG made the device
+                // re-send punches we had already captured, and the old plain
+                // insert() staged each one again.
+                if ($stagedId === null) {
+                    $duplicateCount++;
+
+                    Log::debug('ADMS push: punch already staged — re-download ignored', [
+                        'serial' => $serialNumber,
+                        'device_user_id' => $deviceUserId,
+                        'check_time' => $checkTime,
+                        'check_type' => $checkType,
+                    ]);
+
+                    continue;
+                }
 
                 $processedCount++;
 
@@ -438,7 +580,7 @@ class BiometricProcessingService
             }
 
             // Log the punch immediately
-            $logId = DB::table('biometric_att_logs')->insertGetId([
+            $logId = $this->insertAttLogRow([
                 'biometric_device_id' => $device->id,
                 'serial_number' => $serialNumber,
                 'user_pin' => $deviceUserId,
@@ -455,6 +597,26 @@ class BiometricProcessingService
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            // This exact punch is already on record for this device. Previously a
+            // second row was written and then walked all the way to
+            // isDuplicatePunch() only to be stamped 'duplicate'; now the row is
+            // simply never created. The EXISTING row is deliberately left
+            // untouched — re-running the pipeline over it would let a re-push
+            // overwrite a 'processed' row's status with 'duplicate' and destroy
+            // the provenance of a punch that really was recorded.
+            if ($logId === null) {
+                $duplicateCount++;
+
+                Log::info('ADMS push: punch already recorded for this device — re-push ignored', [
+                    'device_serial' => $serialNumber,
+                    'device_user_id' => $deviceUserId,
+                    'check_time' => $checkTime,
+                    'check_type' => $checkType,
+                ]);
+
+                continue;
+            }
 
             // If user was just auto-created, skip further processing
             if ($attLogStatus === 'unknown_user') {
@@ -629,6 +791,48 @@ class BiometricProcessingService
     }
 
     /**
+     * `downloaded` rows for a device that belong to no download session at all.
+     *
+     * A session window is the wrong frame for these rows, because they were never
+     * captured by a session. Two ways a row ends up here:
+     *
+     *  - an `unknown_user` punch minted by the LIVE push path (the non-downloading
+     *    branch of processAttendanceLogs) and later reset to `downloaded` when an
+     *    admin links that PIN to a real employee. Its created_at is the moment the
+     *    device pushed the punch, which falls inside no session window — so the
+     *    session-scoped importer never selects it and the row sits on `downloaded`
+     *    forever. That is a silent data-loss bug: the admin is told the punch was
+     *    linked and it still never becomes attendance.
+     *  - any row whose owning session has since been deleted.
+     *
+     * Membership is decided by asking whether ANY session for this device covers
+     * the row's created_at, using only column comparisons and COALESCE so MySQL
+     * and SQLite take the same path. The ±10 s buffer downloadedLogsQuery() adds
+     * is deliberately not mirrored here: a row within 10 s of a session boundary
+     * can therefore be claimed by both passes, which is harmless — both run the
+     * identical importDownloadedLog() rules, whichever gets there first moves the
+     * row off `downloaded`, and isDuplicatePunch() backstops the loser.
+     */
+    protected function sessionlessDownloadedLogsQuery(BiometricDevice $device)
+    {
+        return BiometricAttLog::query()
+            ->where('biometric_device_id', $device->id)
+            ->where('punch_status', 'downloaded')
+            ->whereNotExists(function ($query) use ($device) {
+                $query->selectRaw('1')
+                    ->from('biometric_download_sessions')
+                    ->where('biometric_download_sessions.biometric_device_id', $device->id)
+                    ->whereRaw(
+                        'coalesce(biometric_download_sessions.started_at, biometric_download_sessions.created_at) <= biometric_att_logs.created_at'
+                    )
+                    ->whereRaw(
+                        'coalesce(biometric_download_sessions.completed_at, ?) >= biometric_att_logs.created_at',
+                        [now()->toDateTimeString()]
+                    );
+            });
+    }
+
+    /**
      * Promote a download session's captured `downloaded` ATTLOG rows into real
      * attendance records.
      *
@@ -693,11 +897,6 @@ class BiometricProcessingService
      */
     protected function runDownloadedLogImport(BiometricDownloadSession $session): array
     {
-        $imported = 0;
-        $duplicates = 0;
-        $failed = 0;
-        $skippedUnknown = 0;
-
         $device = $session->device;
 
         if (! $device) {
@@ -714,14 +913,126 @@ class BiometricProcessingService
             ];
         }
 
-        // Keyset cursor on (punch_time, id). A plain offset chunk() would skip rows
-        // because the result set shrinks as each row is moved off `downloaded`;
-        // a keyset cursor is both stable under that mutation and memory-bounded.
+        $totals = $this->replayDownloadedLogs(
+            fn () => $this->downloadedLogsQuery($session),
+            $device
+        );
+
+        // Second pass: rows this device holds that belong to no session window at
+        // all — see sessionlessDownloadedLogsQuery(). They cannot be reached by
+        // any session-scoped query, so without this they are never imported.
+        $orphans = $this->importSessionlessDownloadedLogs($device);
+
+        foreach ($totals as $key => $value) {
+            $totals[$key] = $value + $orphans[$key];
+        }
+
+        Log::info('Biometric downloaded-log import completed', [
+            'session_id' => $session->id,
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'imported' => $totals['imported'],
+            'duplicates' => $totals['duplicates'],
+            'failed' => $totals['failed'],
+            'skipped_unknown' => $totals['skipped_unknown'],
+            'sessionless_imported' => $orphans['imported'],
+        ]);
+
+        return $totals;
+    }
+
+    /**
+     * Cache key for a device's session-less import sweep.
+     */
+    public static function sessionlessImportLockKey(BiometricDevice $device): string
+    {
+        return "biometric-import-sessionless-{$device->id}";
+    }
+
+    /**
+     * Import the `downloaded` rows a device holds outside every session window.
+     *
+     * Public so an operator or a future remediation screen can sweep one device
+     * without inventing a fake session for rows that never had one; also called
+     * as the second pass of every session import, so no existing trigger — the
+     * finalising job, the scheduler, the console command, the pre-export sync —
+     * needs to know this category exists.
+     *
+     * Two guards:
+     *
+     *  - a device with a pending / in-progress session is skipped entirely. The
+     *    device may still be pushing, and replaying a half-received batch would
+     *    mis-pair in/out punches. This is the same reasoning the console command
+     *    already applies when it refuses to import unfinished sessions.
+     *  - a device-scoped lock, so two session imports for the same device cannot
+     *    sweep the same orphan rows at once.
+     *
+     * @return array{imported: int, duplicates: int, failed: int, skipped_unknown: int}
+     */
+    public function importSessionlessDownloadedLogs(BiometricDevice $device): array
+    {
+        $empty = ['imported' => 0, 'duplicates' => 0, 'failed' => 0, 'skipped_unknown' => 0];
+
+        $deviceIsBusy = BiometricDownloadSession::where('biometric_device_id', $device->id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->exists();
+
+        if ($deviceIsBusy) {
+            return $empty;
+        }
+
+        $lock = Cache::lock(self::sessionlessImportLockKey($device), self::IMPORT_LOCK_SECONDS);
+
+        if (! $lock->get()) {
+            Log::info('Biometric session-less import skipped: device already being swept', [
+                'device_id' => $device->id,
+            ]);
+
+            return $empty;
+        }
+
+        try {
+            $totals = $this->replayDownloadedLogs(
+                fn () => $this->sessionlessDownloadedLogsQuery($device),
+                $device
+            );
+        } finally {
+            $lock->release();
+        }
+
+        if (array_sum($totals) > 0) {
+            Log::info('Biometric session-less downloaded rows imported', [
+                'device_id' => $device->id,
+                'serial' => $device->serial_number,
+            ] + $totals);
+        }
+
+        return $totals;
+    }
+
+    /**
+     * Replay every `downloaded` row a query selects, in punch_time order.
+     *
+     * Keyset cursor on (punch_time, id). A plain offset chunk() would skip rows
+     * because the result set shrinks as each row is moved off `downloaded`;
+     * a keyset cursor is both stable under that mutation and memory-bounded.
+     * The query is rebuilt per page for the same reason.
+     *
+     * @param  callable():Builder  $queryFactory
+     * @return array{imported: int, duplicates: int, failed: int, skipped_unknown: int}
+     */
+    protected function replayDownloadedLogs(callable $queryFactory, BiometricDevice $device): array
+    {
+        $imported = 0;
+        $duplicates = 0;
+        $failed = 0;
+        $skippedUnknown = 0;
+
         $cursorPunchTime = null;
         $cursorId = 0;
 
         while (true) {
-            $query = $this->downloadedLogsQuery($session);
+            $query = $queryFactory();
 
             if ($cursorPunchTime !== null) {
                 $query->where(function ($q) use ($cursorPunchTime, $cursorId) {
@@ -755,16 +1066,6 @@ class BiometricProcessingService
                 };
             }
         }
-
-        Log::info('Biometric downloaded-log import completed', [
-            'session_id' => $session->id,
-            'device_id' => $device->id,
-            'serial' => $device->serial_number,
-            'imported' => $imported,
-            'duplicates' => $duplicates,
-            'failed' => $failed,
-            'skipped_unknown' => $skippedUnknown,
-        ]);
 
         return [
             'imported' => $imported,
@@ -958,6 +1259,96 @@ class BiometricProcessingService
             'serial' => $serialNumber,
             'entries_count' => count($lines),
         ]);
+    }
+
+    /**
+     * Operation type stamped on a persisted `table=errorlog` entry.
+     *
+     * A distinct, non-numeric value so device faults are trivially separable
+     * from OPLOG codes in the same table and in the admin log view.
+     */
+    public const ERRORLOG_OPERATION_TYPE = 'Device Error';
+
+    /**
+     * Hard cap on errorlog lines persisted from a single push.
+     *
+     * A terminal in a fault loop can push the same error thousands of times.
+     * Diagnostics do not need all of them, and an unbounded write path driven by
+     * a misbehaving device is how a shared-hosting database fills up.
+     */
+    public const ERRORLOG_MAX_LINES = 200;
+
+    /**
+     * Persist a `table=errorlog` push (matrix §1).
+     *
+     * Why this is stored and `rtlog` is not: errorlog is the device reporting its
+     * own faults — the one device→server table that says something we cannot
+     * learn any other way, and exactly what you want in hand when a terminal
+     * stops collecting. It is also low volume by nature. `rtlog` is the opposite:
+     * a realtime mirror of punches we already receive on ATTLOG, so persisting it
+     * would duplicate attendance data at the highest volume of any table on the
+     * protocol, for no information gain.
+     *
+     * Reuses `biometric_oper_logs` rather than adding a table: same shape (device,
+     * serial, raw line, parsed context, occurred_at), same retention question, and
+     * the admin log endpoint already reads it, so faults surface with no UI work.
+     *
+     * This is storage only. Nothing here can reach the attendance parser — the
+     * controller's table allowlist sends only ATTLOG and the legacy untabled push
+     * there — and no row written here ever becomes attendance.
+     */
+    public function storeErrorLog(string $rawData, string $serialNumber, ?BiometricDevice $device): int
+    {
+        $lines = array_values(array_filter(
+            array_map('trim', explode("\n", trim($rawData))),
+            fn (string $line) => $line !== ''
+        ));
+
+        $overflow = max(0, count($lines) - self::ERRORLOG_MAX_LINES);
+        $lines = array_slice($lines, 0, self::ERRORLOG_MAX_LINES);
+        $stored = 0;
+
+        foreach ($lines as $line) {
+            $data = [];
+
+            // Same key=value shape OPERLOG uses for its non-OPLOG entries; a
+            // device that sends a bare, unparseable string still gets its raw
+            // line stored, which is the part that matters for diagnostics.
+            if (preg_match_all('/([^=\t\n]+)=([^\t\n]*)/', $line, $matches)) {
+                $data = array_combine($matches[1], $matches[2]);
+            }
+
+            $rawOccurredAt = $data['DateTime'] ?? $data['dateTime'] ?? $data['time'] ?? null;
+
+            try {
+                $occurredAt = $rawOccurredAt ? Carbon::parse($rawOccurredAt) : now();
+            } catch (\Exception $e) {
+                $occurredAt = now();
+            }
+
+            DB::table('biometric_oper_logs')->insert([
+                'biometric_device_id' => $device?->id,
+                'serial_number' => $serialNumber,
+                'raw_data' => $line,
+                'operation_type' => self::ERRORLOG_OPERATION_TYPE,
+                'user_pin' => $data['PIN'] ?? $data['pin'] ?? null,
+                'context' => json_encode($data),
+                'occurred_at' => $occurredAt,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $stored++;
+        }
+
+        Log::warning('ADMS push: device reported an error log', [
+            'serial' => $serialNumber,
+            'device_id' => $device?->id,
+            'entries_stored' => $stored,
+            'entries_dropped' => $overflow,
+        ]);
+
+        return $stored;
     }
 
     /**

@@ -34,28 +34,68 @@ class DeviceCapabilityService
      * Matrix §2. Live counts are paired with their maxima so the UI can render
      * capacity headroom, which is the single most useful thing to show an admin
      * and is currently absent everywhere.
+     *
+     * ── Why both `Max…` and `~Max…` are asked for ────────────────────────────
+     * Matrix §2 lists the unprefixed spellings, which is what every reference
+     * implementation uses. A real MB460 (SN AF6P231260266, FW 8.0.4.6-20230217)
+     * answered `INFO` with the *`~`-prefixed* SDK parameter names instead —
+     * `~MaxUserCount`, `~DeviceName`, `~Platform` — and returned the MAC under
+     * plain `MAC`, not `MACAddress`. Neither spelling is universal, so the probe
+     * asks for both and the snapshot resolver (see indexOptions()) accepts
+     * either. A key the firmware does not know is answered per-key with -1004
+     * and recorded as unsupported, which is a cheap and informative outcome; the
+     * alternative — guessing one spelling — cost us a completely blank
+     * capabilities screen against the first real device we pointed this at.
+     *
+     * Residual risk: some firmware rejects a whole `GET OPTION` when any one key
+     * is unknown, rather than per key. If that is ever observed, split the probe
+     * into two commands (plain set, `~` set) in the queuing layer rather than
+     * dropping either spelling from here.
      */
     public const CAPABILITY_KEYS = [
-        // Identity / firmware
+        // Identity / firmware — documented spellings first…
         'DeviceName',
         'FWVersion',
         'Platform',
         'IPAddress',
         'MACAddress',
-        // Feature flags
+        // …then the spellings a real MB460 actually answers to.
+        '~DeviceName',
+        '~Platform',
+        '~SerialNumber',
+        'MAC',
+        // Feature flags. The `…FunOn` group is how a device says an engine is
+        // absent rather than merely empty (matrix §4b).
         'WorkCode',
-        'LockCount',
-        // Live counts
+        'FingerFunOn',
+        'FaceFunOn',
+        'FvFunOn',
+        'PvFunOn',
+        // Live counts (the device answers these unprefixed).
+        //
+        // `AttLogCount` and `TransactionCount` are both asked for because they
+        // are not interchangeable across models and at least one unit answers
+        // only the second: the MB460 (SN AF6P231260266) omits `AttLogCount`
+        // from a successful reply that requested it, and carries its
+        // attendance-record count as `TransactionCount = 1009`. See the
+        // attendance meter in snapshot() for how the two are reconciled.
         'UserCount',
         'FPCount',
         'FaceCount',
+        'FvCount',
+        'PvCount',
         'AttLogCount',
         'TransactionCount',
+        'LockCount',
         // Maxima (paired with the counts above)
         'MaxUserCount',
         'MaxAttLogCount',
         'MaxFingerCount',
         'MaxFaceCount',
+        '~MaxUserCount',
+        '~MaxAttLogCount',
+        '~MaxFingerCount',
+        '~MaxFaceCount',
     ];
 
     /**
@@ -313,6 +353,98 @@ class DeviceCapabilityService
     ];
 
     /**
+     * The value under a maximum key is a literal count of records.
+     */
+    public const MAX_UNIT_RAW = 'raw';
+
+    /**
+     * The value under a maximum key is a number in an undetermined unit. It is
+     * stored and shown as a raw option, but never used as the denominator of a
+     * capacity meter.
+     */
+    public const MAX_UNIT_UNKNOWN = 'unknown';
+
+    /**
+     * Declared unit for every maximum key we may read, by literal spelling
+     * (lower-cased; the `~` is part of the spelling and part of the meaning).
+     *
+     * ── Why this table exists ────────────────────────────────────────────────
+     * The `~Max…` values a real ZKTeco MB460 returns are demonstrably NOT record
+     * counts. From SN AF6P231260266, FW 8.0.4.6-20230217, push 2.0.33S:
+     *
+     *     FPCount = 26      but   ~MaxFingerCount = 20
+     *     UserCount = 13    but   ~MaxUserCount   = 20
+     *     ~MaxAttLogCount = 10          (the model is specced near 100,000)
+     *     ~MaxFaceCount   = 1500        (the model is specced at exactly 1,500)
+     *     ~MaxPvCount     = 0           (real zero — PvFunOn = 0, no palm engine)
+     *
+     * So some of these are scaled and some are not, and the scale is not even
+     * consistent between them: a x1000 reading of `~MaxAttLogCount` gives 10,000
+     * against a published spec near 100,000, so no single multiplier explains
+     * the set. Applying one anyway would put a fabricated denominator on a
+     * capacity-planning screen. Applying none, and dividing raw, renders
+     * "26 / 20 = 130% full" on a device that is in fact almost empty — worse
+     * than showing nothing, because an admin would act on it.
+     *
+     * The rule, therefore: **a maximum is only ever used as a denominator when
+     * its unit is declared RAW here.** Anything undeclared, or declared UNKNOWN,
+     * yields `max = null` / `percent = null`, and the UI renders the live count
+     * with "headroom unknown". Showing "unknown" is strictly better than showing
+     * a wrong number. resolveMax() then applies two further gates that can only
+     * ever remove information, never add it (a value of 0, and used > max).
+     *
+     * ── Promoting an entry to RAW ────────────────────────────────────────────
+     * Do not do it from a single device. It needs either vendor confirmation of
+     * the unit, or two devices of different published capacity whose values
+     * track that capacity 1:1. Record which it was in the marker below.
+     *
+     *   [verified] — checked against this real MB460 and its published spec
+     *   [assumed]  — no device of ours has answered this key yet
+     */
+    private const MAX_KEY_UNITS = [
+        // Unprefixed spellings, matrix §2. Every reference implementation treats
+        // these as literal counts and our own captured GET OPTION replies
+        // (UserCount=137 / MaxUserCount=3000) are consistent with that.
+        // [assumed] — no ZKTeco unit of ours has answered these in the field yet.
+        'maxusercount' => self::MAX_UNIT_RAW,
+        'maxfingercount' => self::MAX_UNIT_RAW,
+        'maxfacecount' => self::MAX_UNIT_RAW,
+        'maxattlogcount' => self::MAX_UNIT_RAW,
+
+        // `~` SDK parameter spellings, as returned by INFO on the MB460 above.
+        // [verified] 1500 is exactly the MB460's published 1,500-face capacity.
+        '~maxfacecount' => self::MAX_UNIT_RAW,
+        // [verified] not a raw count — 20 against UserCount 13 would read as 65%
+        // full on a unit specced in the thousands.
+        '~maxusercount' => self::MAX_UNIT_UNKNOWN,
+        // [verified] not a raw count — 20 is below the live FPCount of 26.
+        '~maxfingercount' => self::MAX_UNIT_UNKNOWN,
+        // [verified] not a raw count — 10 against a spec near 100,000.
+        '~maxattlogcount' => self::MAX_UNIT_UNKNOWN,
+        // [assumed] returned by the same device (2000 / 10 / 0) with no count to
+        // pair against and no published figure to check, so they stay unknown.
+        '~maxuserphotocount' => self::MAX_UNIT_UNKNOWN,
+        '~maxfvcount' => self::MAX_UNIT_UNKNOWN,
+        '~maxpvcount' => self::MAX_UNIT_UNKNOWN,
+    ];
+
+    /**
+     * Engine-presence flags, mapped to the snapshot flag they surface as.
+     *
+     * `FvFunOn = 0` with `FvCount = 0` means "this model has no finger-vein
+     * engine"; `FaceFunOn = 1` with `FaceCount = 0` means "it has one and nobody
+     * is enrolled". Those are different sentences on screen, and only the device
+     * can tell them apart.
+     */
+    private const ENGINE_FLAGS = [
+        'fingerprint' => 'FingerFunOn',
+        'face' => 'FaceFunOn',
+        'finger_vein' => 'FvFunOn',
+        'palm_vein' => 'PvFunOn',
+        'user_photo' => 'PhotoFunOn',
+    ];
+
+    /**
      * A capability snapshot older than this is shown as stale in the UI.
      */
     public const STALE_AFTER_HOURS = 24;
@@ -322,6 +454,22 @@ class DeviceCapabilityService
     public const SOURCE_GET_OPTION = 'get_option';
 
     public const SOURCE_REGISTRY = 'registry';
+
+    /**
+     * The device was asked for this key in a `GET OPTION` that it answered with
+     * `Return=0`, and simply left the key out of the reply.
+     *
+     * This is a different fact from -1004 and deserves its own word. -1004 is
+     * the device saying "I do not have that"; a silent omission is the device
+     * saying nothing at all while claiming success — observed on a real MB460
+     * (SN AF6P231260266), which dropped `MThreshold` from an otherwise complete
+     * seven-key reply. Both end up flagged unavailable so the UI stops offering
+     * the key, but the source tells the UI which sentence to print: "not
+     * supported on this model (answered -1004)" versus "the device ignored this
+     * key when probed". Recording it at all is what stops such a key reading as
+     * "never probed" forever, no matter how many times an admin clicks Probe.
+     */
+    public const SOURCE_OMITTED = 'omitted';
 
     /**
      * Values a device sends to mean "I do not know" — never allowed to overwrite
@@ -368,9 +516,14 @@ class DeviceCapabilityService
     /**
      * Parse and persist the reply to a `GET OPTION FROM …` command.
      *
+     * Keys that were asked for and are missing from a successful reply are
+     * reconciled as unavailable — see reconcileRequestedKeys().
+     *
+     * @param  BiometricDeviceCommand|null  $command  the originating probe, when
+     *                                                the caller already knows it
      * @return array<string, string> the key/value pairs actually understood
      */
-    public function parseOptionResponse(BiometricDevice $device, string $raw): array
+    public function parseOptionResponse(BiometricDevice $device, string $raw, ?BiometricDeviceCommand $command = null): array
     {
         $pairs = $this->parsePairs($raw);
 
@@ -385,6 +538,7 @@ class DeviceCapabilityService
         }
 
         $this->persist($device, $pairs, self::SOURCE_GET_OPTION);
+        $this->reconcileRequestedKeys($device, $pairs, $command);
         $this->touchProbedAt($device);
 
         return $pairs;
@@ -543,12 +697,14 @@ class DeviceCapabilityService
      *       'attendance'   => ...same...,
      *   ],
      *   'counters'    => ['transactions' => int|null, 'locks' => int|null],
-     *   'flags'       => ['work_code' => bool|null],
+     *   'flags'       => ['work_code' => bool|null, …engine flags…],
      *   'supported_keys'   => string[],      // keys the device answered
-     *   'unsupported_keys' => string[],      // keys it rejected with -1/-1004
+     *   'unsupported_keys' => string[],      // keys it rejected with -1/-1004,
+     *                                        // or silently omitted from a
+     *                                        // successful reply
      *   'options'     => [                   // every stored key, raw
      *       '<Key>' => ['value'=>string|null,'unsupported'=>bool,
-     *                   'source'=>'info'|'get_option'|'registry',
+     *                   'source'=>'info'|'get_option'|'registry'|'omitted',
      *                   'probed_at'=>string|null],  // ISO-8601
      *   ],
      *   'probed_at'   => string|null,        // ISO-8601, device-level
@@ -556,10 +712,34 @@ class DeviceCapabilityService
      *   'has_data'    => bool,               // false => never probed, render an empty state
      * ]
      *
+     * `capacity.attendance.used` reads `AttLogCount`, falling back to
+     * `TransactionCount` on models that do not answer the first (the MB460 does
+     * not). On such a device that number therefore appears twice — once as the
+     * attendance meter and once under `counters.transactions` — which is
+     * correct rather than duplicated: they are the same underlying store, and
+     * suppressing either would be the UI deciding which one the admin meant.
+     *
      * `percent` is null whenever either side of the ratio is unknown; a meter
-     * must render "—" rather than 0% in that case. `supported` is false only
-     * when the device explicitly rejected the key, so `supported && ! known`
-     * means "never asked", which is a different empty state from "cannot".
+     * must render "—" rather than 0% in that case. `max` is null in that case
+     * too, deliberately: consumers recompute the ratio themselves, so a
+     * denominator we cannot vouch for must be withheld, not merely left out of
+     * `percent`. The device's raw answer is still in `options` either way.
+     *
+     * An unsupported key carries `source = 'omitted'` when the device ignored it
+     * in a reply it called successful, and its original source otherwise. Both
+     * mean "do not offer this key"; only the wording differs, and a UI that
+     * prints "-1004" over an omission is telling the admin something untrue.
+     *
+     * `supported` is false when the device explicitly rejected the key (-1004),
+     * when it reported the corresponding engine off (`FvFunOn = 0`), or when it
+     * reported a maximum of zero — all three mean "this unit has no such store".
+     * So `supported && ! known` means "never asked", which is a different empty
+     * state from "cannot".
+     *
+     * `flags` always carries `work_code`. The engine flags (`fingerprint`,
+     * `face`, `finger_vein`, `palm_vein`, `user_photo`) appear only when the
+     * device actually reported them — an absent key means "never told us",
+     * which is not the same as false, and inventing a null would erase that.
      *
      * @return array<string, mixed>
      */
@@ -597,33 +777,40 @@ class DeviceCapabilityService
         $probedAt = $device->getAttribute('capabilities_probed_at');
         $probedAtIso = $this->toIso($probedAt);
 
+        // Every lookup below goes through the normalised index, so `~Platform`
+        // and `Platform`, `MAC` and `MACAddress` all resolve. Real firmware
+        // picks a spelling and we do not get a vote (see CAPABILITY_KEYS).
+        $index = $this->indexOptions($options);
+
         return [
             'device_id' => $device->id,
             'name' => $device->name,
             'serial_number' => $device->serial_number,
             'identity' => [
-                'device_name' => $this->value($options, 'DeviceName'),
-                'device_type' => $this->value($options, 'DeviceType'),
-                'platform' => $this->value($options, 'Platform'),
-                'firmware' => $this->value($options, 'FWVersion') ?? $this->value($options, 'FirmVer'),
-                'mac_address' => $this->value($options, 'MACAddress'),
-                'ip_address' => $this->value($options, 'IPAddress'),
+                'device_name' => $this->value($index, 'DeviceName'),
+                'device_type' => $this->value($index, 'DeviceType'),
+                'platform' => $this->value($index, 'Platform'),
+                'firmware' => $this->value($index, 'FWVersion', 'FirmVer'),
+                // The MB460 answers `MAC`; a registry push carries `MACAddress`.
+                'mac_address' => $this->value($index, 'MACAddress', 'MAC'),
+                'ip_address' => $this->value($index, 'IPAddress'),
                 'record_ip_address' => $device->ip_address,
                 'record_model' => $device->model,
             ],
             'capacity' => [
-                'users' => $this->meter($options, 'Users', 'UserCount', 'MaxUserCount'),
-                'fingerprints' => $this->meter($options, 'Fingerprints', 'FPCount', 'MaxFingerCount'),
-                'faces' => $this->meter($options, 'Faces', 'FaceCount', 'MaxFaceCount'),
-                'attendance' => $this->meter($options, 'Attendance records', 'AttLogCount', 'MaxAttLogCount'),
+                'users' => $this->meter($index, 'Users', 'UserCount', 'MaxUserCount'),
+                'fingerprints' => $this->meter($index, 'Fingerprints', 'FPCount', 'MaxFingerCount', 'FingerFunOn'),
+                'faces' => $this->meter($index, 'Faces', 'FaceCount', 'MaxFaceCount', 'FaceFunOn'),
+                // `TransactionCount` is a fallback, not a synonym: the MB460
+                // never answers `AttLogCount`, so without it this meter is
+                // permanently blank on that model. Documented spelling first.
+                'attendance' => $this->meter($index, 'Attendance records', ['AttLogCount', 'TransactionCount'], 'MaxAttLogCount'),
             ],
             'counters' => [
-                'transactions' => $this->intValue($options, 'TransactionCount'),
-                'locks' => $this->intValue($options, 'LockCount'),
+                'transactions' => $this->intValue($index, 'TransactionCount'),
+                'locks' => $this->intValue($index, 'LockCount'),
             ],
-            'flags' => [
-                'work_code' => $this->boolValue($options, 'WorkCode'),
-            ],
+            'flags' => $this->flags($index),
             'supported_keys' => $supported,
             'unsupported_keys' => $unsupported,
             'options' => $options,
@@ -739,6 +926,161 @@ class DeviceCapabilityService
         }
     }
 
+    /**
+     * Record the keys a probe asked for and did not get back.
+     *
+     * A device can answer `GET OPTION` with `Return=0` and quietly leave a key
+     * out of the reply — a real MB460 does exactly that with `MThreshold`.
+     * markUnsupported() never fires for those, because there is no non-zero
+     * return code, so without this the key produces no row at all and the
+     * snapshot reports it as `supported = true, known = false` — "never probed"
+     * — for ever. The admin re-probes, sees "unknown" again, and has no way to
+     * learn that the answer will never come.
+     *
+     * Guards, because a mis-correlated push must not erase real data:
+     *  - nothing is recorded unless at least one requested key *was* answered,
+     *    which is the cheapest available evidence that this payload really is
+     *    that command's reply;
+     *  - a key we already hold a value for is left alone. Reconciliation may
+     *    only fill in unknowns, never overwrite something a device once told us
+     *    (an `INFO` reply routinely carries keys a later `GET OPTION` omits).
+     *
+     * @param  array<string, string>  $answered
+     */
+    private function reconcileRequestedKeys(BiometricDevice $device, array $answered, ?BiometricDeviceCommand $command): void
+    {
+        $command ??= $this->latestOptionProbe($device);
+
+        if ($command === null) {
+            return;
+        }
+
+        $requested = $this->requestedOptionKeys($command);
+
+        if ($requested === []) {
+            return;
+        }
+
+        $answeredNames = [];
+
+        foreach (array_keys($answered) as $key) {
+            $answeredNames[$this->normaliseKey((string) $key)] = true;
+        }
+
+        $missing = [];
+
+        foreach ($requested as $key) {
+            $name = $this->normaliseKey($key);
+
+            if (! isset($answeredNames[$name])) {
+                $missing[$key] = $name;
+            }
+        }
+
+        // Every requested key missing => this reply is almost certainly not the
+        // answer to that command. Say nothing rather than condemn the lot.
+        if ($missing === [] || count($missing) === count($requested)) {
+            return;
+        }
+
+        $held = [];
+
+        foreach (
+            DB::table('biometric_device_capabilities')
+                ->where('biometric_device_id', $device->id)
+                ->where(function ($query) {
+                    // Anything the device has already told us about, in either
+                    // of the two ways it can: a value, or an explicit -1004.
+                    // The -1004 rows carry a null value, so `whereNotNull` alone
+                    // leaves them exposed and a later silent omission relabels
+                    // "not supported on this model" as "the device ignored this
+                    // key" — a downgrade of a harder fact to a softer one, and
+                    // a sentence the UI would then print untruthfully.
+                    $query->whereNotNull('value')->orWhere('is_unsupported', true);
+                })
+                ->pluck('capability_key') as $key
+        ) {
+            $held[$this->normaliseKey((string) $key)] = true;
+        }
+
+        $rows = [];
+
+        foreach ($missing as $key => $name) {
+            if (! isset($held[$name])) {
+                $rows[$key] = null;
+            }
+        }
+
+        if ($rows === []) {
+            return;
+        }
+
+        // Worth a log line, not just a row: a model that ignores MThreshold
+        // cannot have its 1:N match threshold tuned from here at all, and that
+        // is a support answer someone will need.
+        Log::info('Biometric capability: keys omitted from a successful GET OPTION reply', [
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'command_id' => $command->id,
+            'omitted' => array_keys($rows),
+        ]);
+
+        $this->persist($device, $rows, self::SOURCE_OMITTED, true);
+    }
+
+    /**
+     * The keys a `GET_OPTION` command asked for.
+     *
+     * Deliberately a mirror of BiometricDeviceCommand::optionKeysFromPayload(),
+     * including its fallback to the full probe set for an empty payload: that
+     * method is protected, and the emitted wire string is the contract this has
+     * to agree with. If either changes, change both.
+     *
+     * @return array<int, string>
+     */
+    private function requestedOptionKeys(BiometricDeviceCommand $command): array
+    {
+        if ($command->command_type !== 'GET_OPTION') {
+            return [];
+        }
+
+        $payload = is_array($command->payload) ? $command->payload : [];
+        $keys = $payload['keys'] ?? $payload['options'] ?? null;
+
+        if (is_string($keys)) {
+            $keys = explode(',', $keys);
+        }
+
+        if (! is_array($keys)) {
+            $keys = [];
+        }
+
+        $keys = array_values(array_unique(array_filter(
+            array_map(fn ($key) => trim((string) $key), $keys),
+            fn ($key) => $key !== ''
+        )));
+
+        return $keys !== [] ? $keys : self::CAPABILITY_KEYS;
+    }
+
+    /**
+     * The probe a pushed option reply most plausibly belongs to.
+     *
+     * ADMS attaches no command id to a pushed result, so correlation is
+     * "the newest dispatched GET_OPTION for this device" — the same
+     * newest-command-wins assumption the push controller already makes.
+     */
+    private function latestOptionProbe(BiometricDevice $device): ?BiometricDeviceCommand
+    {
+        return BiometricDeviceCommand::query()
+            ->where('biometric_device_id', $device->id)
+            ->where('command_type', 'GET_OPTION')
+            ->whereIn('status', [BiometricDeviceCommand::STATUS_SENT, BiometricDeviceCommand::STATUS_EXECUTED])
+            ->orderByDesc('sent_at')
+            ->orderByDesc('id')
+            ->first();
+    }
+
     private function touchProbedAt(BiometricDevice $device): void
     {
         // Set directly rather than via update(): capabilities_probed_at is
@@ -772,53 +1114,170 @@ class DeviceCapabilityService
     }
 
     /**
+     * Collapse the stored option map into a lookup tolerant of the `~` prefix
+     * and of casing.
+     *
+     * ZKTeco's SDK parameter names are `~`-prefixed for read-only device
+     * descriptors (matrix §4b) and unprefixed for the rest, but which spelling a
+     * given firmware answers `INFO` and `GET OPTION` with is a per-model
+     * accident. `~MaxUserCount` and `MaxUserCount` are the same fact, so they
+     * fold onto one lookup name — but the literal spelling that supplied the
+     * winning value is kept, because the unit of a maximum depends on it
+     * (MAX_KEY_UNITS).
+     *
+     * Where both spellings arrive, the entry that actually answered wins over
+     * one that was rejected or came back empty, and the unprefixed spelling
+     * breaks a tie: it is the one documented as a literal count.
+     *
      * @param  array<string, array{value: string|null, unsupported: bool}>  $options
+     * @return array<string, array{key: string, value: string|null, unsupported: bool}>
      */
-    private function value(array $options, string $key): ?string
+    private function indexOptions(array $options): array
     {
-        if (! isset($options[$key]) || $options[$key]['unsupported']) {
-            return null;
+        $index = [];
+
+        foreach ($options as $key => $option) {
+            $key = (string) $key;
+            $name = $this->normaliseKey($key);
+
+            if ($name === '') {
+                continue;
+            }
+
+            $candidate = [
+                'key' => $key,
+                'value' => $option['value'] ?? null,
+                'unsupported' => (bool) ($option['unsupported'] ?? false),
+            ];
+
+            if (! isset($index[$name]) || $this->entryRank($candidate) > $this->entryRank($index[$name])) {
+                $index[$name] = $candidate;
+            }
         }
 
-        $value = $options[$key]['value'];
+        return $index;
+    }
 
-        return $this->isMeaningful($value) ? $value : null;
+    private function normaliseKey(string $key): string
+    {
+        return strtolower(ltrim(trim($key), '~'));
     }
 
     /**
-     * @param  array<string, mixed>  $options
+     * @param  array{key: string, value: string|null, unsupported: bool}  $entry
      */
-    private function intValue(array $options, string $key): ?int
+    private function entryRank(array $entry): int
     {
-        $value = $this->value($options, $key);
+        if ($entry['unsupported']) {
+            return 0;
+        }
+
+        if (! $this->isMeaningful($entry['value'])) {
+            return 1;
+        }
+
+        return str_starts_with(trim($entry['key']), '~') ? 2 : 3;
+    }
+
+    /**
+     * First meaningful value among the given names, `~`-insensitively.
+     *
+     * @param  array<string, array{key: string, value: string|null, unsupported: bool}>  $index
+     */
+    private function value(array $index, string ...$names): ?string
+    {
+        foreach ($names as $name) {
+            $entry = $index[$this->normaliseKey($name)] ?? null;
+
+            if ($entry === null || $entry['unsupported']) {
+                continue;
+            }
+
+            if ($this->isMeaningful($entry['value'])) {
+                return $entry['value'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $index
+     */
+    private function intValue(array $index, string $name): ?int
+    {
+        $value = $this->value($index, $name);
 
         return is_numeric($value) ? (int) $value : null;
     }
 
     /**
-     * @param  array<string, mixed>  $options
+     * @param  array<string, mixed>  $index
      */
-    private function boolValue(array $options, string $key): ?bool
+    private function boolValue(array $index, string $name): ?bool
     {
-        $value = $this->intValue($options, $key);
+        $value = $this->intValue($index, $name);
 
         return $value === null ? null : $value > 0;
     }
 
     /**
-     * Build one capacity meter. `supported` is false only when the device
-     * explicitly rejected the key — that is how "this unit has no face engine"
-     * reaches the UI.
+     * Feature flags. Engine flags are omitted rather than nulled when the device
+     * never reported them — see the snapshot() docblock.
      *
-     * @param  array<string, mixed>  $options
+     * @param  array<string, mixed>  $index
+     * @return array<string, bool|null>
+     */
+    private function flags(array $index): array
+    {
+        $flags = ['work_code' => $this->boolValue($index, 'WorkCode')];
+
+        foreach (self::ENGINE_FLAGS as $flag => $key) {
+            $value = $this->boolValue($index, $key);
+
+            if ($value !== null) {
+                $flags[$flag] = $value;
+            }
+        }
+
+        return $flags;
+    }
+
+    /**
+     * Build one capacity meter.
+     *
+     * `supported` is false when the device rejected the key with -1004, when it
+     * reported the engine off (`FaceFunOn = 0`), or when it reported a maximum
+     * of zero — all three mean "this unit has no such store", which is how the
+     * UI learns to stop offering the feature. A device that has the engine and
+     * nothing enrolled is `supported = true, used = 0` instead.
+     *
+     * `$countKeys` may name more than one key, tried in order, so a meter can
+     * survive a model that spells its count differently — see resolveCount().
+     *
+     * @param  array<string, mixed>  $index
+     * @param  string|array<int, string>  $countKeys
      * @return array{label: string, used: int|null, max: int|null, percent: float|null, supported: bool, known: bool}
      */
-    private function meter(array $options, string $label, string $countKey, string $maxKey): array
+    private function meter(array $index, string $label, string|array $countKeys, string $maxKey, ?string $engineKey = null): array
     {
-        $supported = ! (($options[$countKey]['unsupported'] ?? false) || ($options[$maxKey]['unsupported'] ?? false));
+        [$countEntry, $used] = $this->resolveCount($index, (array) $countKeys);
+        $maxEntry = $index[$this->normaliseKey($maxKey)] ?? null;
 
-        $used = $this->intValue($options, $countKey);
-        $max = $this->intValue($options, $maxKey);
+        $rejected = ($countEntry['unsupported'] ?? false) || ($maxEntry['unsupported'] ?? false);
+
+        [$max, $storeAbsent] = $this->resolveMax($maxEntry);
+
+        // Independent sanity gate. Even a maximum whose unit we believe we know
+        // is discarded when the live count exceeds it: a store cannot hold less
+        // than it already holds, so the likelier explanation is that the unit is
+        // not what we assumed. Consumers divide `used` by `max` themselves, so
+        // the denominator has to be withheld, not just excluded from `percent` —
+        // otherwise the meter renders "26 / 20, 130% full" on a device that has
+        // thousands of slots free.
+        if ($max !== null && $max > 0 && $used !== null && $used > $max) {
+            $max = null;
+        }
 
         $percent = null;
 
@@ -826,14 +1285,102 @@ class DeviceCapabilityService
             $percent = round(min(100, ($used / $max) * 100), 1);
         }
 
+        $engineOn = $engineKey === null ? null : $this->boolValue($index, $engineKey);
+
         return [
             'label' => $label,
             'used' => $used,
             'max' => $max,
             'percent' => $percent,
-            'supported' => $supported,
+            'supported' => ! $rejected && $engineOn !== false && ! $storeAbsent,
             'known' => $used !== null || $max !== null,
         ];
+    }
+
+    /**
+     * Resolve a meter's live count from the first key that actually answered.
+     *
+     * Returns [the entry the number came from, the number], so the caller can
+     * judge `supported` against the key that supplied the value rather than
+     * against a preferred spelling the device may never use.
+     *
+     * ── Why a meter needs more than one count key ────────────────────────────
+     * The attendance meter was mapped to `AttLogCount` alone, which the MB460
+     * (SN AF6P231260266) does not answer: a six-key probe requesting it came
+     * back `Return=0` with the other five and `AttLogCount` silently omitted,
+     * the same pattern as `MThreshold`. That meter could therefore never
+     * populate on this hardware however often an admin re-probed it. The unit's
+     * attendance-record count is carried as `TransactionCount = 1009`.
+     *
+     * The order is the contract: the documented spelling is tried first so a
+     * model that answers `AttLogCount` still wins, and the fallback only speaks
+     * when the preferred key produced nothing usable. A key present but flagged
+     * unsupported is remembered as the fallback entry — so if nothing answers,
+     * the meter still reports `supported = false` rather than pretending it was
+     * never asked.
+     *
+     * @param  array<string, array{key: string, value: string|null, unsupported: bool}>  $index
+     * @param  array<int, string>  $keys
+     * @return array{0: array{key: string, value: string|null, unsupported: bool}|null, 1: int|null}
+     */
+    private function resolveCount(array $index, array $keys): array
+    {
+        $fallback = null;
+
+        foreach ($keys as $key) {
+            $entry = $index[$this->normaliseKey($key)] ?? null;
+
+            if ($entry === null) {
+                continue;
+            }
+
+            $fallback ??= $entry;
+
+            if (! $entry['unsupported'] && is_numeric($entry['value'])) {
+                return [$entry, (int) $entry['value']];
+            }
+        }
+
+        return [$fallback, null];
+    }
+
+    /**
+     * Interpret a stored maximum, returning [usable maximum, store is absent].
+     *
+     * A maximum only survives as a number when MAX_KEY_UNITS declares the
+     * spelling that produced it to be a literal count. Everything else — an
+     * undeclared key, or one declared UNKNOWN — comes back null, and the meter
+     * renders the live count with the headroom unknown. See MAX_KEY_UNITS for
+     * why guessing a multiplier is not on the table.
+     *
+     * @param  array{key: string, value: string|null, unsupported: bool}|null  $entry
+     * @return array{0: int|null, 1: bool}
+     */
+    private function resolveMax(?array $entry): array
+    {
+        if ($entry === null || $entry['unsupported'] || ! is_numeric($entry['value'])) {
+            return [null, false];
+        }
+
+        $raw = (int) $entry['value'];
+
+        if ($raw < 0) {
+            // Negative "maxima" are ADMS return codes (-1 / -1004) leaking
+            // through as a value, never quantities.
+            return [null, false];
+        }
+
+        if ($raw === 0) {
+            // Zero is the one value that survives any unit — zero thousands is
+            // still zero. `~MaxPvCount = 0` alongside `PvFunOn = 0` is a device
+            // saying it has no palm-vein store at all, which must read as
+            // "feature absent", never as "0 of 0, 100% full".
+            return [0, true];
+        }
+
+        $unit = self::MAX_KEY_UNITS[strtolower(trim($entry['key']))] ?? self::MAX_UNIT_UNKNOWN;
+
+        return $unit === self::MAX_UNIT_RAW ? [$raw, false] : [null, false];
     }
 
     private function toIso(mixed $value): ?string

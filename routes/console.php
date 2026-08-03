@@ -107,6 +107,19 @@ Schedule::command('biometric:import-downloaded')
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/biometric-import.log'));
 
+// Device-silence alerting. ADMS is device-initiated: if a terminal stops
+// pushing, nothing else in this system notices until attendance turns up empty.
+// Runs every five minutes because that is the finest granularity production
+// cron offers (schedule:run is on a */5 cron) — anything more frequent would
+// simply not fire. The tick is cheap and does NOT mean five-minutely alerts:
+// the command alerts on the transition into silence via a per-device cache
+// marker, so a device that is down all night produces one alert, not 96.
+Schedule::command('biometric:device-health-alert')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/biometric-device-health.log'));
+
 // Close forgotten open punches at their resolved shift end
 Schedule::command('attendance:auto-punch-out')->hourly()->withoutOverlapping();
 

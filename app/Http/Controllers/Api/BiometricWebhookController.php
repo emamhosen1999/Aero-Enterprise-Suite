@@ -35,7 +35,13 @@ class BiometricWebhookController extends Controller
      * content sample, and answered `OK` — never fed to the attendance parser,
      * which would log every line as a malformed punch.
      */
-    private const KNOWN_UNHANDLED_TABLES = ['BIODATA', 'ATTPHOTO', 'ERRORLOG', 'RTLOG'];
+    private const KNOWN_UNHANDLED_TABLES = ['BIODATA', 'ATTPHOTO', 'RTLOG'];
+
+    /**
+     * Device fault reports (matrix §1). Persisted — see storeErrorLog() for why
+     * this one table earned storage and `RTLOG` did not.
+     */
+    private const ERROR_TABLE = 'ERRORLOG';
 
     /**
      * `table=options` carries both the registration payload (`&c=registry`) and,
@@ -96,8 +102,15 @@ class BiometricWebhookController extends Controller
         $verifyCode = $request->input('verify_code');
         $checkType = $this->biometricService->resolveCheckType($verifyCode, $request->input('check_type', 'in'));
 
-        // 3. Create an ATTLOG record immediately
-        $attLog = $this->biometricService->createAttLog([
+        // 3. Create an ATTLOG record immediately.
+        //
+        // `biometric_att_logs` now carries a unique key over the punch natural
+        // key, so a device that redelivers a punch it already sent gets a null
+        // here instead of a constraint violation surfacing as a 500. That is the
+        // same answer step 6 gives for a punch already in `attendances`: the
+        // punch is on record, the existing row keeps its own status and
+        // provenance, and the device is told to stop resending.
+        $attLog = $this->biometricService->createAttLogIfNotStaged([
             'biometric_device_id' => $device->id,
             'serial_number' => $serialNumber,
             'user_pin' => $deviceUserId,
@@ -111,6 +124,17 @@ class BiometricWebhookController extends Controller
             'punch_status' => 'failed',
             'punch_status_reason' => 'Pending processing',
         ]);
+
+        if (! $attLog) {
+            Log::info('Biometric webhook: punch already recorded for this device — redelivery ignored', [
+                'device_serial' => $serialNumber,
+                'device_user_id' => $deviceUserId,
+                'punch_time' => $resolvedPunchTime->toDateTimeString(),
+                'check_type' => $checkType,
+            ]);
+
+            return response()->json(['message' => 'Duplicate punch — already recorded.'], 200);
+        }
 
         // 4. Resolve user
         $resolved = $this->biometricService->resolveOrCreateUser($deviceUserId);
@@ -317,7 +341,20 @@ class BiometricWebhookController extends Controller
             'session_id' => $sessionId,
         ]);
 
-        $responseBody = $this->biometricService->buildHandshakeOptionsBody($serialNumber);
+        // The device announces its own `pushver` on every init (matrix §1/§3) and
+        // we asserted 2.4.1 back at it regardless. Hand it over so the handshake
+        // can agree with the terminal instead of overriding it; anything the
+        // service does not recognise as a version falls back to the value that
+        // is working in production today.
+        // `?pushver[]=` would hand us an array; the handshake is the one request
+        // that must never 500, so anything that is not a plain string is treated
+        // as "the device announced nothing".
+        $announcedPushVer = $request->query('pushver');
+
+        $responseBody = $this->biometricService->buildHandshakeOptionsBody(
+            $serialNumber,
+            is_string($announcedPushVer) ? $announcedPushVer : null
+        );
 
         return new Response(
             $responseBody,
@@ -340,7 +377,11 @@ class BiometricWebhookController extends Controller
      *
      *   - attendance parsing runs ONLY for `table=ATTLOG` and for the legacy
      *     no-`table` push,
-     *   - documented-but-unimplemented tables are logged with a content sample,
+     *   - `table=errorlog` is persisted to biometric_oper_logs (device faults are
+     *     worth keeping; see BiometricProcessingService::storeErrorLog()),
+     *   - the remaining documented-but-unimplemented tables — including `rtlog`,
+     *     which only mirrors punches ATTLOG already delivers — are logged with a
+     *     content sample and dropped,
      *   - anything else is logged as unknown.
      *
      * Every one of those paths still answers with the plain-text `OK` the device
@@ -431,6 +472,15 @@ class BiometricWebhookController extends Controller
         // OPERLOG
         if ($normalizedTable === 'OPERLOG') {
             $this->biometricService->storeOperLog($rawData, $serialNumber, $device);
+
+            return new Response('OK', 200, ['Content-Type' => 'text/plain']);
+        }
+
+        // Device fault report. Stored in biometric_oper_logs, never parsed as
+        // attendance. Answered OK like every other push: an ERROR here would
+        // make a device that is already reporting a fault retry it forever.
+        if ($normalizedTable === self::ERROR_TABLE) {
+            $this->biometricService->storeErrorLog($rawData, $serialNumber, $device);
 
             return new Response('OK', 200, ['Content-Type' => 'text/plain']);
         }
