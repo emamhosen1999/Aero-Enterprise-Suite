@@ -3580,7 +3580,12 @@ function CapabilitiesTab({ devices = [], isMobile }) {
                         then refresh once the terminal has polled.
                     </Callout.Text>
                 </Callout.Root>
-            ) : (
+            ) : probedAt ? (
+                // Guarded on probedAt itself, NOT on neverProbed. neverProbed is
+                // `snapshotLoaded && !probedAt`, so before the first snapshot lands
+                // (or after a failed fetch) it is false while probedAt is still null
+                // — which previously fell through to probedAt.toLocaleString() and
+                // crashed the whole tab. Render nothing until we actually have a date.
                 <Callout.Root color={isStale ? 'amber' : 'green'} mb="4" size="1">
                     <Callout.Icon>{isStale ? <ExclamationTriangleIcon /> : <CheckCircledIcon />}</Callout.Icon>
                     <Callout.Text>
@@ -3588,7 +3593,7 @@ function CapabilitiesTab({ devices = [], isMobile }) {
                         {isStale && ' — over a day old. Counts and capacity may have drifted; re-probe before acting on them.'}
                     </Callout.Text>
                 </Callout.Root>
-            )}
+            ) : null}
 
             {probeQueuedAt && (
                 <Callout.Root color="cyan" mb="4" size="1">

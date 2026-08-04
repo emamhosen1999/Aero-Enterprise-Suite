@@ -855,7 +855,7 @@
     "isEntry": true
   },
   "resources/js/Components/AdminUnified/BiometricPanel.jsx": {
-    "file": "assets/js/BiometricPanel-DJaGF8Rd.js",
+    "file": "assets/js/BiometricPanel-VIToANg4.js",
     "name": "BiometricPanel",
     "src": "resources/js/Components/AdminUnified/BiometricPanel.jsx",
     "isDynamicEntry": true,
@@ -1136,7 +1136,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-CzNycQY8.js",
+    "file": "assets/js/AttendancePage-B-nolvq0.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -2474,7 +2474,7 @@
     ]
   },
   "resources/js/Pages/Settings/BiometricDevices.jsx": {
-    "file": "assets/js/BiometricDevices-BdS7Hd3i.js",
+    "file": "assets/js/BiometricDevices-B_74NWVi.js",
     "name": "BiometricDevices",
     "src": "resources/js/Pages/Settings/BiometricDevices.jsx",
     "isDynamicEntry": true,
@@ -2599,7 +2599,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CEVFW6bj.js",
+    "file": "assets/js/app-BUSOaFmT.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
