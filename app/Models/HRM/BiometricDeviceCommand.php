@@ -67,6 +67,103 @@ class BiometricDeviceCommand extends Model
         '-1004' => ['label' => 'Not supported on this model', 'ok' => false, 'unsupported' => true],
     ];
 
+    /**
+     * Commands that destroy data on the device, mapped to what each one destroys.
+     *
+     * This is the command-layer twin of `DeviceCapabilityService::SETTINGS_CATALOGUE`'s
+     * per-key `dangerous` flag: the settings layer gates a strand-the-device option
+     * behind `confirm_dangerous`, and a wipe deserves the same treatment. Keeping the
+     * list here rather than in a controller means the queuing layer, the UI catalogue
+     * endpoint and command history all read one definition.
+     *
+     * The distinction being drawn is *irreversible loss of data on the unit*, not
+     * "alarming". `REBOOT` is disruptive but destroys nothing and is deliberately
+     * absent; `CLEAR_LOG` is present because punches the device has not yet pushed
+     * are gone the moment it runs.
+     *
+     * @var array<string, string>
+     */
+    public const DESTRUCTIVE_COMMAND_TYPES = [
+        'CLEAR_DATA' => 'Erases all users and all biometric templates on the device.',
+        'CLEAR_LOG' => 'Erases attendance logs on the device, including punches it has not yet pushed to this server.',
+        'CLEAR_PHOTO' => 'Erases attendance capture photos stored on the device.',
+        // Called out at more length than the rest because this application cannot
+        // undo it. Fingerprints we hold can be pushed back with DATA UPDATE
+        // FINGERTMP; face templates cannot be written back at all (see
+        // TemplateRoamingService::FACE_REASON), so wiping biometrics from a unit
+        // that holds an enrolled face destroys that enrolment permanently — the
+        // person must physically re-enrol.
+        'CLEAR_BIODATA' => 'Erases all biometric templates on the device. Fingerprints can be restored from this server; face enrolments CANNOT — they are lost permanently.',
+        'DELETE_USER' => 'Removes a user, and that user\'s templates, from the device.',
+        'DELETE_FINGERTMP' => 'Removes stored fingerprint template(s) for one PIN from the device.',
+    ];
+
+    /**
+     * Commands whose emitted string has never been acked by any device of ours,
+     * mapped to the reason confidence is limited.
+     *
+     * SIX commands are hardware-verified in production, all on the real MB460
+     * (`AF6P231260266`) and all `Return=0`: `INFO`, `GET_OPTION`, `SET_OPTION`,
+     * `QUERY_USERINFO`, `CHECK_ATTLOG`, `CHECK`. Everything listed here is
+     * inference from documentation, so a `-1002` (syntax) or `-1004`
+     * (unsupported) ack on one of these means "our string, or this model" — not a
+     * device fault. Surfacing that distinction is the difference between an admin
+     * filing a hardware ticket and an admin reporting a protocol gap.
+     *
+     * This list is the live-probe worklist. Delete an entry the day a device acks
+     * it with `Return=0`.
+     *
+     * @var array<string, string>
+     */
+    public const HARDWARE_UNVERIFIED_COMMAND_TYPES = [
+        'UPDATE_FINGERTMP' => 'Documented across independent implementations, never sent to one of our devices. Tab-separated on the evidence of the one implementation whose source states the string, but no device has confirmed the separator.',
+        'DELETE_FINGERTMP' => 'Composed from the documented DATA/DELETE grammar and an attested FINGERTMP PIN/FID addressing; single-source overall.',
+        'CLEAR_PHOTO' => 'Single-source. Follows the established CLEAR <NOUN> grammar but has not been acked.',
+        'CLEAR_BIODATA' => 'Single-source. Follows the established CLEAR <NOUN> grammar but has not been acked.',
+        'GET_USERINFO' => 'Legacy alias now emitting DATA QUERY USERINFO; the corrected string is unproven on the alias path.',
+        // Long-standing in this codebase, which is not the same as verified. The
+        // string is also separator-suspect: it is space-separated while every
+        // reference implementation tab-separates USERINFO, so a Name containing a
+        // space is the case that would expose it. Being long-standing is why it
+        // has not been changed; it is not why it should read as settled.
+        'ADD_USER' => 'Space-separated while reference implementations tab-separate DATA UPDATE USERINFO. Long-standing here but never acked Return=0, and unverified in both string and separator.',
+        'UPDATE_USER' => 'Same emitted string, and the same unverified separator, as ADD_USER.',
+        'REBOOT' => 'Long-standing in this codebase but not part of the verified six.',
+    ];
+
+    /**
+     * Commands deliberately NOT implemented, and why. Read this before adding one.
+     *
+     * - `Shell <cmd>` — arbitrary OS command execution on the terminal. A reference
+     *   implementation does expose it, which makes it real rather than theoretical,
+     *   and that is exactly why it stays out: it converts any flaw in the command
+     *   queue into remote code execution on a device sitting on the office LAN.
+     *   Matrix §2 says do not expose it. There is no payload validation that makes
+     *   this safe, so there is no "careful" version to add later.
+     *
+     * - `AC_UNLOCK` — door release, access-control models only. Three reasons to
+     *   leave it out, any one sufficient. (1) Our unit is an attendance terminal
+     *   with no lock relay, so the command is dead surface that can only ever return
+     *   -1004. (2) ADMS delivery is a FIFO poll queue with 30-120 s latency and no
+     *   cancel, so a door release fires up to two minutes after the click, long
+     *   after whoever pressed it has stopped watching the door — a physical-security
+     *   hazard, not a convenience. (3) Unlocking a door is an action that needs its
+     *   own authorisation model and audit trail, which is a feature, not a row in a
+     *   generic command queue.
+     *
+     * - `PutFile` / `GetFile` — file and firmware transfer over a protocol we have
+     *   no way to test. The downside of getting a firmware write wrong is a bricked
+     *   terminal recoverable only by physical service, and there is no offsetting
+     *   need: nothing in this application wants to move files onto a device.
+     *
+     * - `LOG` — appears in one reference implementation, so the verb is probably
+     *   real, but it buys nothing. Operation and error logs already arrive
+     *   unprompted as `table=OPERLOG` / `table=errorlog` pushes, which this server
+     *   consumes. A command whose reply format is undocumented and whose content we
+     *   already receive is surface area without a use case.
+     */
+    public const DELIBERATELY_UNIMPLEMENTED = ['Shell', 'AC_UNLOCK', 'PutFile', 'GetFile', 'LOG'];
+
     protected $fillable = [
         'biometric_device_id',
         'command_type',
@@ -116,6 +213,16 @@ class BiometricDeviceCommand extends Model
 
             case 'ADD_USER':
             case 'UPDATE_USER':
+                // NOTE (separator): this one is space-separated while UPDATE_FINGERTMP
+                // below is tab-separated, and that inconsistency is deliberate rather
+                // than an oversight. Reference implementations tab-separate USERINFO too
+                // ('DATA UPDATE USERINFO PIN=%s'."\t".'Name=%s'."\t"…), so this string is
+                // probably wrong — but it is long-standing, it is not on the
+                // hardware-verified list either way, and changing a command that may be
+                // working in production is a bigger risk than leaving it. FINGERTMP has
+                // never been sent to anything, so it costs nothing to start it on the
+                // better-evidenced form. Probe USERINFO on real hardware before touching
+                // it: a Name containing a space is the case that would expose the bug.
                 $command .= 'DATA UPDATE USERINFO';
                 $command .= ' PIN='.($payload['pin'] ?? '');
                 $command .= ' Name='.($payload['name'] ?? '');
@@ -194,8 +301,28 @@ class BiometricDeviceCommand extends Model
                 // Field order follows the documented form. Size is the byte length of the
                 // template as sent, and Valid=1 marks the finger as enrolled/usable
                 // (0 would register it as a duress finger on models that support that).
-                // Some implementations tab-separate these; we use single spaces to match
-                // `DATA UPDATE USERINFO` above, which our hardware demonstrably accepts.
+                //
+                // SEPARATOR: TAB, not space. This is the one detail worth being exact
+                // about, because getting it wrong fails *silently*. If the device's
+                // parser splits strictly on \t, then a space-separated
+                // `PIN=1024 FID=3 Size=16 Valid=1 TMP=…` arrives as a single field whose
+                // value is the whole remainder: PIN still reads 1024 (leading digits),
+                // FID falls back to 0, Size to 0, and TMP is empty — a Return=0 ack for
+                // an enrolment that never landed. Three lines of evidence all point the
+                // same way and none point at spaces:
+                //   1. The only reference implementation whose source states this string
+                //      literally builds it tab-separated:
+                //      'DATA UPDATE FINGERTMP PIN=%s'."\t".'FID=%s'."\t".'Size=%d'
+                //      ."\t".'Valid=%s'."\t".'TMP=%s'  (shadow046/zkteco-adms).
+                //   2. A ZKTeco distributor's PUSH command guide writes the sibling
+                //      payload command as `DATA UPDATE BIOPHOTO PIN=1\tContent=…`.
+                //   3. Our OWN hardware-verified multi-field command is tab-separated:
+                //      CHECK_ATTLOG emits `DATA QUERY ATTLOG StartTime=…\tEndTime=…` and
+                //      the MB460 acks it Return=0. That is the only separator evidence
+                //      we have from a real device, and it says tab.
+                // `DATA UPDATE USERINFO` above still uses spaces; it is untouched here
+                // because it may be working in production and is not part of this
+                // change's remit — see the note on that case.
                 //
                 // TMP must be the last field: it is the only value that can be long, so
                 // anything a device truncates falls off the end of the payload rather
@@ -203,26 +330,78 @@ class BiometricDeviceCommand extends Model
                 $tmp = preg_replace('/\s+/', '', (string) ($payload['template'] ?? ''));
                 $command .= 'DATA UPDATE FINGERTMP';
                 $command .= ' PIN='.($payload['pin'] ?? '');
-                // FID is the finger index (0-9). biometric_templates.finger_index is
-                // nullable and is never populated on capture, so the caller passes 0
-                // when it is unknown — see TemplateRoamingService::FALLBACK_FINGER_INDEX.
-                $command .= ' FID='.($payload['fid'] ?? 0);
-                $command .= ' Size='.($payload['size'] ?? strlen($tmp));
-                $command .= ' Valid='.($payload['valid'] ?? 1);
-                $command .= ' TMP='.$tmp;
+                // FID is the finger index (0-9), and it is now the REAL one. Capture
+                // parses FID out of the template push and `biometric_templates` keys
+                // uniquely on the finger slot, so a person with two enrolled fingers
+                // produces two of these commands with two different FIDs. The 0 here
+                // is only the last-resort default for a payload that carries none —
+                // see TemplateRoamingService::FALLBACK_FINGER_INDEX. It used to be
+                // what EVERY restore sent, which is how a two-finger enrolment came
+                // back as one finger.
+                $command .= "\tFID=".($payload['fid'] ?? 0);
+                $command .= "\tSize=".($payload['size'] ?? strlen($tmp));
+                $command .= "\tValid=".($payload['valid'] ?? 1);
+                $command .= "\tTMP=".$tmp;
                 break;
 
             case 'DELETE_FINGERTMP':
-                // Matrix §2 marks this `[?]` — single-source. Lower confidence than the
-                // update verb above; expect -1004 on some models.
+                // UNVERIFIED AGAINST HARDWARE. Matrix §2 marks `DATA DELETE FINGERTMP`
+                // `[?]` — single-source — and no device of ours has ever acked one.
+                // Also listed in HARDWARE_UNVERIFIED_COMMAND_TYPES; keep it there until
+                // a Return=0 arrives.
+                //
+                // What IS defensible about the string, piece by piece:
+                //   - `DATA DELETE <NOUN>` is the established grammar and is proven here
+                //     by `DATA DELETE USERINFO PIN=` (implemented, matrix §2).
+                //   - `FINGERTMP` as the noun, addressed by PIN and FID, is attested by
+                //     the reference implementation that builds both
+                //     `DATA QUERY FINGERTMP PIN=%s\tFID=%s` and
+                //     `DATA UPDATE FINGERTMP PIN=%s\tFID=%s\t…` (shadow046/zkteco-adms).
+                //     The DELETE verb applied to that same noun/addressing is the
+                //     inference; the noun and its fields are not.
+                //   - Tab separator, for exactly the reasons spelled out on
+                //     UPDATE_FINGERTMP above. A delete that mis-parses its FID deletes
+                //     the wrong finger, so the same care applies.
+                //
+                // Expect -1004 on some models. That is a capability answer, not a bug.
                 $command .= 'DATA DELETE FINGERTMP PIN='.($payload['pin'] ?? '');
                 // FID is deliberately omitted when absent rather than sent as an empty
                 // or zero value: `FID=` is a syntax error and `FID=0` would silently
                 // delete only the first finger when the caller asked for all of them.
                 $fid = $payload['fid'] ?? null;
                 if ($fid !== null && $fid !== '') {
-                    $command .= ' FID='.$fid;
+                    $command .= "\tFID=".$fid;
                 }
+                break;
+
+            case 'CLEAR_PHOTO':
+                // Targeted wipe: attendance capture photos only, leaving users,
+                // templates and punches alone. Strictly safer than the `CLEAR DATA`
+                // we already expose, which takes everything.
+                //
+                // UNVERIFIED AGAINST HARDWARE, `[?]` in matrix §2. The confidence here
+                // is grammatical rather than empirical: `CLEAR <NOUN>` is proven on this
+                // codebase by `CLEAR LOG` and `CLEAR DATA`, and PHOTO is the noun the
+                // device itself uses for this data (`table=ATTPHOTO` pushes, matrix §1).
+                // A single-word command has no field-separator risk, which is why these
+                // two are worth adding while a multi-field face write is not.
+                //
+                // Flagged in DESTRUCTIVE_COMMAND_TYPES — this erases data on the unit.
+                $command .= 'CLEAR PHOTO';
+                break;
+
+            case 'CLEAR_BIODATA':
+                // Targeted wipe: biometric templates only, leaving the user roster and
+                // attendance logs intact. Same `[?]`/grammatical confidence as
+                // CLEAR PHOTO above; BIODATA is the device's own noun for the unified
+                // biometric table (matrix §1).
+                //
+                // Flagged in DESTRUCTIVE_COMMAND_TYPES, and it is the most dangerous
+                // entry in that list: fingerprints can be pushed back with
+                // DATA UPDATE FINGERTMP, but face enrolments cannot be written back at
+                // all (TemplateRoamingService::FACE_REASON), so this permanently
+                // destroys every face on the unit. The production MB460 holds one.
+                $command .= 'CLEAR BIODATA';
                 break;
 
             case 'CHECK_ATTLOG':
@@ -320,6 +499,80 @@ class BiometricDeviceCommand extends Model
     public function isUnsupported(): bool
     {
         return $this->status === self::STATUS_UNSUPPORTED;
+    }
+
+    /**
+     * Does this command type irreversibly destroy data on the device?
+     *
+     * The three catalogues above (destructive, hardware-unverified, deliberately
+     * unimplemented) are only worth having if something can read them, so each
+     * gets a static lookup plus an instance convenience. The queuing layer, the
+     * UI catalogue endpoint and command history then all answer "is this
+     * dangerous?" from the same definition instead of each keeping a list.
+     */
+    public static function isDestructiveType(?string $commandType): bool
+    {
+        return isset(self::DESTRUCTIVE_COMMAND_TYPES[(string) $commandType]);
+    }
+
+    /**
+     * What a destructive command destroys, phrased for an admin who is about to
+     * confirm it. Null for anything non-destructive.
+     */
+    public static function destructiveWarningFor(?string $commandType): ?string
+    {
+        return self::DESTRUCTIVE_COMMAND_TYPES[(string) $commandType] ?? null;
+    }
+
+    public function isDestructive(): bool
+    {
+        return self::isDestructiveType($this->command_type);
+    }
+
+    public function destructiveWarning(): ?string
+    {
+        return self::destructiveWarningFor($this->command_type);
+    }
+
+    /**
+     * Has any device of ours ever acked this command type with Return=0?
+     *
+     * False here does NOT mean the command is broken — it means a -1002 or -1004
+     * ack is ambiguous between "this model cannot" and "our string is wrong", and
+     * the UI should say so rather than blaming the hardware.
+     */
+    public static function isHardwareUnverifiedType(?string $commandType): bool
+    {
+        return isset(self::HARDWARE_UNVERIFIED_COMMAND_TYPES[(string) $commandType]);
+    }
+
+    public static function hardwareUnverifiedReasonFor(?string $commandType): ?string
+    {
+        return self::HARDWARE_UNVERIFIED_COMMAND_TYPES[(string) $commandType] ?? null;
+    }
+
+    public function isHardwareUnverified(): bool
+    {
+        return self::isHardwareUnverifiedType($this->command_type);
+    }
+
+    public function hardwareUnverifiedReason(): ?string
+    {
+        return self::hardwareUnverifiedReasonFor($this->command_type);
+    }
+
+    /**
+     * Commands that must never be queued, whatever the caller asks for.
+     *
+     * `Shell` is the one that matters: it is arbitrary OS command execution on a
+     * terminal sitting on the office LAN, and no payload validation makes that
+     * safe. The rest are refused for the reasons in DELIBERATELY_UNIMPLEMENTED.
+     * Exposed as a check so the queuing layer can reject at the door rather than
+     * storing a row that quietly emits `UNKNOWN` later.
+     */
+    public static function isDeliberatelyUnimplementedType(?string $commandType): bool
+    {
+        return in_array((string) $commandType, self::DELIBERATELY_UNIMPLEMENTED, true);
     }
 
     /**

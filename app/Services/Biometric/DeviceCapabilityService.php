@@ -456,6 +456,28 @@ class DeviceCapabilityService
     public const SOURCE_REGISTRY = 'registry';
 
     /**
+     * The device rejected a `SET OPTION <key>=<value>` write with -1004/-1.
+     *
+     * The key is unavailable exactly as a rejected `GET OPTION` key is, and both
+     * are recorded with `is_unsupported = true` — but they are not the same
+     * event, and a row that says `get_option` when nothing was ever read is a
+     * lie told to whoever debugs this next. It matters concretely: the settings
+     * form writes with SET OPTION and the probe reads with GET OPTION, so
+     * "which of the two did the device refuse?" is the first question asked when
+     * a setting will not stick.
+     */
+    public const SOURCE_SET_OPTION = 'set_option';
+
+    /**
+     * The device rejected a whole COMMAND with -1004/-1, not a named key.
+     *
+     * These rows are the `CMD:<VERB>` pseudo-keys — a unit that cannot do `INFO`
+     * at all — and they never came from reading or writing an option, so neither
+     * option source describes them.
+     */
+    public const SOURCE_COMMAND = 'command';
+
+    /**
      * The device was asked for this key in a `GET OPTION` that it answered with
      * `Return=0`, and simply left the key out of the reply.
      *
@@ -618,6 +640,19 @@ class DeviceCapabilityService
      * command the rejected key(s) come from the payload; for anything else the
      * command verb itself is recorded under a `CMD:` prefix, so a unit that
      * cannot do `INFO` is remembered as such and is not asked again on a loop.
+     *
+     * The row's `source` names the command that was actually refused —
+     * `get_option` for a read, `set_option` for a write, `command` for a
+     * verb-level `CMD:` row. It used to say `get_option` for all three, which
+     * put "the device would not read this key" on a row created because the
+     * device would not *write* it.
+     *
+     * This does not change what the UI does with these rows. `source` is
+     * consumed as a single discriminator — `source === 'omitted'` separates a
+     * silent omission from an explicit -1004 (BiometricPanel.jsx readKeyState) —
+     * and every other value, recognised or not, falls through to the -1004
+     * wording. Which is the true sentence for all three of these: the device
+     * answered a rejection code out loud.
      */
     public function markUnsupported(BiometricDeviceCommand $command, string $returnCode): void
     {
@@ -640,12 +675,14 @@ class DeviceCapabilityService
 
         $payload = is_array($command->payload) ? $command->payload : [];
         $keys = [];
+        $source = self::SOURCE_COMMAND;
 
         switch ($command->command_type) {
             case 'GET_OPTION':
                 $raw = $payload['keys'] ?? $payload['options'] ?? [];
                 $raw = is_string($raw) ? explode(',', $raw) : (is_array($raw) ? $raw : []);
                 $keys = array_filter(array_map(fn ($key) => trim((string) $key), $raw));
+                $source = self::SOURCE_GET_OPTION;
                 break;
 
             case 'SET_OPTION':
@@ -653,11 +690,16 @@ class DeviceCapabilityService
                 if ($key !== '') {
                     $keys = [$key];
                 }
+                $source = self::SOURCE_SET_OPTION;
                 break;
         }
 
         if ($keys === []) {
+            // No named key survived the payload, so what was refused is the verb
+            // itself — and the row is about the command, not about a read or a
+            // write of an option.
             $keys = ['CMD:'.$command->command_type];
+            $source = self::SOURCE_COMMAND;
         }
 
         $rows = [];
@@ -666,7 +708,7 @@ class DeviceCapabilityService
             $rows[$key] = null;
         }
 
-        $this->persist($device, $rows, self::SOURCE_GET_OPTION, true);
+        $this->persist($device, $rows, $source, true);
         $this->touchProbedAt($device);
     }
 
@@ -704,7 +746,8 @@ class DeviceCapabilityService
      *                                        // successful reply
      *   'options'     => [                   // every stored key, raw
      *       '<Key>' => ['value'=>string|null,'unsupported'=>bool,
-     *                   'source'=>'info'|'get_option'|'registry'|'omitted',
+     *                   'source'=>'info'|'get_option'|'set_option'|'registry'
+     *                             |'omitted'|'command',
      *                   'probed_at'=>string|null],  // ISO-8601
      *   ],
      *   'probed_at'   => string|null,        // ISO-8601, device-level
@@ -726,9 +769,14 @@ class DeviceCapabilityService
      * `percent`. The device's raw answer is still in `options` either way.
      *
      * An unsupported key carries `source = 'omitted'` when the device ignored it
-     * in a reply it called successful, and its original source otherwise. Both
-     * mean "do not offer this key"; only the wording differs, and a UI that
-     * prints "-1004" over an omission is telling the admin something untrue.
+     * in a reply it called successful, and the source of the command it actually
+     * refused otherwise (`get_option`, `set_option`, or `command` for a
+     * verb-level `CMD:` row). Both mean "do not offer this key"; only the
+     * wording differs, and a UI that prints "-1004" over an omission is telling
+     * the admin something untrue. `omitted` is the ONLY value a consumer needs
+     * to branch on — every other value means "the device answered a rejection
+     * code", so an unrecognised one degrades to the -1004 wording, which is true
+     * of all of them.
      *
      * `supported` is false when the device explicitly rejected the key (-1004),
      * when it reported the corresponding engine off (`FvFunOn = 0`), or when it
@@ -833,6 +881,25 @@ class DeviceCapabilityService
      * firmware banners), so only the first `=` splits. Anything that is not a
      * `<key>=<value>` token is skipped rather than fatal.
      *
+     * ── Padding around `=` ───────────────────────────────────────────────────
+     * The separator is matched as `[ \t]*=[ \t]*`, so `FWVersion = Ver 8.0.4.6`
+     * parses identically to `FWVersion=Ver 8.0.4.6`. Our MB460 does not pad — a
+     * live probe stored 74 keys through the unpadded form, which could not have
+     * happened if the wire had spaces — but the ZK option namespace is answered
+     * by a dozen firmware families and the previous parser degraded to *zero*
+     * pairs against a padded reply, dumping the whole payload into the `~RawInfo`
+     * park with nothing else recorded. A total, silent loss is too expensive a
+     * failure for a formatting difference.
+     *
+     * The hard part is that values legitimately contain spaces ("Ver 8.0.4.6",
+     * "ZKTECO CO."), so a value cannot end at the next space. It ends at the next
+     * `<key>=` boundary instead, and the lookahead that finds that boundary
+     * (`(?=\s+<keychars>+[ \t]*=)`) is padded in exactly the same way as the
+     * separator itself — the two must agree or a padded payload with several
+     * pairs on one line would run them together. A boundary still requires a
+     * literal `=` after the candidate key, so "Ver 8.0.4.6-20230217" and
+     * "ZKTECO CO." contain no boundary and survive whole.
+     *
      * @return array<string, string>
      */
     private function parsePairs(string $raw): array
@@ -856,8 +923,14 @@ class DeviceCapabilityService
             // Smith"), so a value runs lazily up to the next `<key>=` boundary
             // rather than to the next space. Only the first `=` splits, which
             // keeps base64 and padded values intact.
+            //
+            // `[ \t]*` on both sides of the `=` — in the separator AND in the
+            // boundary lookahead — is what makes `Key = Value` parse the same as
+            // `Key=Value`. Horizontal whitespace only: the segment was already
+            // split on newlines, so allowing `\s` here would buy nothing and
+            // would let a stray line break be swallowed into a key.
             $matched = preg_match_all(
-                '/([A-Za-z0-9_~.\-]+)=(.*?)(?=(?:\s+[A-Za-z0-9_~.\-]+=)|$)/',
+                '/([A-Za-z0-9_~.\-]+)[ \t]*=[ \t]*(.*?)(?=(?:\s+[A-Za-z0-9_~.\-]+[ \t]*=)|$)/',
                 $segment,
                 $matches,
                 PREG_SET_ORDER

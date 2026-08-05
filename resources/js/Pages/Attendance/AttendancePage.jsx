@@ -24,7 +24,13 @@ import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
 // import BulkMarkAsPresentForm from '@/Forms/BulkMarkAsPresentForm';
 
-const AttendancePage = ({ title, departments = [], designations = [], devices = [] }) => {
+/* `biometricEmployees` is the roster the Biometric Devices tab's unknown-punch
+ * picker resolves PINs against — `{ id, name, employee_id }`, everyone, not just
+ * the Employee-role/own-department set the `employees` prop carries for the
+ * roster and shift tabs. The controller only sends it to users who can open that
+ * tab; everyone else gets `[]`, which BiometricPanel handles by fetching its own
+ * copy. Defaulted here so an older cached page bundle cannot crash on it. */
+const AttendancePage = ({ title, departments = [], designations = [], devices = [], biometricEmployees = [] }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isDesktop = useMediaQuery('(min-width: 1025px)');
@@ -271,7 +277,7 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                                         <Suspense fallback={<Skeleton height="400px" />}>
                                             <BiometricPanel
                                                 initialDevices={devices}
-                                                employees={[]}
+                                                employees={biometricEmployees}
                                                 isMobile={isMobile}
                                                 tick={0}
                                                 onCountChange={() => {}}

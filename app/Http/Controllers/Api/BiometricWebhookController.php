@@ -38,6 +38,48 @@ class BiometricWebhookController extends Controller
     private const KNOWN_UNHANDLED_TABLES = ['BIODATA', 'ATTPHOTO', 'RTLOG'];
 
     /**
+     * The unified biometric payload newer firmware pushes instead of
+     * `templatev10` / `facetmpv10` (matrix §1).
+     *
+     * **Deliberately not stored.** It is in KNOWN_UNHANDLED_TABLES above, and
+     * handled here only so the skip is logged with enough detail to build the
+     * real handler from. The reasoning, because "we ran out of time" would be a
+     * different decision with a different remedy:
+     *
+     *  1. **No sample exists.** Our only ADMS unit in production (MB460,
+     *     SN AF6P231260266) reports `FvFunOn=0` / `PvFunOn=0` and has never sent
+     *     a BIODATA push. Every field mapping below would be copied from
+     *     third-party servers, not observed.
+     *  2. **`Type` is the whole problem.** A BIODATA row is only usable if its
+     *     `Type` is decoded into a modality, and that mapping is model-dependent
+     *     and undocumented (matrix marks the row `[D]`, not `[V]`). Guessing it
+     *     writes a face template into a row labelled `fingerprint`.
+     *  3. **A mislabelled row is not inert.** TemplateRoamingService restores
+     *     exactly the rows whose `template_type` is `fingerprint`, by emitting
+     *     `DATA UPDATE FINGERTMP` at real hardware. A misfiled BIODATA row would
+     *     therefore be pushed to a device as a fingerprint. Skipping loses data
+     *     we cannot use; guessing corrupts data we can.
+     *  4. **`biometric_templates` could not hold it as-is anyway.**
+     *     `template_type` is an enum of fingerprint/face/palm, with no vein
+     *     types, and the row carries no `Valid` / `Duress` / `Format` /
+     *     `MajorVer` columns — so even a correct decode needs a migration, which
+     *     should be written against a real payload rather than ahead of one.
+     *
+     * What to do when a real push finally arrives: the log line emitted by
+     * logBiodataSkip() carries the field names, the distinct `Type` values and a
+     * redacted sample. That plus a device whose modality is known is enough to
+     * pin the `Type` mapping and only then build storage.
+     */
+    private const BIODATA_TABLE = 'BIODATA';
+
+    /**
+     * Fields of a BIODATA row that describe it rather than being the biometric
+     * itself. Logged verbatim on a skip; everything else is redacted, because
+     * the remaining fields are template material.
+     */
+    private const BIODATA_DESCRIPTOR_FIELDS = ['PIN', 'No', 'Index', 'Valid', 'Duress', 'Type', 'MajorVer', 'MinorVer', 'Format'];
+
+    /**
      * Device fault reports (matrix §1). Persisted — see storeErrorLog() for why
      * this one table earned storage and `RTLOG` did not.
      */
@@ -485,6 +527,15 @@ class BiometricWebhookController extends Controller
             return new Response('OK', 200, ['Content-Type' => 'text/plain']);
         }
 
+        // Unified biometric payload. Skipped on purpose, loudly — see the
+        // BIODATA_TABLE docblock for why storing an undecodable template is
+        // worse than not storing it.
+        if ($normalizedTable === self::BIODATA_TABLE) {
+            $this->logBiodataSkip($device, $serialNumber, $rawData);
+
+            return new Response('OK', 200, ['Content-Type' => 'text/plain']);
+        }
+
         // Registration payload and capability replies (matrix §1 / §2).
         if ($normalizedTable === self::OPTIONS_TABLE) {
             $this->handleOptionsPush($request, $device, $serialNumber, $rawData);
@@ -551,18 +602,16 @@ class BiometricWebhookController extends Controller
      */
     private function handleOptionsPush(Request $request, BiometricDevice $device, string $serialNumber, string $rawData): void
     {
-        $isRegistry = strcasecmp((string) $request->query('c', ''), 'registry') === 0;
+        $fields = $this->parseKeyValueFields($rawData);
 
         // Some firmware omits `c=registry` and is identifiable only by content.
-        if (! $isRegistry) {
-            $fields = $this->parseKeyValueFields($rawData);
-            $isRegistry = count(array_intersect(
+        // Two recognised registration keys is the threshold: one alone (a bare
+        // `IPAddress=`) is just as likely to be a GET OPTION reply.
+        $isRegistry = strcasecmp((string) $request->query('c', ''), 'registry') === 0
+            || count(array_intersect(
                 array_map('strtolower', array_keys($fields)),
                 array_map('strtolower', DeviceCapabilityService::REGISTRY_KEYS)
             )) >= 2;
-        } else {
-            $fields = $this->parseKeyValueFields($rawData);
-        }
 
         if ($isRegistry) {
             Log::info('ADMS push: device registration payload', [
@@ -570,6 +619,8 @@ class BiometricWebhookController extends Controller
                 'device_id' => $device->id,
                 'fields' => array_keys($fields),
             ]);
+
+            $this->logRegistryDrift($device, $serialNumber, $fields);
 
             $this->capabilityService->recordRegistry($device, $fields);
 
@@ -579,6 +630,166 @@ class BiometricWebhookController extends Controller
         $command = $this->pendingCapabilityCommand($device, $rawData, false);
 
         $this->applyCapabilityPayload($device, $command, $rawData, $serialNumber, 'table=options');
+    }
+
+    /**
+     * Announce, in the log, where a device disagrees with its own record.
+     *
+     * `recordRegistry()` fills blank columns only and never overwrites a
+     * populated one — DHCP churn and firmware quirks must not let a terminal
+     * silently rewrite a record an administrator curated, and a stale
+     * `ip_address` that an admin can see is a much smaller problem than a
+     * correct one a device quietly replaced.
+     *
+     * The consequence is that drift resolves by being *shown*, not by being
+     * applied: the device's own answer always lands in the capability table, so
+     * the snapshot carries both `identity.ip_address` (what the device says) and
+     * `identity.record_ip_address` (what we hold). This line puts the same fact
+     * where operations already look. The live MB460 (SN AF6P231260266) is
+     * exactly this case: it reports 192.168.68.100 against a stored
+     * 192.168.1.132.
+     *
+     * @param  array<string, string>  $fields
+     */
+    private function logRegistryDrift(BiometricDevice $device, string $serialNumber, array $fields): void
+    {
+        $drift = [];
+
+        foreach (['IPAddress' => 'ip_address', 'DeviceType' => 'model'] as $field => $column) {
+            $reported = $this->registryField($fields, $field);
+            $stored = $device->getAttribute($column);
+
+            if ($reported === null || $reported === '' || ! filled($stored)) {
+                continue;
+            }
+
+            if (strcasecmp(trim((string) $stored), $reported) !== 0) {
+                $drift[$column] = ['stored' => (string) $stored, 'device_reports' => $reported];
+            }
+        }
+
+        if ($drift === []) {
+            return;
+        }
+
+        Log::warning(
+            'ADMS push: device registration disagrees with the stored device record. '
+            .'The record is left as it is on purpose — a device may fill a blank field but never overwrite one. '
+            .'The device-reported values are kept in biometric_device_capabilities and shown alongside the record '
+            .'so an administrator can decide.',
+            [
+                'serial' => $serialNumber,
+                'device_id' => $device->id,
+                'drift' => $drift,
+            ]
+        );
+    }
+
+    /**
+     * Look a registration field up tolerantly: casing varies by firmware and the
+     * `~` prefix is the SDK's spelling of the same key (matrix §4b).
+     *
+     * @param  array<string, string>  $fields
+     */
+    private function registryField(array $fields, string $wanted): ?string
+    {
+        foreach ($fields as $key => $value) {
+            if (strcasecmp(ltrim(trim((string) $key), '~'), $wanted) === 0 && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Record a skipped `table=BIODATA` push in enough detail to build the real
+     * handler from, without writing a biometric template into a log file.
+     *
+     * A template IS the biometric — dumping it to storage/logs would put
+     * irrevocable personal data somewhere with no retention policy and wider
+     * read access than the database. So only the descriptor fields
+     * (BIODATA_DESCRIPTOR_FIELDS) are echoed; `Tmp`/`BIODATA` and anything else
+     * unrecognised is reduced to its length.
+     *
+     * The three facts a future implementer needs, and why each is here:
+     *  - `fields` — the real field names this firmware sends, which is what the
+     *    third-party mappings disagree about,
+     *  - `types` — the distinct `Type` values, on a device whose modalities are
+     *    known from its capability snapshot. That pairing is the only honest way
+     *    to pin the Type→modality mapping, and it cannot be derived from a
+     *    document,
+     *  - `rows` — whether a push is one record or a batch, which decides whether
+     *    storage needs a per-row unique key.
+     */
+    private function logBiodataSkip(BiometricDevice $device, string $serialNumber, string $rawData): void
+    {
+        $lines = array_values(array_filter(
+            array_map('trim', preg_split('/[\r\n]+/', trim($rawData)) ?: []),
+            fn ($line) => $line !== ''
+        ));
+
+        $fieldNames = [];
+        $types = [];
+        $descriptors = [];
+
+        foreach (array_slice($lines, 0, 5) as $line) {
+            $fields = $this->parseKeyValueFields($line);
+
+            if ($fields === []) {
+                continue;
+            }
+
+            foreach (array_keys($fields) as $name) {
+                $fieldNames[$name] = true;
+            }
+
+            $row = [];
+
+            foreach ($fields as $name => $value) {
+                $canonical = ltrim(trim($name), '~');
+
+                $row[$name] = $this->isBiodataDescriptor($canonical)
+                    ? $value
+                    : '<'.strlen($value).' bytes redacted>';
+
+                if (strcasecmp($canonical, 'Type') === 0 && $value !== '') {
+                    $types[$value] = true;
+                }
+            }
+
+            $descriptors[] = $row;
+        }
+
+        Log::warning(
+            'ADMS push: table=BIODATA received and deliberately NOT stored. '
+            .'The Type→modality mapping is model-dependent and unverified on our hardware, and a mislabelled '
+            .'template would be replayed to a device by the roaming restore path. '
+            .'This log line is the sample needed to build the handler: pair the Type values below with the '
+            .'modalities this device reports (FingerFunOn/FaceFunOn/FvFunOn/PvFunOn in its capability snapshot), '
+            .'then add storage and update docs/zkteco-adms-capability-matrix.md §1.',
+            [
+                'serial' => $serialNumber,
+                'device_id' => $device->id,
+                'rows' => count($lines),
+                'fields' => array_keys($fieldNames),
+                'types' => array_keys($types),
+                // Templates are redacted here — see the docblock.
+                'descriptors' => $descriptors,
+                'content_length' => strlen($rawData),
+            ]
+        );
+    }
+
+    private function isBiodataDescriptor(string $field): bool
+    {
+        foreach (self::BIODATA_DESCRIPTOR_FIELDS as $known) {
+            if (strcasecmp($field, $known) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -732,31 +943,87 @@ class BiometricWebhookController extends Controller
     /**
      * Split a device payload into `key => value` pairs.
      *
-     * Registration payloads arrive with the pairs separated by newlines, commas,
-     * tabs or `&` depending on firmware, and values may contain `=`
-     * (base64/banners) so only the first `=` splits.
+     * Deliberately liberal, because real terminals are inconsistent about all
+     * three of these at once:
+     *
+     *  - **separators.** Pairs arrive separated by newlines, commas, tabs, `&`
+     *    or plain spaces depending on firmware, and one payload may mix them.
+     *  - **values containing the separator.** `FirmVer=Ver 6.60 Apr 21 2017` is
+     *    a single value with spaces in it, so a space cannot simply be a
+     *    delimiter: a value runs lazily up to the next `<key>=` boundary
+     *    instead. Only the first `=` splits, which keeps base64 intact.
+     *  - **padding around the `=`.** `IPAddress = 192.168.68.100` must parse the
+     *    same as `IPAddress=192.168.68.100`. Our MB460 does not pad, but the ZK
+     *    option namespace is answered by a dozen firmware families and an
+     *    unpadded-only parser degrades to *zero* pairs against a padded body —
+     *    for a registry push that means the registration is silently discarded
+     *    and the device columns never fill. The padding is matched identically
+     *    in the separator and in the boundary lookahead; the two must agree or
+     *    several padded pairs on one line run together into one value.
+     *  - **the `~` prefix.** ZK's SDK spells read-only descriptors `~IPAddress`
+     *    (matrix §4b) and plenty of firmware uses that spelling in the registry
+     *    push. The prefixed key is kept as sent, and the bare spelling is added
+     *    alongside it when nothing already occupies it, so a consumer matching
+     *    on the documented name still finds the value. An explicitly-sent bare
+     *    key always wins — an alias may fill a gap, never overwrite an answer.
+     *
+     * Mirrors DeviceCapabilityService::parsePairs(); if one changes, change both.
      *
      * @return array<string, string>
      */
     private function parseKeyValueFields(string $rawData): array
     {
         $fields = [];
+        $aliases = [];
 
-        foreach (preg_split('/[\r\n\t,&]+/', $rawData) ?: [] as $token) {
-            $token = trim($token);
+        foreach (preg_split('/[\r\n\t,&]+/', $rawData) ?: [] as $segment) {
+            $segment = trim($segment);
 
-            if ($token === '' || ! str_contains($token, '=')) {
+            if ($segment === '' || ! str_contains($segment, '=')) {
                 continue;
             }
 
-            [$key, $value] = explode('=', $token, 2);
-            $key = trim($key);
+            $matched = preg_match_all(
+                '/([A-Za-z0-9_~.\-]+)[ \t]*=[ \t]*(.*?)(?=(?:\s+[A-Za-z0-9_~.\-]+[ \t]*=)|$)/',
+                $segment,
+                $matches,
+                PREG_SET_ORDER
+            );
 
-            if ($key === '' || mb_strlen($key) > 64) {
+            if (! $matched) {
                 continue;
             }
 
-            $fields[$key] = trim($value);
+            foreach ($matches as $match) {
+                $key = trim($match[1]);
+
+                if ($key === '' || mb_strlen($key) > 64) {
+                    continue;
+                }
+
+                $fields[$key] = trim($match[2]);
+
+                $bare = ltrim($key, '~');
+
+                if ($bare !== '' && $bare !== $key) {
+                    $aliases[$bare] = trim($match[2]);
+                }
+            }
+        }
+
+        foreach ($aliases as $bare => $value) {
+            $taken = false;
+
+            foreach (array_keys($fields) as $existing) {
+                if (strcasecmp((string) $existing, $bare) === 0) {
+                    $taken = true;
+                    break;
+                }
+            }
+
+            if (! $taken) {
+                $fields[$bare] = $value;
+            }
         }
 
         return $fields;

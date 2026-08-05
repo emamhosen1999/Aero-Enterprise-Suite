@@ -1199,6 +1199,228 @@ class DeviceCapabilityTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────
+    //  Padding around `=`
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Five real values from the MB460, chosen because each one breaks a
+     * different naive parser:
+     *
+     *   FWVersion / PushVersion — a value with a space in it, so a value cannot
+     *                             be terminated at the next space
+     *   ~OEMVendor              — a space AND a trailing `.`, which is in the
+     *                             key charset and so is a candidate boundary
+     *   MAC                     — colons, which are not
+     *   ~Platform               — the `~` prefix, on the last pair of the line
+     *
+     * @var array<string, string>
+     */
+    private const PADDING_CASE = [
+        'FWVersion' => 'Ver 8.0.4.6-20230217',
+        'PushVersion' => 'Ver 2.0.33S-20220623',
+        '~OEMVendor' => 'ZKTECO CO.',
+        'MAC' => '00:17:61:11:65:1b',
+        '~Platform' => 'ZMM220_TFT',
+    ];
+
+    /**
+     * The same five pairs on the wire four ways: with and without padding around
+     * `=`, and with the pairs separated by tabs (each its own segment) or by
+     * plain spaces (all of them on one line, which is the case where the value
+     * boundary has to do real work).
+     *
+     * @return array<string, string>
+     */
+    private function paddingPayloads(): array
+    {
+        $render = function (string $separator, string $pad): string {
+            $pairs = [];
+
+            foreach (self::PADDING_CASE as $key => $value) {
+                $pairs[] = $key.$pad.'='.$pad.$value;
+            }
+
+            return implode($separator, $pairs);
+        };
+
+        return [
+            'unpadded, tab-separated' => $render("\t", ''),
+            'padded, tab-separated' => $render("\t", ' '),
+            'unpadded, one line' => $render(' ', ''),
+            'padded, one line' => $render(' ', ' '),
+        ];
+    }
+
+    public function test_pairs_parse_identically_with_and_without_padding_around_the_equals(): void
+    {
+        foreach ($this->paddingPayloads() as $label => $payload) {
+            $device = $this->device();
+
+            $parsed = $this->service()->parseOptionResponse($device, $payload);
+
+            // Not "most of them", not "the ones without spaces" — the same map
+            // every time. A firmware that pads is a formatting difference, and a
+            // formatting difference may not cost us the reply.
+            $this->assertSame(
+                self::PADDING_CASE,
+                $parsed,
+                "the [{$label}] form did not parse to the same pairs"
+            );
+        }
+    }
+
+    public function test_padded_pairs_are_stored_and_never_dumped_into_the_raw_info_park(): void
+    {
+        // The failure this guards is not "a value came back slightly wrong". The
+        // old parser required `=` to touch the key, so a padded reply matched
+        // ZERO pairs, `parseInfoResponse` took the positional-CSV branch, and the
+        // entire payload went into `~RawInfo` with no key ever recorded — total
+        // and silent, on a screen whose whole job is to say what the device is.
+        $device = $this->mb460();
+
+        $parsed = $this->service()->parseInfoResponse(
+            $device,
+            $this->paddingPayloads()['padded, one line']
+        );
+
+        $this->assertSame(self::PADDING_CASE, $parsed);
+
+        $this->assertDatabaseMissing('biometric_device_capabilities', [
+            'biometric_device_id' => $device->id,
+            'capability_key' => '~RawInfo',
+        ]);
+
+        $snapshot = $this->service()->snapshot($device->fresh());
+
+        foreach (self::PADDING_CASE as $key => $value) {
+            $this->assertSame($value, $snapshot['options'][$key]['value'], "{$key} lost its value");
+            $this->assertFalse($snapshot['options'][$key]['unsupported']);
+        }
+
+        // …and the padded spellings still resolve through the `~`-tolerant index
+        // into the identity block the UI actually renders.
+        $this->assertSame('Ver 8.0.4.6-20230217', $snapshot['identity']['firmware']);
+        $this->assertSame('ZMM220_TFT', $snapshot['identity']['platform']);
+        $this->assertSame('00:17:61:11:65:1b', $snapshot['identity']['mac_address']);
+    }
+
+    public function test_padding_tolerance_does_not_swallow_a_following_key(): void
+    {
+        // The value boundary is padded in the same way as the separator, so the
+        // two agree. If only the separator had been relaxed, a padded line
+        // carrying several pairs would run them together into one enormous
+        // value — a subtler corruption than losing the reply, and harder to see.
+        $device = $this->device();
+
+        $parsed = $this->service()->parseOptionResponse(
+            $device,
+            'UserCount = 13 FPCount = 26 DeviceName = Head Office Gate'
+        );
+
+        $this->assertSame([
+            'UserCount' => '13',
+            'FPCount' => '26',
+            'DeviceName' => 'Head Office Gate',
+        ], $parsed);
+
+        // A trailing space-bearing value is not truncated at its first space.
+        $this->assertSame('Head Office Gate', $parsed['DeviceName']);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Which command the device actually refused
+    // ──────────────────────────────────────────────────────────────
+
+    public function test_a_rejected_write_is_recorded_against_set_option_not_get_option(): void
+    {
+        // The settings form writes with SET OPTION and the probe reads with GET
+        // OPTION. "Which of the two did the device refuse?" is the first
+        // question asked when a setting will not stick, and the row used to
+        // answer it wrongly: a -1004 on a write was filed as a rejected read.
+        $device = $this->device();
+        $service = $this->service();
+
+        $write = $this->command($device, 'SET_OPTION', ['key' => 'MThreshold', 'value' => 45]);
+        $write->markAsExecuted('-1004');
+        $service->markUnsupported($write, '-1004');
+
+        $this->assertDatabaseHas('biometric_device_capabilities', [
+            'biometric_device_id' => $device->id,
+            'capability_key' => 'MThreshold',
+            'is_unsupported' => true,
+            'value' => null,
+            'source' => DeviceCapabilityService::SOURCE_SET_OPTION,
+        ]);
+
+        $read = $this->command($device, 'GET_OPTION', ['keys' => ['FaceCount']]);
+        $read->markAsExecuted('-1004');
+        $service->markUnsupported($read, '-1004');
+
+        $verb = $this->command($device, 'INFO');
+        $verb->markAsExecuted('-1004');
+        $service->markUnsupported($verb, '-1004');
+
+        $snapshot = $service->snapshot($device->fresh());
+
+        $this->assertSame(DeviceCapabilityService::SOURCE_SET_OPTION, $snapshot['options']['MThreshold']['source']);
+        $this->assertSame(DeviceCapabilityService::SOURCE_GET_OPTION, $snapshot['options']['FaceCount']['source']);
+        $this->assertSame(DeviceCapabilityService::SOURCE_COMMAND, $snapshot['options']['CMD:INFO']['source']);
+
+        // Three different sentences, three different sources.
+        $this->assertSame(3, count(array_unique([
+            $snapshot['options']['MThreshold']['source'],
+            $snapshot['options']['FaceCount']['source'],
+            $snapshot['options']['CMD:INFO']['source'],
+        ])));
+    }
+
+    public function test_every_rejection_source_still_reads_as_a_minus_1004_to_the_ui(): void
+    {
+        // BiometricPanel.jsx readKeyState() branches on exactly one value:
+        //
+        //     if (entry.unsupported) return entry.source === 'omitted'
+        //         ? 'omitted' : 'unsupported';
+        //
+        // so any source it does not recognise degrades to the -1004 wording.
+        // That is the true sentence for a rejected read, a rejected write and a
+        // rejected verb alike — all three are the device answering a rejection
+        // code out loud — and it is why a fourth and fifth source value could be
+        // added without touching the component. This test pins that: a key the
+        // device REFUSED must never be labelled `omitted`, because `omitted`
+        // means the opposite (the device claimed success and said nothing), and
+        // it is the one label that changes what the admin is told.
+        $device = $this->device();
+        $service = $this->service();
+
+        $write = $this->command($device, 'SET_OPTION', ['key' => 'VoiceOn', 'value' => 1]);
+        $write->markAsExecuted('-1004');
+        $service->markUnsupported($write, '-1004');
+
+        $read = $this->command($device, 'GET_OPTION', ['keys' => ['FvCount']]);
+        $read->markAsExecuted('-1004');
+        $service->markUnsupported($read, '-1004');
+
+        $verb = $this->command($device, 'CHECK');
+        $verb->markAsExecuted('-1004');
+        $service->markUnsupported($verb, '-1004');
+
+        $snapshot = $service->snapshot($device->fresh());
+
+        foreach (['VoiceOn', 'FvCount', 'CMD:CHECK'] as $key) {
+            $this->assertTrue(
+                $snapshot['options'][$key]['unsupported'],
+                "{$key} must be flagged unavailable so the UI stops offering it"
+            );
+            $this->assertNotSame(
+                DeviceCapabilityService::SOURCE_OMITTED,
+                $snapshot['options'][$key]['source'],
+                "{$key} was refused out loud and must not be labelled a silent omission"
+            );
+            $this->assertContains($key, $snapshot['unsupported_keys']);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
     //  SETTINGS_CATALOGUE
     // ──────────────────────────────────────────────────────────────
 

@@ -1461,70 +1461,318 @@ class BiometricProcessingService
     /**
      * Handle biometric template uploads from device (for biometric roaming).
      *
-     * @return array{success: bool, reason: string|null}
+     * ── The multi-finger defect this method used to have ────────────────────
+     *
+     * It captured exactly two fields — `USERID` and `TMP` — with
+     * `/USERID=(?P<userid>\d+).*?TMP=(?P<template>[a-zA-Z0-9+\/=\s]+)/s`, and
+     * wrote them with an `updateOrInsert` keyed on (device_user_id,
+     * biometric_device_id, template_type). `FID`, the finger index the device
+     * sends in every fingerprint push, was never even looked for. So a person's
+     * SECOND enrolled finger overwrote their first: one row per person per
+     * device, whichever finger arrived last, restored into slot 0.
+     *
+     * That is not a cosmetic loss. The live MB460 (`AF6P231260266`) holds 26
+     * fingerprints across 13 employees — two each — so the roaming restore built
+     * to protect them could return roughly half, without saying so, at exactly
+     * the moment somebody was depending on it.
+     *
+     * Two things were wrong and both are fixed here:
+     *
+     *  1. `FID` is parsed and persisted, and the write is keyed per finger slot.
+     *  2. A push carrying MORE THAN ONE template is now stored as more than one
+     *     row. The old regex could not do this even in principle: `.*?TMP=`
+     *     matched the first template marker and the `[a-zA-Z0-9+/=\s]+` class
+     *     then swallowed every following line — separators, `USERID=`, digits
+     *     and all, since every one of those characters is in the class — so a
+     *     two-finger push produced ONE row whose template was the concatenation
+     *     of the whole remaining body. Multi-finger enrolment is precisely when
+     *     a device sends several records at once, so fixing FID without fixing
+     *     this would have fixed nothing.
+     *
+     * ── Parsing ─────────────────────────────────────────────────────────────
+     *
+     * Field order is not assumed. The old pattern required `USERID` to precede
+     * `TMP`; real firmware is inconsistent about ordering, so each descriptor
+     * field is now matched independently. What IS assumed is that `TMP` comes
+     * last, which is the one ordering every source agrees on and the only one
+     * that can be relied upon — a base64 blob may contain the characters of any
+     * other key, so nothing after it can be parsed safely.
+     *
+     * @return array{success: bool, reason: string|null, stored: int, skipped: int}
      */
     public function processTemplateUpload(string $content, string $table, string $serialNumber, BiometricDevice $device): array
     {
-        // Pattern to capture User ID and Template string
-        $pattern = '/USERID=(?P<userid>\d+).*?TMP=(?P<template>[a-zA-Z0-9+\/=\s]+)/s';
+        $records = $this->parseTemplateRecords($content);
 
-        if (! preg_match($pattern, $content, $matches)) {
+        if ($records === []) {
             Log::warning('Template upload: invalid format', ['table' => $table]);
 
-            return ['success' => false, 'reason' => 'invalid_format'];
-        }
-
-        $userId = $matches['userid'];
-        $template = trim($matches['template']);
-
-        // Resolve system user by employee_id (PIN)
-        $systemUser = User::where('employee_id', $userId)->first();
-        if (! $systemUser) {
-            Log::warning('Template upload: no system user for device PIN', [
-                'device_serial' => $serialNumber,
-                'device_user_id' => $userId,
-            ]);
-
-            return ['success' => true, 'reason' => 'no_user'];
+            return ['success' => false, 'reason' => 'invalid_format', 'stored' => 0, 'skipped' => 0];
         }
 
         // Determine template type based on table
         $templateType = $table === 'templatev10' ? 'fingerprint' : 'face';
 
-        try {
-            // Save to biometric_templates table
-            DB::table('biometric_templates')->updateOrInsert(
-                [
-                    'device_user_id' => $userId,
-                    'biometric_device_id' => $device->id,
+        $stored = 0;
+        $missingUser = 0;
+        $failed = 0;
+
+        foreach ($records as $record) {
+            // Resolve system user by employee_id (PIN)
+            $systemUser = User::where('employee_id', $record['userid'])->first();
+
+            if (! $systemUser) {
+                $missingUser++;
+
+                Log::warning('Template upload: no system user for device PIN', [
+                    'device_serial' => $serialNumber,
+                    'device_user_id' => $record['userid'],
+                ]);
+
+                continue;
+            }
+
+            $fingerIndex = $this->resolveFingerIndex($templateType, $record['fid']);
+
+            try {
+                $this->storeTemplateRow(
+                    [
+                        'device_user_id' => $record['userid'],
+                        'biometric_device_id' => $device->id,
+                        'template_type' => $templateType,
+                        'finger_index' => $fingerIndex,
+                    ],
+                    [
+                        'user_id' => $systemUser->id,
+                        'template_data' => $record['template'],
+                        'template_size' => strlen($record['template']),
+                        'template_version' => $table,
+                    ]
+                );
+
+                $stored++;
+
+                Log::info('Biometric template saved', [
+                    'device_serial' => $serialNumber,
+                    'user_id' => $record['userid'],
                     'template_type' => $templateType,
-                ],
-                [
-                    'user_id' => $systemUser->id,
-                    'template_data' => $template,
-                    'template_size' => strlen($template),
-                    'template_version' => $table,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
+                    // The slot this landed in, and whether the device told us or
+                    // we fell back. Without this a silent collapse back to one
+                    // finger per person would be invisible in the logs again.
+                    'finger_index' => $fingerIndex,
+                    'finger_index_reported' => $record['fid'] !== null,
+                    'template_size' => strlen($record['template']),
+                ]);
+            } catch (\Exception $e) {
+                $failed++;
+
+                Log::error('Failed to save biometric template', [
+                    'device_serial' => $serialNumber,
+                    'user_id' => $record['userid'],
+                    'finger_index' => $fingerIndex,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($failed > 0) {
+            // Answered as a failure even when some records landed, so the device
+            // re-pushes the batch. Re-pushing is safe: every write is keyed on
+            // the finger slot, so a replay updates rows rather than duplicating
+            // them. Reporting success here would lose a template silently, which
+            // is the whole class of bug this method is being fixed for.
+            return ['success' => false, 'reason' => 'exception', 'stored' => $stored, 'skipped' => $missingUser + $failed];
+        }
+
+        if ($stored === 0) {
+            // Nothing stored and nothing broken: every record belonged to a PIN
+            // we have no user for. Answered OK — the device is behaving correctly
+            // and must not be made to retry a push we will never accept.
+            return ['success' => true, 'reason' => 'no_user', 'stored' => 0, 'skipped' => $missingUser];
+        }
+
+        return ['success' => true, 'reason' => 'saved', 'stored' => $stored, 'skipped' => $missingUser];
+    }
+
+    /**
+     * Split a template push into one record per template, and pull the fields we
+     * store out of each.
+     *
+     * Record boundaries: a line that opens a new `USERID=`/`PIN=` field starts a
+     * new record; anything else is appended to the record in progress. That
+     * append is what preserves the old parser's tolerance of whitespace inside a
+     * template — the previous regex allowed `\s` inside `TMP`, so a firmware that
+     * wraps base64 across lines kept working, and it still does.
+     *
+     * Within a record, everything from the `TMP=` field to the end of the record
+     * is the template, and everything before it is the descriptor. Splitting
+     * there is what makes the descriptor safe to parse with simple per-field
+     * patterns in any order: a base64 payload can contain the literal text of any
+     * other key (`FID=`, `PIN=`), so no field may be matched across it.
+     *
+     * @return list<array{userid: string, fid: int|null, template: string}>
+     */
+    protected function parseTemplateRecords(string $content): array
+    {
+        $records = [];
+
+        foreach ($this->splitTemplateRecords($content) as $raw) {
+            // Everything after the first TMP= that opens a field. `(?:^|\s)`
+            // rather than `\b` so a `TMP=` occurring inside a value can never be
+            // mistaken for the field marker.
+            $parts = preg_split('/(?:^|\s)TMP=/i', $raw, 2);
+
+            if ($parts === false || count($parts) < 2) {
+                continue;
+            }
+
+            [$descriptor, $template] = $parts;
+
+            // Whitespace is stripped, not merely trimmed: the roaming command is
+            // tab-separated, so a tab or newline surviving inside a template
+            // would split one command field into two on the device.
+            $template = preg_replace('/\s+/', '', $template);
+
+            if ($template === '') {
+                continue;
+            }
+
+            // PIN is accepted as a synonym because firmware disagrees about which
+            // spelling a template push uses; USERID wins when both are present.
+            $userId = $this->matchTemplateField($descriptor, ['USERID', 'PIN']);
+
+            if ($userId === null) {
+                continue;
+            }
+
+            $records[] = [
+                'userid' => $userId,
+                'fid' => $this->matchTemplateFingerIndex($descriptor),
+                'template' => $template,
+            ];
+        }
+
+        return $records;
+    }
+
+    /**
+     * Break a push body into per-template chunks.
+     *
+     * @return list<string>
+     */
+    protected function splitTemplateRecords(string $content): array
+    {
+        $records = [];
+        $current = '';
+
+        foreach (preg_split('/\r\n|\r|\n/', $content) as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+
+            $opensRecord = (bool) preg_match('/(?:^|\s)(?:USERID|PIN)=/i', $line);
+
+            if ($opensRecord && trim($current) !== '') {
+                $records[] = $current;
+                $current = '';
+            }
+
+            $current .= ($current === '' ? '' : "\n").$line;
+        }
+
+        if (trim($current) !== '') {
+            $records[] = $current;
+        }
+
+        return $records;
+    }
+
+    /**
+     * First of the given keys present in a record descriptor, as a digit string.
+     *
+     * @param  list<string>  $keys
+     */
+    protected function matchTemplateField(string $descriptor, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (preg_match('/(?:^|\s)'.$key.'=(-?\d+)/i', $descriptor, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The `FID` a device reported, or null when it reported none.
+     *
+     * A negative index is treated as "not reported": negatives are not part of
+     * the 0-9 the protocol defines, and -1 is the stored sentinel meaning "this
+     * modality has no finger", which a device value must never be able to forge.
+     *
+     * An index ABOVE 9 is kept verbatim rather than clamped. Clamping it to 0
+     * would let an unexpected value quietly overwrite a real thumb; keeping it
+     * stores the template safely in a slot of its own and surfaces the problem
+     * later as a device rejecting one restore command, which is the failure we
+     * can see.
+     */
+    protected function matchTemplateFingerIndex(string $descriptor): ?int
+    {
+        $fid = $this->matchTemplateField($descriptor, ['FID']);
+
+        if ($fid === null || (int) $fid < 0) {
+            return null;
+        }
+
+        return (int) $fid;
+    }
+
+    /**
+     * The finger slot a captured template is stored in.
+     *
+     * Face and palm get NO_FINGER_INDEX. They have no finger, and the value must
+     * not be 0, because 0 is a real finger: a face row sharing slot 0 with
+     * somebody's thumb is the exact collision the unique key exists to prevent.
+     *
+     * A fingerprint whose push carried no FID keeps the historical behaviour —
+     * slot 0, FALLBACK_FINGER_INDEX, the same slot such a template already
+     * restores into. A device that omits FID must still get its template stored.
+     */
+    protected function resolveFingerIndex(string $templateType, ?int $reportedFid): int
+    {
+        if ($templateType !== 'fingerprint') {
+            return TemplateRoamingService::NO_FINGER_INDEX;
+        }
+
+        return $reportedFid ?? TemplateRoamingService::FALLBACK_FINGER_INDEX;
+    }
+
+    /**
+     * Write one template into its finger slot.
+     *
+     * `updateOrInsert()` is a SELECT followed by an UPDATE or an INSERT, which is
+     * not atomic — and `biometric_templates` now carries a real unique index over
+     * the slot key, so two pushes of the same finger arriving together can make
+     * the INSERT lose the race and throw. The retry turns that into the UPDATE it
+     * was always meant to be. The catch is Laravel's driver-aware
+     * UniqueConstraintViolationException, so only a uniqueness rejection is
+     * absorbed; a foreign-key or not-null failure shares SQLSTATE 23000 and must
+     * keep surfacing.
+     *
+     * @param  array<string, mixed>  $slot
+     * @param  array<string, mixed>  $values
+     */
+    protected function storeTemplateRow(array $slot, array $values): void
+    {
+        try {
+            DB::table('biometric_templates')->updateOrInsert(
+                $slot,
+                $values + ['created_at' => now(), 'updated_at' => now()]
             );
-
-            Log::info('Biometric template saved', [
-                'device_serial' => $serialNumber,
-                'user_id' => $userId,
-                'template_type' => $templateType,
-                'template_size' => strlen($template),
-            ]);
-
-            return ['success' => true, 'reason' => 'saved'];
-        } catch (\Exception $e) {
-            Log::error('Failed to save biometric template', [
-                'device_serial' => $serialNumber,
-                'user_id' => $userId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return ['success' => false, 'reason' => 'exception'];
+        } catch (UniqueConstraintViolationException $e) {
+            DB::table('biometric_templates')
+                ->where($slot)
+                ->update($values + ['updated_at' => now()]);
         }
     }
 

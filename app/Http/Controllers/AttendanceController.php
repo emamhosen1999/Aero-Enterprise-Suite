@@ -2,32 +2,37 @@
 
 namespace App\Http\Controllers;
 
-
 use App\Jobs\ExportAttendanceReport;
 use App\Models\HRM\Attendance;
+use App\Models\HRM\AttendanceAuditLog;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
-use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Attendance\AttendanceAuditService;
+use App\Services\Attendance\AttendanceDayPartitionService;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
 use App\Services\Attendance\AttendanceReportService;
+use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\AttendanceValidatorFactory;
+use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Services\Attendance\RosterService;
 use App\Services\Attendance\UpcomingShiftService;
 use App\Traits\HandlesApiExceptions;
-
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -68,7 +73,7 @@ class AttendanceController extends Controller
 
         $designationsQuery = Designation::select('id', 'title', 'department_id')->orderBy('title');
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $departmentsQuery->where('id', $userDeptId);
             $employeesQuery->where('department_id', $userDeptId);
             $designationsQuery->where('department_id', $userDeptId);
@@ -95,7 +100,49 @@ class AttendanceController extends Controller
                 ->values(),
             // Biometric Devices tab
             'devices' => BiometricDevice::all(),
+            'biometricEmployees' => $this->biometricRoster($user),
         ]);
+    }
+
+    /**
+     * Roster for the Biometric Devices tab's unknown-punch "link to employee"
+     * picker, in the shape BiometricDeviceController::index() publishes.
+     *
+     * ── Why not reuse the `employees` prop above ─────────────────────────────
+     * It is the wrong set and the wrong columns. That prop is scoped to the
+     * Employee role and, for a non-global user, to their own department, because
+     * it feeds the roster and shift-assignment pickers. This one resolves a
+     * device PIN that arrived attached to nobody, and a PIN belongs to whoever
+     * holds it — a manager, an admin, someone whose role was changed after
+     * enrolment. Narrowing it would make some unknown punches permanently
+     * unlinkable with no visible reason. It also needs `employee_id`, which is
+     * the number printed against the device PIN and the only thing an admin can
+     * match a stray punch on; the other prop does not carry it.
+     *
+     * ── Why it is gated ─────────────────────────────────────────────────────
+     * This page already ships a large prop set — attendanceTypes with their
+     * device relations, every department, every designation, every biometric
+     * device, and a full employee list for the roster tab. A second, unscoped
+     * roster on every load would put two copies of the staff list on the wire
+     * for people who cannot even see the tab that uses one of them.
+     *
+     * `attendance.settings` is exactly the gate the Biometric Devices tab
+     * itself is behind (see the tab list in AttendancePage.jsx and the route
+     * middleware), so anyone who is sent this can open the picker, and anyone
+     * who is not could never have used it. Non-admins get an empty array — the
+     * same value the page passed unconditionally before — and BiometricPanel's
+     * own fetch-the-roster fallback still covers them if a tab is ever ungated.
+     */
+    private function biometricRoster(?User $user): Collection
+    {
+        if (! $user || ! $user->can('attendance.settings')) {
+            return collect();
+        }
+
+        return User::select('id', 'name', 'employee_id')
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
     }
 
     public function index1(): Response
@@ -143,7 +190,7 @@ class AttendanceController extends Controller
             $currentYear = (int) $request->get('currentYear');
             $departmentId = $request->get('department_id') ? (int) $request->get('department_id') : null;
 
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $departmentId = $userDeptId;
             }
 
@@ -199,14 +246,14 @@ class AttendanceController extends Controller
         }
 
         $date = Carbon::today();
-        $schedule = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)->resolve($user->id, $date);
-        $shift = app(\App\Services\Attendance\RosterService::class)->resolveShift($user->id, $date);
+        $schedule = app(ScheduleResolver::class)->resolve($user->id, $date);
+        $shift = app(RosterService::class)->resolveShift($user->id, $date);
 
         if (! $schedule->isWorkingDay) {
             return response()->json([
                 'is_working' => false,
-                'label'      => 'Day off',
-                'source'     => 'roster',
+                'label' => 'Day off',
+                'source' => 'roster',
             ]);
         }
 
@@ -214,10 +261,10 @@ class AttendanceController extends Controller
 
         return response()->json([
             'is_working' => true,
-            'start'      => $schedule->start->format('g:i A'),
-            'end'        => $schedule->end->format('g:i A'),
-            'label'      => $rostered ? ($shift->name ?: 'Rostered shift') : 'Company office hours',
-            'source'     => $rostered ? 'roster' : 'default',
+            'start' => $schedule->start->format('g:i A'),
+            'end' => $schedule->end->format('g:i A'),
+            'label' => $rostered ? ($shift->name ?: 'Rostered shift') : 'Company office hours',
+            'source' => $rostered ? 'roster' : 'default',
         ]);
     }
 
@@ -402,7 +449,7 @@ class AttendanceController extends Controller
                         ->whereDate('date', $selectedDate);
                 });
 
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $usersWithAttendanceQuery->where('department_id', $userDeptId);
             }
 
@@ -576,7 +623,7 @@ class AttendanceController extends Controller
             $userDeptId = $user->department_id;
 
             $filters = [];
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $filters['department_id'] = $userDeptId;
             }
 
@@ -608,7 +655,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 });
 
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $allUsersQuery->where('department_id', $userDeptId);
             }
 
@@ -631,7 +678,7 @@ class AttendanceController extends Controller
                         ->whereDate('date', $date);
                 });
 
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $presentUserIdsQuery->where('department_id', $userDeptId);
             }
 
@@ -799,7 +846,7 @@ class AttendanceController extends Controller
             $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
             $userDeptId = $user->department_id;
 
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $departmentId = $userDeptId;
             }
 
@@ -825,12 +872,12 @@ class AttendanceController extends Controller
             $presentUsersIds = $dayPunches->keys();
             $presentCount = $presentUsersIds->count();
 
-            $statusService = app(\App\Services\Attendance\AttendanceStatusService::class);
-            $resolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
+            $statusService = app(AttendanceStatusService::class);
+            $resolver = app(ScheduleResolver::class);
 
             $lateCount = 0;
             foreach ($dayPunches as $userId => $punches) {
-                $shift = $resolver->resolve((int) $userId, \Carbon\Carbon::parse($date));
+                $shift = $resolver->resolve((int) $userId, Carbon::parse($date));
                 $day = $statusService->resolve($punches, $shift);
                 if ($day->late_minutes > 0) {
                     $lateCount++;
@@ -855,20 +902,20 @@ class AttendanceController extends Controller
             }
             $onLeaveCount = $onLeaveUserIds->count();
 
-            $parsedDate = \Carbon\Carbon::parse($date);
-            $now = \Carbon\Carbon::now();
+            $parsedDate = Carbon::parse($date);
+            $now = Carbon::now();
 
             $absentCount = 0;
             // Potential absents: employees who are not present and not on leave
             $potentialAbsents = $employees->filter(function ($user) use ($presentUsersIds, $onLeaveUserIds) {
-                return !$presentUsersIds->contains($user->id) && !$onLeaveUserIds->contains($user->id);
+                return ! $presentUsersIds->contains($user->id) && ! $onLeaveUserIds->contains($user->id);
             });
 
             foreach ($potentialAbsents as $user) {
                 $schedule = $resolver->resolve($user->id, $parsedDate);
                 if ($schedule->isWorkingDay) {
                     $isUpcoming = $parsedDate->isFuture() || ($parsedDate->isToday() && $now->lt($schedule->start));
-                    if (!$isUpcoming) {
+                    if (! $isUpcoming) {
                         $absentCount++;
                     }
                 }
@@ -936,11 +983,11 @@ class AttendanceController extends Controller
                 $departmentId = $userDeptId;
             }
 
-            $data = app(\App\Services\Attendance\AttendanceDayPartitionService::class)
+            $data = app(AttendanceDayPartitionService::class)
                 ->partition($date, $departmentId, null, $designationId);
 
             return response()->json($data);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to get attendance day partition: '.$e->getMessage());
@@ -959,7 +1006,7 @@ class AttendanceController extends Controller
 
             // Shift-based, idempotent, audited — the ONE definition, shared with
             // the mobile mark-present parity endpoint.
-            $attendance = app(\App\Services\Attendance\AttendanceDayPartitionService::class)
+            $attendance = app(AttendanceDayPartitionService::class)
                 ->markPresent((int) $validated['user_id'], (string) $validated['date'], $request);
 
             return response()->json([
@@ -986,7 +1033,7 @@ class AttendanceController extends Controller
             $date = Carbon::parse($validated['date'])->format('Y-m-d');
 
             // Shared, per-user shift-based mark-present (idempotent + audited).
-            $partitionService = app(\App\Services\Attendance\AttendanceDayPartitionService::class);
+            $partitionService = app(AttendanceDayPartitionService::class);
             $attendances = [];
             foreach ($validated['user_ids'] as $userId) {
                 $attendances[] = $partitionService->markPresent((int) $userId, $date, $request);
@@ -1186,7 +1233,7 @@ class AttendanceController extends Controller
             $userDeptId = $user->department_id;
 
             $reqDeptId = $request->query('department_id') ? (int) $request->query('department_id') : null;
-            if (!$isGlobal && $userDeptId !== null) {
+            if (! $isGlobal && $userDeptId !== null) {
                 $reqDeptId = $userDeptId;
             }
 
@@ -1438,7 +1485,7 @@ class AttendanceController extends Controller
 
     public function auditHistory(int $id): JsonResponse
     {
-        $logs = \App\Models\HRM\AttendanceAuditLog::with('actor:id,name')
+        $logs = AttendanceAuditLog::with('actor:id,name')
             ->where('attendance_id', $id)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
