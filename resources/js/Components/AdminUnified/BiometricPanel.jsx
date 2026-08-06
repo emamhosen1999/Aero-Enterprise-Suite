@@ -105,7 +105,29 @@ const CAP_ROUTES = {
 const TEMPLATE_ROUTES = {
     list:    'biometric-devices.templates',
     restore: 'biometric-devices.restore-templates',
+    // The destructive mirror of `restore`. It removes fingerprint(s) from the
+    // TERMINAL and leaves our stored copy in place — see DELETE_SCOPE below.
+    delete:  'biometric-devices.delete-template',
 };
+
+/**
+ * The two scopes a `DATA DELETE FINGERTMP` can have, and the reason they are a
+ * deliberate choice in the UI rather than an inferred one.
+ *
+ * The protocol expresses "every finger for this PIN" by leaving `FID` off the
+ * wire entirely — so the difference between deleting one enrolment and deleting
+ * all of somebody's enrolments on that terminal is a single absent field. That
+ * is far too large a difference to leave implicit, so the dialog makes the
+ * admin pick, states which one the button will do, and repeats it in the
+ * acknowledgement.
+ */
+const DELETE_SCOPE = {
+    single: 'single',
+    all:    'all',
+};
+
+/** Is this row addressable as one finger slot? 0-9 only — the protocol's range. */
+const hasFingerSlot = (row) => Number.isInteger(row?.fingerIndex) && row.fingerIndex >= 0 && row.fingerIndex <= 9;
 
 /** Remediation for ATTLOG rows the importer could not attribute to anyone. */
 const ATTLOG_ROUTES = {
@@ -2850,6 +2872,10 @@ const normaliseTemplate = (t, i) => ({
     fingerIndex:  t.finger_index ?? null,
     size:         t.template_size ?? t.size ?? null,
     version:      t.template_version ?? null,
+    // The terminal this template was captured from — i.e. the unit that is
+    // holding it. An on-device delete is addressed at exactly that unit, so the
+    // id has to survive normalisation, not just the display name.
+    deviceId:     t.source_device_id ?? t.device?.id ?? t.biometric_device_id ?? null,
     deviceName:   t.source_device_name ?? t.device?.name ?? t.device_name ?? null,
     deviceSerial: t.source_device_serial ?? t.device?.serial_number ?? t.serial_number ?? null,
     capturedAt:   t.captured_at ?? t.created_at ?? t.updated_at ?? null,
@@ -2897,8 +2923,16 @@ function TemplatesSection({ devices = [] }) {
     const [restoring, setRestoring]     = useState(false);
     const [result, setResult]           = useState(null);
 
+    // On-device delete. Row-scoped, so it has its own dialog state.
+    const [deleteRow, setDeleteRow]       = useState(null);
+    const [deleteScope, setDeleteScope]   = useState(DELETE_SCOPE.single);
+    const [deleteAck, setDeleteAck]       = useState(false);
+    const [deleting, setDeleting]         = useState(false);
+    const [deleteResult, setDeleteResult] = useState(null);
+
     const canList    = hasRoute(TEMPLATE_ROUTES.list);
     const canRestore = hasRoute(TEMPLATE_ROUTES.restore);
+    const canDelete  = hasRoute(TEMPLATE_ROUTES.delete);
 
     const targetDevice = useMemo(
         () => admsDevices.find(d => String(d.id) === String(targetId)) ?? null,
@@ -2985,6 +3019,119 @@ function TemplatesSection({ devices = [] }) {
         }
     };
 
+    // ── On-device delete ────────────────────────────────────────────────────
+    //
+    // The target is the row's OWN source terminal, never a picked one. A row in
+    // this table is the record of "this template was captured from that unit",
+    // so that unit is the only device this row can be said to exist on; letting
+    // an admin aim the delete at some other terminal would be aiming it at a
+    // slot nothing here describes.
+
+    const deleteDevice = useMemo(() => {
+        if (!deleteRow?.deviceId) return null;
+        return devices.find(d => String(d.id) === String(deleteRow.deviceId)) ?? null;
+    }, [devices, deleteRow]);
+
+    // How many fingerprints we hold for this PIN on this same terminal — what
+    // "all fingers" actually means for this person, as a number.
+    const deleteSiblingCount = useMemo(() => {
+        if (!deleteRow) return 0;
+        return rows.filter(r =>
+            r.type === 'fingerprint'
+            && String(r.pin) === String(deleteRow.pin)
+            && String(r.deviceId) === String(deleteRow.deviceId),
+        ).length;
+    }, [rows, deleteRow]);
+
+    /**
+     * Why a given row cannot be deleted from its device, or null when it can.
+     *
+     * Face and palm are refused outright rather than attempted: the command is
+     * `DATA DELETE FINGERTMP`, a fingerprint verb, and their stored finger index
+     * is the -1 "no finger" sentinel, which the server rejects rather than put
+     * on the wire as `FID=-1`. The action is still rendered for them, disabled,
+     * carrying this sentence — a hidden control teaches nobody why.
+     */
+    const deleteBlockedReason = useCallback((r) => {
+        if (!canDelete) {
+            return 'The on-device delete endpoint is not registered on this server yet.';
+        }
+        if (r.type !== 'fingerprint') {
+            return `Only fingerprint templates can be deleted from a device: the command is DATA DELETE FINGERTMP, and a ${r.type || 'non-fingerprint'} template has no finger index to address. This row stays stored here either way.`;
+        }
+        if (!r.pin) {
+            return 'This row has no device PIN, so there is no address to delete on the terminal.';
+        }
+        if (!r.deviceId) {
+            return 'This template is not attributed to a source device, so there is no terminal to delete it from.';
+        }
+        const device = devices.find(d => String(d.id) === String(r.deviceId));
+        if (!device) {
+            return 'The terminal this template came from is no longer registered here.';
+        }
+        if (device.protocol !== 'adms') {
+            return `${device.name} is not an ADMS device. DATA DELETE FINGERTMP is an ADMS command and only ADMS terminals collect one.`;
+        }
+        if (!device.is_active) {
+            return `${device.name} is marked inactive, so commands queued for it would never be collected.`;
+        }
+        return null;
+    }, [canDelete, devices]);
+
+    const openDelete = (r) => {
+        setDeleteResult(null);
+        setDeleteAck(false);
+        // Default to the narrower action. "All fingers" is only ever reached by
+        // choosing it. A row with no usable slot can only express "all".
+        setDeleteScope(hasFingerSlot(r) ? DELETE_SCOPE.single : DELETE_SCOPE.all);
+        setDeleteRow(r);
+    };
+
+    const closeDelete = (open) => {
+        if (!open) {
+            setDeleteRow(null);
+            setDeleteAck(false);
+            setDeleteResult(null);
+        }
+    };
+
+    const submitDelete = async () => {
+        if (!deleteRow || !deleteDevice || !canDelete) return;
+        setDeleting(true);
+        try {
+            // `confirm_delete` is the server half of the acknowledgement below —
+            // the endpoint answers 422 without it. `fid` is sent ONLY for a
+            // single-finger delete: the protocol says "all fingers for this PIN"
+            // by omitting the field, so an omission here is meaningful, not lazy.
+            const payload = { pin: String(deleteRow.pin), confirm_delete: true };
+            if (deleteScope === DELETE_SCOPE.single && hasFingerSlot(deleteRow)) {
+                payload.fid = deleteRow.fingerIndex;
+            }
+            const { data } = await axios.post(route(TEMPLATE_ROUTES.delete, deleteDevice.id), payload);
+            setDeleteResult({
+                commandId:  data.command_id ?? null,
+                allFingers: data.all_fingers === true,
+                fid:        data.fid ?? null,
+                message:    data.message ?? null,
+            });
+            setDeleteAck(false);
+            // "Queued", never "deleted": nothing has reached the terminal yet.
+            showToast.success(
+                data.message
+                ?? `Delete queued for ${deleteDevice.name}. The device collects it on its next poll.`,
+            );
+            // The list is deliberately NOT reloaded. Our stored copy is untouched
+            // by design, so the row must stay exactly where it is — removing it
+            // would tell the admin we deleted something we did not.
+        } catch (e) {
+            showToast.error(e.response?.data?.message ?? 'Failed to queue the on-device delete.');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const deleteIsAllFingers = deleteScope === DELETE_SCOPE.all || !hasFingerSlot(deleteRow);
+
     return (
         <Box>
             <Flex align="center" justify="between" gap="3" mb="1" wrap="wrap">
@@ -3022,6 +3169,13 @@ function TemplatesSection({ devices = [] }) {
                 switched on. The raw template is <strong>never</strong> returned by the API and is
                 not displayable or downloadable here — only the fact that one exists, who it belongs
                 to, and where it came from.
+            </Text>
+
+            <Text size="1" color="gray" as="div" mb="3">
+                The per-row action in <strong>On device</strong> deletes a template{' '}
+                <strong>from the terminal</strong>. It does <strong>not</strong> delete anything from
+                this system — the stored copy above is what makes a restore possible, so it stays,
+                and the row stays with it.
             </Text>
 
             {!canList ? (
@@ -3087,11 +3241,13 @@ function TemplatesSection({ devices = [] }) {
                                     <Table.ColumnHeaderCell>Size</Table.ColumnHeaderCell>
                                     <Table.ColumnHeaderCell>Source device</Table.ColumnHeaderCell>
                                     <Table.ColumnHeaderCell>Captured</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell align="right">On device</Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>
                                 {filtered.map(r => {
                                     const meta = TEMPLATE_TYPE_META[r.type] ?? { color: 'gray', label: r.type || 'Unknown' };
+                                    const blocked = deleteBlockedReason(r);
                                     return (
                                         <Table.Row key={r.id}>
                                             <Table.Cell>
@@ -3139,12 +3295,39 @@ function TemplatesSection({ devices = [] }) {
                                                     {r.capturedAt ? new Date(r.capturedAt).toLocaleString() : '—'}
                                                 </Text>
                                             </Table.Cell>
+                                            {/* Deletes on the TERMINAL, not here. Kept visible but
+                                              * disabled where it cannot apply, with the reason on the
+                                              * tooltip — face and palm in particular are not a
+                                              * missing feature, they are a command that does not
+                                              * exist for them. */}
+                                            <Table.Cell align="right">
+                                                <Tooltip content={
+                                                    blocked
+                                                        ?? `Queue a delete of ${hasFingerSlot(r) ? `fingerprint #${r.fingerIndex}` : 'this enrolment'} for PIN ${r.pin} on ${r.deviceName ?? 'its terminal'}. Removes it from the device only — the copy stored here is kept.`
+                                                }>
+                                                    {/* span: a disabled button emits no pointer
+                                                      * events, so the tooltip explaining WHY would
+                                                      * never open without a wrapper that does. */}
+                                                    <span style={{ display: 'inline-flex' }}>
+                                                        <IconButton
+                                                            size="1"
+                                                            variant="soft"
+                                                            color="red"
+                                                            disabled={Boolean(blocked)}
+                                                            onClick={() => openDelete(r)}
+                                                            aria-label={`Delete this template from ${r.deviceName ?? 'the device'}`}
+                                                        >
+                                                            <TrashIcon />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                            </Table.Cell>
                                         </Table.Row>
                                     );
                                 })}
                                 {!loading && filtered.length === 0 && (
                                     <Table.Row>
-                                        <Table.Cell colSpan={6}>
+                                        <Table.Cell colSpan={7}>
                                             <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
                                                 {rows.length === 0
                                                     ? 'No biometric templates have been captured yet. Terminals push them on enrolment.'
@@ -3267,6 +3450,147 @@ function TemplatesSection({ devices = [] }) {
                             disabled={!canRestore || restoring || !targetDevice || !acknowledged}
                         >
                             {restoring ? <><Spinner size="1" /> Queueing…</> : 'Queue restore'}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* On-device delete.
+              *
+              * The one thing this dialog exists to make unmistakable: the delete
+              * lands on the TERMINAL, and our stored copy survives it. That
+              * asymmetry is the whole safety property — device-only is
+              * recoverable from what we hold, the reverse is not — so it is
+              * stated in the title, the description, the acknowledgement and the
+              * outcome, not once in small print. */}
+            <Dialog.Root open={Boolean(deleteRow)} onOpenChange={closeDelete}>
+                <Dialog.Content style={{ maxWidth: 580 }}>
+                    <Dialog.Title>Delete from the device</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        This removes fingerprint template(s) from the terminal itself. The copy stored
+                        in this system is <strong>not</strong> deleted — it stays listed here and can be
+                        restored to a terminal afterwards.
+                    </Dialog.Description>
+
+                    {deleteRow && (
+                        <>
+                            <Panel variant="surface" mt="4">
+                                <Flex direction="column" gap="1">
+                                    <Text size="2">
+                                        <Text color="gray">Employee: </Text>
+                                        <strong>{deleteRow.employeeName ?? 'Unlinked'}</strong>
+                                        {deleteRow.employeeCode ? ` (${deleteRow.employeeCode})` : ''}
+                                        <Text color="gray"> · PIN </Text>
+                                        <Code size="1" variant="soft">{deleteRow.pin ?? '—'}</Code>
+                                    </Text>
+                                    <Text size="2">
+                                        <Text color="gray">Device: </Text>
+                                        <strong>{deleteDevice?.name ?? deleteRow.deviceName ?? '—'}</strong>
+                                        {(deleteDevice?.serial_number ?? deleteRow.deviceSerial)
+                                            ? <> (<Code size="1">{deleteDevice?.serial_number ?? deleteRow.deviceSerial}</Code>)</>
+                                            : null}
+                                        {deleteDevice?.location ? ` at ${deleteDevice.location}` : ''}
+                                    </Text>
+                                </Flex>
+                            </Panel>
+
+                            <Box mt="3">
+                                <Text size="2" weight="medium" as="div" mb="1">What to delete on the device</Text>
+                                <Select.Root
+                                    size="2"
+                                    value={deleteIsAllFingers ? DELETE_SCOPE.all : DELETE_SCOPE.single}
+                                    onValueChange={v => { setDeleteScope(v); setDeleteAck(false); }}
+                                >
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {hasFingerSlot(deleteRow) && (
+                                            <Select.Item value={DELETE_SCOPE.single}>
+                                                This one finger only — #{deleteRow.fingerIndex}
+                                            </Select.Item>
+                                        )}
+                                        <Select.Item value={DELETE_SCOPE.all}>
+                                            ALL fingers enrolled for PIN {deleteRow.pin}
+                                        </Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                                <Text size="1" color="gray" as="div" mt="2">
+                                    {deleteIsAllFingers ? (
+                                        <>
+                                            Every fingerprint this terminal holds for PIN{' '}
+                                            <Code size="1">{deleteRow.pin}</Code> is removed — we list{' '}
+                                            <strong>{deleteSiblingCount}</strong> for them on this device, and the
+                                            command carries no finger index, so anything else enrolled there under
+                                            that PIN goes too. This is the wider of the two actions.
+                                            {!hasFingerSlot(deleteRow) && ' This row has no usable finger slot, so it is the only scope available for it.'}
+                                        </>
+                                    ) : (
+                                        <>
+                                            Only finger <strong>#{deleteRow.fingerIndex}</strong> is removed. The
+                                            person's other {Math.max(deleteSiblingCount - 1, 0)} enrolment
+                                            {deleteSiblingCount - 1 === 1 ? '' : 's'} on this device stay.
+                                        </>
+                                    )}
+                                </Text>
+                            </Box>
+
+                            <Callout.Root color="amber" mt="3" size="1">
+                                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                                <Callout.Text>
+                                    The delete is <strong>queued, not applied</strong>. ADMS is
+                                    device-initiated: the server cannot reach a terminal on demand, so this
+                                    command waits in the queue until the device next polls — and never runs
+                                    at all if the unit stays offline. Watch Device Commands on the Devices
+                                    tab for the ack.
+                                </Callout.Text>
+                            </Callout.Root>
+
+                            <Flex align="start" gap="2" mt="3">
+                                <Checkbox checked={deleteAck} onCheckedChange={v => setDeleteAck(Boolean(v))} />
+                                <Text size="2">
+                                    Delete{' '}
+                                    {deleteIsAllFingers
+                                        ? <strong>every fingerprint for PIN {deleteRow.pin}</strong>
+                                        : <strong>fingerprint #{deleteRow.fingerIndex} for PIN {deleteRow.pin}</strong>}
+                                    {' '}({deleteRow.employeeName ?? 'unlinked PIN'}) from{' '}
+                                    <strong>{deleteDevice?.name ?? deleteRow.deviceName}</strong>
+                                    {(deleteDevice?.serial_number ?? deleteRow.deviceSerial)
+                                        ? <> (<Code size="1">{deleteDevice?.serial_number ?? deleteRow.deviceSerial}</Code>)</>
+                                        : null}
+                                    . This changes the <strong>device</strong> only; the template stored in this
+                                    system is kept.
+                                </Text>
+                            </Flex>
+                        </>
+                    )}
+
+                    {deleteResult && (
+                        <Callout.Root color="green" mt="4" size="1">
+                            <Callout.Icon><CheckCircledIcon /></Callout.Icon>
+                            <Callout.Text>
+                                {deleteResult.message
+                                    ?? (deleteResult.allFingers
+                                        ? 'Deletion of all fingerprints for this PIN is queued.'
+                                        : 'Deletion of this finger is queued.')}
+                                {deleteResult.commandId ? <> Command <Code size="1">#{deleteResult.commandId}</Code>.</> : null}
+                                {' '}Nothing has been removed from the terminal yet, and nothing at all has been
+                                removed from this system — the row is still listed above.
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
+
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close><Button variant="soft" color="gray">Close</Button></Dialog.Close>
+                        <Button
+                            color="red"
+                            onClick={submitDelete}
+                            disabled={!canDelete || deleting || !deleteRow || !deleteDevice || !deleteAck}
+                        >
+                            {/* No spinner: a spinner reads as "working on the device",
+                              * and nothing is happening on the device. This only ever
+                              * puts a row in a queue. */}
+                            {deleting
+                                ? 'Queueing…'
+                                : (deleteIsAllFingers ? 'Queue delete of all fingers' : 'Queue delete of this finger')}
                         </Button>
                     </Flex>
                 </Dialog.Content>

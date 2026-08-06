@@ -1497,6 +1497,140 @@ class BiometricDeviceController extends Controller
         ]);
     }
 
+    /**
+     * Queue a `DATA DELETE FINGERTMP` removing fingerprint template(s) for one
+     * PIN FROM THE DEVICE.
+     *
+     * ── What this does and does not touch ──────────────────────────────────
+     * This deletes on the HARDWARE only. Nothing is removed from
+     * `biometric_templates` — our stored copy is the backup that makes
+     * restoreTemplates() possible, and the usual reason to delete on a device is
+     * to move somebody onto a different unit. Deleting on-device while we still
+     * hold the template is recoverable; the reverse is not, so the two must
+     * never be described interchangeably in a response an admin reads.
+     *
+     * ── Scope: one finger, or all of them ─────────────────────────────────
+     * `fid` omitted means EVERY finger enrolled for that PIN — the protocol
+     * expresses "all" by leaving the field off the wire entirely (see
+     * BiometricDeviceCommand::toAdmsString: `FID=` is a syntax error and
+     * `FID=0` would quietly delete only the first finger). That is a materially
+     * larger action than deleting a single slot, so the two are distinguished
+     * everywhere: in the confirmation refusal, in the success message, and in a
+     * machine-readable `scope` / `all_fingers` pair on every response.
+     *
+     * ── Guards, in the same order as restoreTemplates() ────────────────────
+     *  - unknown device -> 404,
+     *  - non-ADMS -> 400: DATA DELETE FINGERTMP is an ADMS/PUSH command and a
+     *    push_sdk row has no queue to put it on,
+     *  - inactive -> 403,
+     *  - `confirm_delete` must be explicitly true -> 422. An API has no "are you
+     *    sure" dialog, so the confirmation is a field on the request.
+     *
+     * `fid` is range-checked HERE (0-9) rather than left to the service's
+     * exception, so an out-of-range value — including the -1 face/palm storage
+     * sentinel, which would otherwise reach the wire as `FID=-1` — comes back as
+     * an ordinary validation error a form can render against the field.
+     *
+     * ADMS is device-initiated, so nothing is destroyed now: the command sits in
+     * the queue until the unit next polls /iclock/getrequest.
+     */
+    public function deleteTemplate(Request $request, $id)
+    {
+        $request->validate([
+            'pin' => 'required|string|max:191',
+            // Optional. Absent/null == every finger for this PIN.
+            // min:0 rejects TemplateRoamingService::NO_FINGER_INDEX (-1): face and
+            // palm rows carry that sentinel and cannot be addressed by a
+            // FINGERTMP delete at all.
+            'fid' => 'sometimes|nullable|integer|min:0|max:'.TemplateRoamingService::MAX_FINGER_INDEX,
+            'confirm_delete' => 'sometimes|boolean',
+        ]);
+
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        if (! $device->isAdms()) {
+            return response()->json([
+                'message' => 'Template delete is only supported for ADMS protocol devices.',
+            ], 400);
+        }
+
+        if (! $device->is_active) {
+            return response()->json(['message' => 'Device is inactive.'], 403);
+        }
+
+        $pin = trim((string) $request->input('pin'));
+
+        if ($pin === '') {
+            return response()->json(['message' => 'A device PIN is required.'], 422);
+        }
+
+        $fid = $request->input('fid');
+        $fid = ($fid === null || $fid === '') ? null : (int) $fid;
+        $allFingers = $fid === null;
+        $scope = $allFingers ? 'all_fingers' : 'single_finger';
+
+        if (! $request->boolean('confirm_delete')) {
+            return response()->json([
+                'message' => $allFingers
+                    ? 'This deletes EVERY fingerprint enrolled for PIN '.$pin.' from '.$device->name
+                        .' — all fingers, not one. The copy stored in this system is kept and can be restored afterwards; the device loses its own. Re-send with confirm_delete=true to proceed.'
+                    : 'This deletes fingerprint #'.$fid.' for PIN '.$pin.' from '.$device->name
+                        .'. Only that one finger is removed from the device; the copy stored in this system is kept and can be restored afterwards. Re-send with confirm_delete=true to proceed.',
+                'requires_confirmation' => true,
+                'confirmation_field' => 'confirm_delete',
+                'scope' => $scope,
+                'all_fingers' => $allFingers,
+                'pin' => $pin,
+                'fid' => $fid,
+            ], 422);
+        }
+
+        try {
+            $command = app(TemplateRoamingService::class)->deleteTemplateFromDevice($device, $pin, $fid);
+        } catch (\InvalidArgumentException $e) {
+            // The service re-checks the same preconditions. Anything it refuses
+            // that got past the guards above is still a caller error, not a 500.
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        // Destroying biometric data on hardware has to be attributable. Device,
+        // PIN and the FID SCOPE — "all fingers" and "finger 3" are different
+        // acts and the log must not read the same for both.
+        Log::info('Biometric template delete queued', [
+            'device_id' => $device->id,
+            'serial' => $device->serial_number,
+            'command_id' => $command->id,
+            'pin' => $pin,
+            'fid' => $fid,
+            'scope' => $scope,
+            'all_fingers' => $allFingers,
+            'user_id' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => ($allFingers
+                    ? 'Deletion of ALL fingerprints for PIN '.$pin.' queued for '.$device->name.'.'
+                    : 'Deletion of fingerprint #'.$fid.' for PIN '.$pin.' queued for '.$device->name.'.')
+                .' ADMS is device-initiated: the device applies it on its next poll, so nothing has been removed yet.',
+            'asynchronous' => true,
+            'command_id' => $command->id,
+            'scope' => $scope,
+            'all_fingers' => $allFingers,
+            'pin' => $pin,
+            'fid' => $fid,
+            'device_id' => $device->id,
+            'device_name' => $device->name,
+            // Said explicitly, because it is the one thing that makes this
+            // action reversible and the one thing easiest to assume wrongly.
+            'stored_copy_retained' => true,
+            'note' => 'This removes the template from the device only. The copy stored in this system is untouched, so the enrolment can be restored to a terminal later.',
+        ]);
+    }
+
     // ──────────────────────────────────────────────────────────────
     //  Unknown-user remediation
     // ──────────────────────────────────────────────────────────────

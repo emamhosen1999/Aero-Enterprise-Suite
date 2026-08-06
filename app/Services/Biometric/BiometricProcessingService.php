@@ -24,9 +24,39 @@ class BiometricProcessingService
 {
     protected AttendancePunchService $punchService;
 
-    public function __construct(AttendancePunchService $punchService)
+    protected DeviceClockService $clockService;
+
+    public function __construct(AttendancePunchService $punchService, ?DeviceClockService $clockService = null)
     {
         $this->punchService = $punchService;
+        // Optional so any caller still constructing this by hand keeps working;
+        // every caller in the app resolves it from the container, which injects
+        // both.
+        $this->clockService = $clockService ?? app(DeviceClockService::class);
+    }
+
+    /**
+     * The device-clock estimator, for callers that need to read or expose it.
+     */
+    public function clock(): DeviceClockService
+    {
+        return $this->clockService;
+    }
+
+    /**
+     * Read model for a device's clock: what we measured, on how much evidence,
+     * and whether punches are currently being adjusted by it.
+     *
+     * Offered here as well as on DeviceClockService because the admin/device
+     * controllers already hold this service, so surfacing the offset costs them
+     * one call and no new dependency. Routing is deliberately not this layer's
+     * business.
+     *
+     * @return array<string, mixed>
+     */
+    public function clockSnapshot(BiometricDevice $device): array
+    {
+        return $this->clockService->snapshot($device);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -354,6 +384,47 @@ class BiometricProcessingService
      *    there would silently switch off a working feature to remove an
      *    invitation the missing Stamp has already removed.
      *
+     *    **It stays untouched for template capture too, and the reason is now
+     *    stronger than "unsourced".** `transFlag` was the obvious suspect for why
+     *    the device has never pushed a `table=templatev10` — the leading ones plainly
+     *    cover what we receive, so a template bit "must" be one of the zeros. The
+     *    best-documented ordering says otherwise, and falsifies the guess rather
+     *    than guiding it. That ordering reads:
+     *
+     *      1 attendance record · 2 operation log · 3 attendance photo ·
+     *      4 enrolling a new fingerprint · 5 enrolling a new user ·
+     *      6 fingerprint image · 7 changing user information ·
+     *      8 changing a fingerprint · 9 new enrolled face · 10 user picture ·
+     *      11 work code · 12 comparison photo
+     *
+     *    Under it, digit 4 — *enrolling a new fingerprint* — is **already 1** in
+     *    `1111000000`. The production MB460 has logged 13 fingerprint enrolments and
+     *    pushed zero templates with that bit set, so the single most plausible
+     *    candidate is already enabled and demonstrably insufficient. Every remaining
+     *    zero would be a pure guess, and three further problems compound it:
+     *
+     *      - Sources disagree on the ordering itself. The named-token form devices
+     *        report is quoted elsewhere as `TransData AttLog OpLog AttPhoto
+     *        EnrollUser ChgUser EnrollFP ChgFP UserPic`, which puts EnrollFP at 7,
+     *        not 4 — conflicting with the numeric list at exactly the positions we
+     *        would be editing.
+     *      - Sources disagree on the LENGTH. A distributor guide shows
+     *        `TransFlag=111111111111`, twelve characters; ours is ten. We do not know
+     *        whether this firmware pads, truncates, or rejects.
+     *      - The numeric-ordering citations are not independent; they trace back to
+     *        one protocol document.
+     *
+     *    Against that, the correlation our OWN production system shows is clean and
+     *    points somewhere else entirely: we advertise `ATTLOGStamp` and
+     *    `OPERLOGStamp` and we receive exactly ATTLOG and OPERLOG. `*Stamp` is the
+     *    per-table invitation — the same reasoning that removed `ATTPHOTOStamp`
+     *    above — and no template stamp key is established in any source, so there is
+     *    no safe key to add here either. Capture is therefore solved by ASKING:
+     *    `QUERY_FINGERTMP` emits `DATA QUERY FINGERTMP`, which a wrong guess merely
+     *    gets rejected by one device, whereas a wrong digit here stops attendance
+     *    collection for a live business. What a hardware probe would need to settle
+     *    before this line may move is recorded in matrix §3.
+     *
      *  - **`PushProtVer` is negotiated, not asserted** — see
      *    negotiatePushProtoVersion().
      *
@@ -460,6 +531,27 @@ class BiometricProcessingService
     /**
      * Process bulk attendance log lines from an ADMS push.
      *
+     * ── Device clock correction (DeviceClockService) ─────────────────────────
+     *
+     * Two things happen here that did not before, and they are deliberately in
+     * this order:
+     *
+     *  1. **Measure, from this push, before anything is written.** A live push is
+     *     the device reporting a punch as it happens, so `punch_time` minus the
+     *     moment this request is being handled IS its clock error. One sample per
+     *     push (see recordClockSampleFromPush) and only on the live branch — a
+     *     download session replays history, and the same subtraction there would
+     *     read as a fake offset of days. Sampling first rather than last means
+     *     the newest evidence is already in the median when this push's own
+     *     punches are corrected, which is what makes a repaired device stop being
+     *     corrected on the very next push instead of the one after.
+     *  2. **Correct at the point of ingest.** The corrected moment is what goes to
+     *     the punch service and therefore into `attendances`; the RAW device
+     *     timestamp stays in `biometric_att_logs.punch_time` and the correction is
+     *     recorded beside it. That split is what keeps re-correction impossible:
+     *     every correction is computed from an immutable raw value, never from a
+     *     previously corrected one.
+     *
      * @return array{processed: int, errors: int, duplicates: int, total_lines: int}
      */
     public function processAttendanceLogs(string $rawData, BiometricDevice $device, string $serialNumber): array
@@ -473,6 +565,10 @@ class BiometricProcessingService
             ->whereIn('status', ['pending', 'in_progress'])
             ->first();
         $isDownloading = ! is_null($session);
+
+        if (! $isDownloading) {
+            $this->recordClockSampleFromPush($device, $lines, $serialNumber);
+        }
 
         foreach ($lines as $line) {
             if (empty(trim($line))) {
@@ -561,6 +657,16 @@ class BiometricProcessingService
                 continue;
             }
 
+            // Device clock correction. `$checkTime` stays the device's own raw
+            // string from here on — it is what identifies the punch (and what
+            // the unique natural key is built from). `$punchMoment` is the
+            // corrected moment everything downstream acts on: the duplicate
+            // check reads it because that is what `attendances` now holds, and
+            // the punch service receives it so its future-punch guard sees the
+            // corrected time rather than the device's skewed one.
+            $correction = $this->clockService->correct($device, $checkTime);
+            $punchMoment = $correction['punch_time'];
+
             // Resolve user by matching PIN to employee_id
             $resolved = $this->resolveOrCreateUser($deviceUserId);
             $user = $resolved['user'];
@@ -579,13 +685,21 @@ class BiometricProcessingService
                 $attLogReason = 'Pending processing';
             }
 
-            // Log the punch immediately
+            // Log the punch immediately.
+            //
+            // `punch_time` and `occurred_at` are the device's raw account and
+            // are never rewritten; `corrected_punch_time` /
+            // `clock_offset_applied_seconds` say what we did with it, and are
+            // NULL when nothing was corrected. An auditor can therefore see both
+            // what the terminal claimed and what landed in attendance.
             $logId = $this->insertAttLogRow([
                 'biometric_device_id' => $device->id,
                 'serial_number' => $serialNumber,
                 'user_pin' => $deviceUserId,
                 'user_id' => $user->id,
                 'punch_time' => $checkTime,
+                'corrected_punch_time' => $correction['applied'] ? $punchMoment : null,
+                'clock_offset_applied_seconds' => $correction['applied'] ? $correction['applied_seconds'] : null,
                 'check_type' => $checkType,
                 'punch_status' => $attLogStatus,
                 'punch_status_reason' => $attLogReason,
@@ -645,8 +759,10 @@ class BiometricProcessingService
                 continue;
             }
 
-            // Idempotency check
-            if ($this->isDuplicatePunch($user->id, $checkTime)) {
+            // Idempotency check — against the CORRECTED moment, because that is
+            // what a previous run of this punch would have written to
+            // `attendances`.
+            if ($this->isDuplicatePunch($user->id, $punchMoment)) {
                 $duplicateCount++;
                 DB::table('biometric_att_logs')
                     ->where('id', $logId)
@@ -655,13 +771,14 @@ class BiometricProcessingService
                     'device_serial' => $serialNumber,
                     'device_user_id' => $deviceUserId,
                     'check_time' => $checkTime,
+                    'corrected_time' => $correction['applied'] ? $punchMoment : null,
                 ]);
 
                 continue;
             }
 
             // Build synthetic request for punch service
-            $syntheticRequest = $this->buildSyntheticPunchRequest($serialNumber, $deviceUserId, $checkTime, $checkType);
+            $syntheticRequest = $this->buildSyntheticPunchRequest($serialNumber, $deviceUserId, $punchMoment, $checkType);
 
             // Process through existing punch service
             try {
@@ -688,6 +805,10 @@ class BiometricProcessingService
                     'device_serial' => $serialNumber,
                     'device_user_id' => $deviceUserId,
                     'check_time' => $checkTime,
+                    // Present only when the punch was moved, so a log reader can
+                    // tell an adjusted punch from an untouched one at a glance.
+                    'corrected_time' => $correction['applied'] ? $punchMoment : null,
+                    'clock_offset_applied_seconds' => $correction['applied'] ? $correction['applied_seconds'] : null,
                     'check_type' => $checkType,
                     'result_status' => $result['status'],
                 ]);
@@ -740,6 +861,77 @@ class BiometricProcessingService
             'duplicates' => $duplicateCount,
             'total_lines' => count($lines),
         ];
+    }
+
+    /**
+     * Take ONE device-clock sample from a live ATTLOG push.
+     *
+     * Called only from the live branch of processAttendanceLogs(): a push that
+     * arrives while a download session is open is the device replaying history
+     * on request, and the gap between those timestamps and now() is the age of
+     * the history, not the error in its clock. Sampling those would poison the
+     * estimate with hours or days of fake offset, which is exactly the input the
+     * median exists to survive — so we do not feed it in the first place.
+     *
+     * Why one sample per push rather than one per line: a device that has been
+     * offline pushes its backlog live, in a single body, oldest to newest. Every
+     * line would be a sample and one burst could fill the whole rolling window
+     * with punches that are genuinely old. Taking the NEWEST punch in the body
+     * bounds a burst's influence to a single sample, and the newest line is also
+     * the one most likely to be "just now" — the observation we actually want.
+     *
+     * The timestamp is only sampled when it has the canonical ATTLOG shape.
+     * Anything else is left to the parser downstream, which is tolerant by
+     * design; a measurement, unlike a punch, is better skipped than guessed.
+     *
+     * @param  array<int, string>  $lines
+     */
+    protected function recordClockSampleFromPush(BiometricDevice $device, array $lines, string $serialNumber): void
+    {
+        $newest = null;
+
+        foreach ($lines as $line) {
+            $parts = explode("\t", trim($line));
+
+            if (count($parts) < 2 || trim($parts[0]) === '') {
+                continue;
+            }
+
+            $stamp = trim($parts[1]);
+
+            if (! preg_match('/^\d{4}-\d{1,2}-\d{1,2}[ T]\d{1,2}:\d{2}/', $stamp)) {
+                continue;
+            }
+
+            try {
+                $moment = Carbon::parse($stamp);
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            if ($newest === null || $moment->greaterThan($newest)) {
+                $newest = $moment;
+            }
+        }
+
+        if ($newest === null) {
+            return;
+        }
+
+        $offset = $this->clockService->recordLiveSample($device, $newest);
+
+        if ($offset === null) {
+            return;
+        }
+
+        Log::debug('ADMS push: device clock sampled', [
+            'serial' => $serialNumber,
+            'device_id' => $device->id,
+            'sample_offset_seconds' => $offset,
+            'device_time' => $newest->toDateTimeString(),
+            'estimate_offset_seconds' => $device->clock_offset_seconds,
+            'estimate_samples' => $device->clock_offset_samples,
+        ]);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -1078,6 +1270,22 @@ class BiometricProcessingService
     /**
      * Replay a single captured `downloaded` row through the live punch rules.
      *
+     * ── Clock correction on the batch path ──────────────────────────────────
+     *
+     * A downloaded log carries exactly the same skew as a live push — it came
+     * off the same clock — but it cannot be MEASURED the same way, because the
+     * gap between its timestamp and the moment we import it is the age of the
+     * history, not the device's error. So the batch path consumes the estimate
+     * the live path measured, and contributes nothing back to it.
+     *
+     * The correction is computed here, at import, rather than being frozen onto
+     * the row when it was staged: the estimate at import time is the freshest
+     * one, and a row that sat in `downloaded` for a week through a device clock
+     * repair is corrected by what is true now, not by what was true when it was
+     * captured. It is computed from `punch_time`, which is still the device's
+     * raw value, so re-running the import over a row can only ever recompute the
+     * same correction — never stack a second one on top of the first.
+     *
      * @return string one of imported|duplicate|unknown_user|failed
      */
     protected function importDownloadedLog(BiometricAttLog $log, BiometricDevice $device): string
@@ -1088,6 +1296,13 @@ class BiometricProcessingService
             ? $log->punch_time->format('Y-m-d H:i:s')
             : (string) $log->getRawOriginal('punch_time');
         $checkType = $log->check_type ?: 'in';
+
+        $correction = $this->clockService->correct($device, $checkTime);
+        $punchMoment = $correction['punch_time'];
+        $correctionColumns = [
+            'corrected_punch_time' => $correction['applied'] ? $punchMoment : null,
+            'clock_offset_applied_seconds' => $correction['applied'] ? $correction['applied_seconds'] : null,
+        ];
 
         try {
             // 1. Resolve the user — same helper the live push path uses.
@@ -1123,24 +1338,26 @@ class BiometricProcessingService
             }
 
             // 3. Idempotency backstop for a punch already recorded by any path.
-            if ($this->isDuplicatePunch($user->id, $checkTime)) {
-                $this->markAttLog($log->id, 'duplicate', 'Punch already recorded', $user->id);
+            if ($this->isDuplicatePunch($user->id, $punchMoment)) {
+                $this->markAttLog($log->id, 'duplicate', 'Punch already recorded', $user->id, $correctionColumns);
 
                 Log::info('Biometric downloaded-log import: duplicate punch skipped', [
                     'device_serial' => $serialNumber,
                     'device_user_id' => $deviceUserId,
                     'check_time' => $checkTime,
+                    'corrected_time' => $correction['applied'] ? $punchMoment : null,
                 ]);
 
                 return 'duplicate';
             }
 
-            // 4. Same synthetic request + punch service as the live path.
-            $syntheticRequest = $this->buildSyntheticPunchRequest($serialNumber, $deviceUserId, $checkTime, $checkType);
+            // 4. Same synthetic request + punch service as the live path, on the
+            //    corrected moment.
+            $syntheticRequest = $this->buildSyntheticPunchRequest($serialNumber, $deviceUserId, $punchMoment, $checkType);
             $result = $this->processPunch($user, $syntheticRequest);
 
             if (($result['status'] ?? null) === 'success') {
-                $this->markAttLog($log->id, 'processed', null, $user->id);
+                $this->markAttLog($log->id, 'processed', null, $user->id, $correctionColumns);
 
                 event(new BiometricAttendanceReceived($device, $user, [
                     'device_user_id' => $deviceUserId,
@@ -1177,10 +1394,18 @@ class BiometricProcessingService
 
     /**
      * Move an ATTLOG row off `downloaded` and onto its resolved status.
+     *
+     * `$extra` carries columns the caller resolved alongside the status — today
+     * that is the clock correction (`corrected_punch_time`,
+     * `clock_offset_applied_seconds`), written in the same statement as the
+     * status so a row can never claim to be `processed` without saying which
+     * moment was processed.
+     *
+     * @param  array<string, mixed>  $extra
      */
-    protected function markAttLog(int $logId, string $status, ?string $reason = null, ?int $userId = null): void
+    protected function markAttLog(int $logId, string $status, ?string $reason = null, ?int $userId = null, array $extra = []): void
     {
-        $update = [
+        $update = $extra + [
             'punch_status' => $status,
             'punch_status_reason' => $reason,
             'updated_at' => now(),
@@ -1497,6 +1722,29 @@ class BiometricProcessingService
      * last, which is the one ordering every source agrees on and the only one
      * that can be relied upon — a base64 blob may contain the characters of any
      * other key, so nothing after it can be parsed safely.
+     *
+     * ── This is also where a QUERY_FINGERTMP reply lands ────────────────────
+     *
+     * `DATA QUERY FINGERTMP` (BiometricDeviceCommand::toAdmsString()) returns its
+     * results as a `table=templatev10` PUSH, not in the acknowledgement — exactly
+     * as `DATA QUERY USERINFO` returns a `table=USERINFO` push. So a Return=0 on
+     * that command proves only that the query was accepted; this method is what
+     * decides whether anything is actually kept, and rows in
+     * `biometric_templates` are the only evidence that capture works.
+     *
+     * The reply shape is the multi-record one: a full-device dump is many
+     * templates in one body, and a single person is typically two fingers. That
+     * is the shape the rewrite above exists to handle, and it is pinned by
+     * tests/Feature/Biometric/TemplateAcquisitionTest.php against both spellings
+     * of the PIN field, tab-separated descriptors, and CRLF line endings.
+     *
+     * One known boundary, recorded rather than guessed at: records are separated
+     * by LINE, and a firmware that returned several complete templates on a
+     * single line with no newline between them would be read as one record. Every
+     * observed ADMS table (ATTLOG, OPERLOG, USERINFO) is line-per-record, so that
+     * shape is not expected — but a first real reply from an MB460 is worth
+     * eyeballing before it is trusted, because the failure would be a stored row
+     * that looks fine and restores garbage.
      *
      * @return array{success: bool, reason: string|null, stored: int, skipped: int}
      */

@@ -24,14 +24,20 @@ class NotificationTypeSeederTest extends TestCase
 
         $this->assertNotNull(NotificationType::where('key', 'attendance.missed_punch_in')->first());
 
-        $this->assertSame(14, NotificationType::count());
+        $this->assertSame(15, NotificationType::count());
     }
 
     public function test_seeder_is_idempotent(): void
     {
+        // Assert the property (re-seeding adds nothing) rather than a magic
+        // total. The old form hardcoded the count, so every seeder addition
+        // broke it here for a reason unrelated to idempotency — which is
+        // exactly what happened when biometric.device_silent was added.
         $this->seed(NotificationTypeSeeder::class);
+        $afterFirstSeed = NotificationType::count();
+
         $this->seed(NotificationTypeSeeder::class);
 
-        $this->assertSame(14, NotificationType::count());
+        $this->assertSame($afterFirstSeed, NotificationType::count());
     }
 }

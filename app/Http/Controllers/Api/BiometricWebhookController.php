@@ -819,9 +819,16 @@ class BiometricWebhookController extends Controller
             'sample' => $this->contentSample($rawData),
         ]);
 
+        // The command MUST be handed to the option parser, not just used to pick
+        // it. reconcileRequestedKeys() needs the originating command's payload to
+        // know which keys were asked for; without it, a key the device silently
+        // drops from a return=0 reply is recorded as nothing at all and reads as
+        // "never probed" forever. Verified against the live MB460: TimeZone,
+        // DateTime, GMTOffset, MThreshold and AttLogCount were all omitted from
+        // successful replies and none were recorded until this argument was passed.
         $isInfo
             ? $this->capabilityService->parseInfoResponse($device, $rawData)
-            : $this->capabilityService->parseOptionResponse($device, $rawData);
+            : $this->capabilityService->parseOptionResponse($device, $rawData, $command);
     }
 
     /**

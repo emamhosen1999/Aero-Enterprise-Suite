@@ -4,11 +4,13 @@ namespace Tests\Feature\Biometric;
 
 use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
+use App\Models\HRM\BiometricDeviceCommand;
 use App\Models\User;
 use App\Notifications\Biometric\BiometricDeviceSilentNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -178,6 +180,231 @@ class BiometricAdminActionsTest extends TestCase
         $this->actingAs($outsider)
             ->postJson(route('biometric-devices.attlogs.link-user'), ['pin' => '5001', 'user_id' => 1])
             ->assertForbidden();
+    }
+
+    // ───────────────────────────── Task 1b: on-device template delete
+    //
+    // The mirror of the restore, and the destructive half. It removes
+    // fingerprint(s) from the TERMINAL and leaves biometric_templates alone, so
+    // the tests below pin both the refusals in front of it and the distinction
+    // the wire format turns on: an omitted FID means every finger for that PIN.
+
+    public function test_delete_template_requires_explicit_confirmation(): void
+    {
+        $device = $this->device();
+
+        $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+                'fid' => 3,
+            ])
+            ->assertStatus(422)
+            ->assertJson([
+                'requires_confirmation' => true,
+                'confirmation_field' => 'confirm_delete',
+                'scope' => 'single_finger',
+                'all_fingers' => false,
+            ]);
+
+        $this->assertDatabaseCount('biometric_device_commands', 0);
+    }
+
+    public function test_delete_template_confirmation_names_the_all_fingers_scope(): void
+    {
+        // Omitting FID is a materially bigger action than deleting one finger.
+        // The refusal must not read identically for both.
+        $device = $this->device();
+
+        $response = $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('scope', 'all_fingers')
+            ->assertJsonPath('all_fingers', true)
+            ->assertJsonPath('fid', null);
+
+        $this->assertStringContainsString('EVERY fingerprint', $response->json('message'));
+        $this->assertDatabaseCount('biometric_device_commands', 0);
+    }
+
+    public function test_delete_template_queues_a_single_finger_and_keeps_our_stored_copy(): void
+    {
+        $device = $this->device();
+
+        $response = $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+                'fid' => 3,
+                'confirm_delete' => true,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('scope', 'single_finger')
+            ->assertJsonPath('all_fingers', false)
+            ->assertJsonPath('fid', 3)
+            ->assertJsonPath('pin', '9001')
+            ->assertJsonPath('asynchronous', true)
+            ->assertJsonPath('stored_copy_retained', true);
+
+        $command = BiometricDeviceCommand::findOrFail($response->json('command_id'));
+
+        $this->assertSame('DELETE_FINGERTMP', $command->command_type);
+        $this->assertSame($device->id, $command->biometric_device_id);
+        $this->assertSame(BiometricDeviceCommand::STATUS_PENDING, $command->status);
+        // FID present on the wire, tab-separated: this addresses one slot.
+        $this->assertSame("C:{$command->id}:DATA DELETE FINGERTMP PIN=9001\tFID=3", $command->toAdmsString());
+    }
+
+    public function test_delete_template_without_a_fid_deletes_every_finger_and_says_so(): void
+    {
+        $device = $this->device();
+
+        $response = $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+                'confirm_delete' => true,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('scope', 'all_fingers')
+            ->assertJsonPath('all_fingers', true)
+            ->assertJsonPath('fid', null);
+
+        $this->assertStringContainsString('ALL fingerprints', $response->json('message'));
+
+        $command = BiometricDeviceCommand::findOrFail($response->json('command_id'));
+
+        // FID is OMITTED, not sent empty and not sent as 0 — `FID=` is a syntax
+        // error and `FID=0` would silently delete only the first finger when the
+        // caller asked for all of them.
+        $this->assertSame("C:{$command->id}:DATA DELETE FINGERTMP PIN=9001", $command->toAdmsString());
+        $this->assertArrayNotHasKey('fid', $command->payload);
+    }
+
+    public function test_delete_template_rejects_a_finger_index_outside_the_protocol_range(): void
+    {
+        $device = $this->device();
+        $admin = $this->admin();
+
+        // -1 is TemplateRoamingService::NO_FINGER_INDEX, the face/palm storage
+        // sentinel. It must never reach the wire as FID=-1.
+        foreach ([-1, 10, 99] as $fid) {
+            $this->actingAs($admin)
+                ->postJson(route('biometric-devices.delete-template', $device->id), [
+                    'pin' => '9001',
+                    'fid' => $fid,
+                    'confirm_delete' => true,
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('fid');
+        }
+
+        $this->assertDatabaseCount('biometric_device_commands', 0);
+    }
+
+    public function test_delete_template_requires_a_pin(): void
+    {
+        $device = $this->device();
+
+        $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'confirm_delete' => true,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('pin');
+
+        $this->assertDatabaseCount('biometric_device_commands', 0);
+    }
+
+    public function test_delete_template_refuses_a_non_adms_device(): void
+    {
+        // Confirmed on purpose — the protocol refusal must not depend on the
+        // confirmation refusal happening to fire first.
+        $device = $this->device(['protocol' => 'push_sdk']);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+                'confirm_delete' => true,
+            ])
+            ->assertStatus(400)
+            ->assertJsonPath('message', 'Template delete is only supported for ADMS protocol devices.');
+
+        $this->assertDatabaseCount('biometric_device_commands', 0);
+    }
+
+    public function test_delete_template_refuses_an_inactive_device(): void
+    {
+        $device = $this->device(['is_active' => false]);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+                'confirm_delete' => true,
+            ])
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Device is inactive.');
+
+        $this->assertDatabaseCount('biometric_device_commands', 0);
+    }
+
+    public function test_delete_template_404s_for_an_unknown_device(): void
+    {
+        $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', 999999), [
+                'pin' => '9001',
+                'confirm_delete' => true,
+            ])
+            ->assertNotFound();
+    }
+
+    public function test_delete_template_is_behind_the_attendance_settings_gate(): void
+    {
+        $device = $this->device();
+
+        $this->actingAs(User::factory()->create())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+                'confirm_delete' => true,
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('biometric_device_commands', 0);
+    }
+
+    public function test_delete_template_does_not_remove_our_stored_copy(): void
+    {
+        // The whole asymmetry of this feature: the device loses the template,
+        // we keep ours, which is what makes a later restore possible.
+        $device = $this->device();
+
+        DB::table('biometric_templates')->insert([
+            'biometric_device_id' => $device->id,
+            'user_id' => User::factory()->create(['employee_id' => 9001])->id,
+            'device_user_id' => '9001',
+            'template_type' => 'fingerprint',
+            'finger_index' => 3,
+            'template_data' => 'QUJDREVGRw==',
+            'template_size' => 12,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin())
+            ->postJson(route('biometric-devices.delete-template', $device->id), [
+                'pin' => '9001',
+                'fid' => 3,
+                'confirm_delete' => true,
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('biometric_templates', [
+            'biometric_device_id' => $device->id,
+            'device_user_id' => '9001',
+            'finger_index' => 3,
+        ]);
     }
 
     // ───────────────────────────── Task 2: unknown-user remediation
@@ -539,6 +766,7 @@ class BiometricAdminActionsTest extends TestCase
         $expected = [
             ['GET', 'settings/biometric-devices/templates', 'biometric-devices.templates', []],
             ['POST', 'settings/biometric-devices/7/restore-templates', 'biometric-devices.restore-templates', ['id' => '7']],
+            ['POST', 'settings/biometric-devices/7/delete-template', 'biometric-devices.delete-template', ['id' => '7']],
             ['POST', 'settings/biometric-devices/attlogs/link-user', 'biometric-devices.attlogs.link-user', []],
             ['GET', 'settings/biometric-devices/attlogs', 'biometric-devices.attlogs', []],
             ['POST', 'settings/biometric-devices/bulk/ping', 'biometric-devices.bulk.ping', []],

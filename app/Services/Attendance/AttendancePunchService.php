@@ -20,6 +20,43 @@ class AttendancePunchService
 
     private const MAX_OVERNIGHT_HOURS = 18;
 
+    /**
+     * Last-resort clamp on a device timestamp that is in the FUTURE.
+     *
+     * ── Why this value did not catch the two-hour device, and stays anyway ───
+     *
+     * The production MB460 (`AF6P231260266`) reported every punch exactly two
+     * hours ahead for four months. This guard rejects `punch_time > now + 2h`;
+     * the real offset measured 7,196 s — 1 h 59 m 56 s — so it passed by four
+     * seconds, and 827 punches were written two hours late.
+     *
+     * The tempting fix is to lower the number. It is the wrong fix, because this
+     * guard is the wrong instrument for a constant offset:
+     *
+     *  - **It is one-sided.** It sees only clocks running FAST. A device two
+     *    hours SLOW would be just as wrong and would never trip it, whatever
+     *    the threshold.
+     *  - **Its remedy destroys the evidence.** When it fires it substitutes
+     *     server time for the device's, so the punch's real moment is gone and
+     *     the skew can never be measured from it afterwards. Applied to a
+     *     systematically-skewed device it would silently convert every punch
+     *     into "whenever the push happened to arrive" — which is precisely the
+     *     bug this service was written to avoid (see resolvePunchTime).
+     *  - **Any threshold is arbitrary.** Two hours here is one timezone step;
+     *     one hour is another; there is no value that distinguishes "wrong
+     *     clock" from "genuine punch" by size alone.
+     *
+     * The instrument that does work is measurement: DeviceClockService samples
+     * device-vs-server time on live pushes, takes a median, and
+     * BiometricProcessingService corrects at ingest. By the time a punch reaches
+     * this service its systematic offset is already gone, so what this guard now
+     * sees is RESIDUAL error — and 2 h of residual really is nonsense worth
+     * clamping. Kept unchanged, therefore, as a backstop for the one case
+     * correction cannot cover: a device whose clock is wildly wrong and whose
+     * offset has not yet been measured (fewer than
+     * DeviceClockService::MIN_TRUSTED_SAMPLES samples), where server time is
+     * genuinely the better of two bad answers.
+     */
     private const MAX_CLOCK_DRIFT_HOURS = 2;
 
     private const SYNC_CAPTURE_FUTURE_SKEW_MINUTES = 2;
@@ -206,6 +243,17 @@ class AttendancePunchService
      * minutes / late / OT / overnight detection compute on the true moment, not the
      * server's processing time. Manual/web punches always use server time, so a user
      * cannot back-date their own punch.
+     *
+     * **Device time remains the basis; it is now a CORRECTED device time.** A
+     * biometric caller is expected to have applied that device's measured clock
+     * offset before it gets here (BiometricProcessingService does this on both
+     * the live-push and the downloaded-import path, from the raw timestamp the
+     * device sent, which is preserved on `biometric_att_logs.punch_time`). This
+     * service deliberately does NOT apply the offset itself: correction has to
+     * happen exactly once, and a second application here — over a value the
+     * ingest path had already adjusted — is the double-correction failure this
+     * whole mechanism is designed against. Nothing in this method knows about
+     * device clocks, and that is the point.
      */
     private function resolvePunchTime(Request $request): Carbon
     {

@@ -118,6 +118,12 @@ class BiometricDeviceCommand extends Model
     public const HARDWARE_UNVERIFIED_COMMAND_TYPES = [
         'UPDATE_FINGERTMP' => 'Documented across independent implementations, never sent to one of our devices. Tab-separated on the evidence of the one implementation whose source states the string, but no device has confirmed the separator.',
         'DELETE_FINGERTMP' => 'Composed from the documented DATA/DELETE grammar and an attested FINGERTMP PIN/FID addressing; single-source overall.',
+        // The capture half of roaming, and the highest-value entry on this worklist:
+        // until a device answers one of these, `biometric_templates` stays empty and
+        // there is nothing for UPDATE_FINGERTMP to restore. Note that Return=0 alone
+        // does NOT verify it — the templates arrive as a separate push, so this entry
+        // is only deleted once rows actually land.
+        'QUERY_FINGERTMP' => 'Documented verbatim in a ZKTeco distributor command guide and implemented as a first-class endpoint by one reference package, but never sent to one of our devices. Tab-separated between PIN and FID by analogy with the hardware-verified DATA QUERY ATTLOG; the guide itself renders separators inconsistently.',
         'CLEAR_PHOTO' => 'Single-source. Follows the established CLEAR <NOUN> grammar but has not been acked.',
         'CLEAR_BIODATA' => 'Single-source. Follows the established CLEAR <NOUN> grammar but has not been acked.',
         'GET_USERINFO' => 'Legacy alias now emitting DATA QUERY USERINFO; the corrected string is unproven on the alias path.',
@@ -402,6 +408,76 @@ class BiometricDeviceCommand extends Model
                 // all (TemplateRoamingService::FACE_REASON), so this permanently
                 // destroys every face on the unit. The production MB460 holds one.
                 $command .= 'CLEAR BIODATA';
+                break;
+
+            case 'QUERY_FINGERTMP':
+                // Ask the device to send us its fingerprint templates — the CAPTURE
+                // half of biometric roaming, and the half that has never fired.
+                //
+                // Why this command exists. Template capture was entirely passive: we
+                // waited for an unprompted `table=templatev10` push. The production
+                // MB460 (AF6P231260266) holds 26 fingerprints across 13 employees and
+                // has logged 13 "Enroll FP" operations in OPERLOG, and it has never
+                // once pushed a template. `biometric_templates` has always been empty,
+                // so the restore path (`DATA UPDATE FINGERTMP`) had nothing to restore
+                // and the backup everyone believed in did not exist. This command is
+                // the pull that does not depend on the device volunteering anything.
+                //
+                // UNVERIFIED AGAINST HARDWARE. Listed in
+                // HARDWARE_UNVERIFIED_COMMAND_TYPES; delete that entry the day an
+                // MB460 acks one Return=0. What IS defensible, piece by piece:
+                //   1. A ZKTeco distributor's TA Push SDK command guide documents the
+                //      string verbatim, as `C:12345:DATA QUERY FINGERTMP PIN=1 FID=1`,
+                //      described as retrieving fingerprint data from the device.
+                //   2. shadow046/zkteco-adms — the same package this codebase already
+                //      cites for the tab-separated `DATA UPDATE FINGERTMP` form —
+                //      ships a first-class `commands/fingertmp-query` endpoint
+                //      alongside its `fingertmp-update` one.
+                //   3. `DATA QUERY <NOUN>` is hardware-verified on our own MB460
+                //      TWICE: `DATA QUERY USERINFO` and `DATA QUERY ATTLOG` both come
+                //      back Return=0. FINGERTMP is the device's own noun, attested by
+                //      the UPDATE/DELETE siblings.
+                //
+                // SEPARATOR: TAB between PIN and FID, one space after the verb. The
+                // distributor guide above renders it with a space, but that same guide
+                // writes the sibling as `DATA UPDATE BIOPHOTO PIN=1\tContent=…` and
+                // states outright that `\t` in its listings means a tab — so its
+                // separators are rendered inconsistently and it is not evidence for
+                // space. The evidence that IS from hardware points the other way:
+                // `DATA QUERY ATTLOG StartTime=…\tEndTime=…` is the only multi-field
+                // DATA QUERY any device of ours has acked, it is the closest possible
+                // sibling of this command, and it is tab-separated. Same reasoning as
+                // UPDATE_FINGERTMP, and the same silent failure mode if it is wrong.
+                //
+                // ADDRESSING. All three forms are emitted from one case:
+                //   - no PIN  → `DATA QUERY FINGERTMP`, i.e. every template on the
+                //     unit. This is the form that fills an empty table in one shot,
+                //     and it is the direct analogue of the bare `DATA QUERY USERINFO`
+                //     that is hardware-verified here as a full roster dump. It is the
+                //     default precisely because the problem being solved is "we hold
+                //     nothing at all".
+                //   - PIN only → every finger for that person.
+                //   - PIN + FID → one finger slot.
+                // FID is only emitted alongside a PIN: a finger index with no person
+                // to address addresses nothing, so a payload carrying FID alone
+                // degrades to the full dump rather than emitting a command whose
+                // meaning we would be inventing.
+                //
+                // THE RESULT ARRIVES AS A PUSH, NOT IN THE ACK — same as
+                // QUERY_USERINFO (matrix §1/§2). A Return=0 here means "query
+                // accepted", NOT "templates received". What proves this worked is
+                // rows appearing in `biometric_templates`, via
+                // BiometricProcessingService::processTemplateUpload().
+                $command .= 'DATA QUERY FINGERTMP';
+                $pin = $payload['pin'] ?? null;
+                if ($pin !== null && $pin !== '') {
+                    $command .= ' PIN='.$pin;
+
+                    $fid = $payload['fid'] ?? null;
+                    if ($fid !== null && $fid !== '') {
+                        $command .= "\tFID=".$fid;
+                    }
+                }
                 break;
 
             case 'CHECK_ATTLOG':

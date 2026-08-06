@@ -11,6 +11,7 @@ use App\Services\Biometric\DeviceCapabilityService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -347,6 +348,52 @@ class DeviceCapabilityEndpointsTest extends TestCase
         $this->assertSame(137, $snapshot['capacity']['users']['used']);
         $this->assertSame(3000, $snapshot['capacity']['users']['max']);
         $this->assertNotNull($command->fresh());
+    }
+
+    /**
+     * Regression: the controller picked the parser from the correlated command
+     * but never handed the command to it, so reconcileRequestedKeys() had no
+     * requested-key list and silently omitted keys were recorded as nothing.
+     *
+     * Verified against the live MB460: TimeZone, DateTime, GMTOffset, MThreshold
+     * and AttLogCount were all dropped from return=0 replies, and production held
+     * zero rows with source=omitted. The unit tests passed throughout, because
+     * they call parseOptionResponse() directly WITH a command — only a real push
+     * exercises the wiring.
+     */
+    public function test_a_key_the_device_silently_drops_is_recorded_as_omitted(): void
+    {
+        $device = $this->device();
+
+        BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => ['UserCount', 'TimeZone']],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        // Device answers successfully but simply leaves TimeZone out.
+        $this->push(
+            $device->serial_number,
+            '&table=options',
+            "GET OPTION FROM: {$device->serial_number}\r\nUserCount=13"
+        )->assertOk();
+
+        $this->assertDatabaseHas('biometric_device_capabilities', [
+            'biometric_device_id' => $device->id,
+            'capability_key' => 'UserCount',
+            'value' => '13',
+        ]);
+
+        $omitted = DB::table('biometric_device_capabilities')
+            ->where('biometric_device_id', $device->id)
+            ->where('capability_key', 'TimeZone')
+            ->first();
+
+        $this->assertNotNull($omitted, 'A silently dropped key must be recorded, not left absent.');
+        $this->assertSame(DeviceCapabilityService::SOURCE_OMITTED, $omitted->source);
+        $this->assertTrue((bool) $omitted->is_unsupported);
     }
 
     public function test_non_zero_ack_records_the_key_as_unsupported(): void

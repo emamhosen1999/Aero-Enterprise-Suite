@@ -23,6 +23,9 @@ class BiometricDevice extends Model
         'notes',
         'config',
         'users_count',
+        'clock_offset_seconds',
+        'clock_offset_samples',
+        'clock_offset_measured_at',
     ];
 
     protected $casts = [
@@ -30,6 +33,13 @@ class BiometricDevice extends Model
         'last_heartbeat_at' => 'datetime',
         'last_log_download_at' => 'datetime',
         'config' => 'array',
+        // Nullable on purpose, and the cast keeps it that way: a NULL offset
+        // means "this device's clock has never been measured", which behaves
+        // differently from a measured zero (see DeviceClockService). An
+        // 'integer' cast returns null for null, so the distinction survives.
+        'clock_offset_seconds' => 'integer',
+        'clock_offset_samples' => 'integer',
+        'clock_offset_measured_at' => 'datetime',
     ];
 
     protected static function booted(): void

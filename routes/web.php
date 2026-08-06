@@ -643,6 +643,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // and requires confirm_restore=true.
         Route::get('settings/biometric-devices/templates', [BiometricDeviceController::class, 'templates'])->name('biometric-devices.templates');
         Route::post('settings/biometric-devices/{id}/restore-templates', [BiometricDeviceController::class, 'restoreTemplates'])->whereNumber('id')->name('biometric-devices.restore-templates');
+        // The mirror action, and the destructive one: DATA DELETE FINGERTMP wipes
+        // fingerprint(s) for one PIN off the TERMINAL. Our stored copy is kept —
+        // that asymmetry is what makes this recoverable and a restore possible
+        // afterwards. Requires confirm_delete=true; an omitted `fid` means every
+        // finger for that PIN.
+        Route::post('settings/biometric-devices/{id}/delete-template', [BiometricDeviceController::class, 'deleteTemplate'])->whereNumber('id')->name('biometric-devices.delete-template');
 
         // Device capabilities + device-internal settings.
         // Every {id} route here MUST carry ->whereNumber('id'): an unconstrained
