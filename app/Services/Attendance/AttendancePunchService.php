@@ -4,6 +4,7 @@ namespace App\Services\Attendance;
 
 use App\Events\Domain\AttendancePunched;
 use App\Models\HRM\Attendance;
+use App\Models\HRM\AttendanceAuditLog;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -71,6 +72,110 @@ class AttendancePunchService
     private const REBIND_TOLERANCE_MINUTES = 120;
 
     /**
+     * The two rejection messages that get written to
+     * `biometric_att_logs.punch_status_reason` when a device punch does not
+     * become attendance.
+     *
+     * Constants rather than four repeated literals because
+     * `biometric:replay-orphaned-punches` selects historical failures by matching
+     * this exact text. A silent edit to one of the strings would make that command
+     * quietly select nothing while still reporting success, so the producer and
+     * the consumer now share one definition.
+     */
+    public const NO_OPEN_RECORD_MESSAGE = 'No open attendance record to punch out from.';
+
+    public const ALREADY_PUNCHED_IN_MESSAGE = 'Already punched in for this period.';
+
+    /**
+     * ── OUT-first recovery ──────────────────────────────────────────────────
+     *
+     * A ZKTeco terminal stamps every punch with a direction byte: `0` = in,
+     * `1` = out. That byte is whatever mode the terminal is sitting in, and a
+     * terminal can be left in OUT mode. When it is, the FIRST punch of the day
+     * arrives as a check-out, finds nothing open to close, and is discarded —
+     * the employee's whole day is then absent from `attendances`.
+     *
+     * Measured on the production MB460 (`AF6P231260266`), reconciling its
+     * complete 1,054-record history against attendance: 540 device user-days
+     * produced 33 with no attendance at all (6.1%). 22 of those are exactly this
+     * — the day's first punch carrying `status=1`. It is not individual user
+     * error: on 2026-07-11 three different employees (PINs 307, 302, 304) all had
+     * an OUT-first day at once, which is one terminal in the wrong mode, not
+     * three people making the same mistake.
+     *
+     * The mapping is NOT wrong and is not changed: `status=1` genuinely is out,
+     * and that is what the device said. What changes is what we do with an out
+     * punch that has nothing to close.
+     *
+     * **The rule, in full** — an out punch is recorded as the day's check-in when
+     * ALL of these hold (see isRecoverableOrphanedOutPunch):
+     *
+     *   1. `check_type` is exactly `out`. Not `break_out`, not `ot_out`: those
+     *      describe an interruption to a day that is already under way, and
+     *      manufacturing a workday out of a break punch would be inventing
+     *      attendance rather than recovering it.
+     *   2. The punch is device-sourced (`source` = `biometric`/`device`). This is
+     *      the SAME trust boundary resolvePunchTime() already uses, and
+     *      GuardsServerAuthoritativePunchTime strips `source` from every
+     *      human-facing punch request — so a web or mobile punch structurally
+     *      cannot reach this rule, and no new trust surface is created.
+     *   3. It is not the offline sync channel (`sync_capture`). That channel
+     *      replays a human's queued punch and its payload is client-shaped.
+     *   4. findOpenAttendanceToClose() returned NULL — there is genuinely nothing
+     *      to close, today or on an eligible prior-day overnight row.
+     *   5. There is NO attendance row of any kind on the resolved business date —
+     *      not merely no OPEN one.
+     *
+     * **Why it cannot misfire on a real check-out.** Conditions 4 and 5 are
+     * evaluated in the branch that today already returns an error, so a punch that
+     * closes a real punch-in never reaches the rule at all — it has already
+     * returned from punchOut() several lines earlier. Condition 5 is what keeps
+     * the second half honest: after a normal in→out day the row exists but is
+     * closed, so a stray third out punch is still rejected exactly as it is today
+     * rather than opening a phantom second day.
+     *
+     * **The second OUT punch of an OUT-first day.** Once the 11:03 punch has been
+     * promoted, the day HAS an open row, so the 19:08 punch takes the ordinary
+     * punchOut() path one branch above and closes it. The day ends up in + out,
+     * never two check-ins, and this needs no special case — it falls out of
+     * condition 4.
+     *
+     * **Ordering against device clock correction.** Correction happens strictly
+     * earlier, at ingest in BiometricProcessingService, and only ever touches the
+     * timestamp — never the direction byte. So correction can neither create nor
+     * erase an OUT-first day, and by the time this rule runs $punchTime is already
+     * the corrected moment: the business date, the drift backstop and the promoted
+     * punch-in all see the same corrected value a normal check-in would.
+     */
+    public const RECOVERY_OUT_FIRST = 'device_out_first_promoted_to_in';
+
+    /**
+     * `attendance_audit_logs.action` written for every recovered day.
+     *
+     * The recovery is recorded there — not on the attendance row, and not by
+     * rewriting what the device said — for three reasons:
+     *
+     *  - `biometric_att_logs.check_type` must keep holding the device's own
+     *    account. It is also part of the punch natural key made UNIQUE by
+     *    migration 2026_08_03_000001, so moving it would let a re-pushed punch
+     *    slip past that constraint.
+     *  - `attendances` has no column for this and inventing one is a schema change
+     *    for something the system already has a table for.
+     *  - The write happens inside this service, so EVERY ingest path gets it — the
+     *    live ADMS push, the downloaded-log import, the direct webhook and the
+     *    replay command alike — instead of each caller having to remember.
+     *
+     * An auditor can therefore tell a recovered day from a normal one with one
+     * query, and the row says which moment was promoted and what the device
+     * actually reported. The two paths this service owns additionally stamp
+     * RECOVERY_REASON onto `biometric_att_logs.punch_status_reason`, so the same
+     * fact is visible from the device side of the ATTLOG screen.
+     */
+    public const RECOVERY_AUDIT_ACTION = 'biometric_out_first_recovery';
+
+    public const RECOVERY_REASON = 'Device reported this punch as a check-out, but the day had no attendance record; recorded as the day\'s check-in.';
+
+    /**
      * Process punch in/out for a user
      */
     public function processPunch($user, Request $request): array
@@ -101,17 +206,29 @@ class AttendancePunchService
                     return $this->punchOut($openRow, $request, $user, $punchTime);
                 }
 
-                return [
-                    'status' => 'error',
-                    'message' => 'No open attendance record to punch out from.',
-                    'code' => 422,
-                ];
+                // Nothing to close. Before rejecting, ask whether this is the
+                // OUT-first case (see RECOVERY_OUT_FIRST). If it is, fall through
+                // into the transaction, which re-asks the same two questions under
+                // lockForUpdate and creates the row — a promotion is a punch-IN and
+                // must be raced-protected exactly like every other punch-in. This
+                // read is only a cheap pre-check; the locked one decides.
+                if (! $this->isRecoverableOrphanedOutPunch($request, $existingAttendance)) {
+                    return [
+                        'status' => 'error',
+                        'message' => self::NO_OPEN_RECORD_MESSAGE,
+                        'code' => 422,
+                    ];
+                }
+
+                return DB::transaction(function () use ($user, $request) {
+                    return $this->processPunchInTransaction($user, $request);
+                }, 5);
             }
 
             if ($isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
                 return [
                     'status' => 'error',
-                    'message' => 'Already punched in for this period.',
+                    'message' => self::ALREADY_PUNCHED_IN_MESSAGE,
                     'code' => 422,
                 ];
             }
@@ -646,9 +763,18 @@ class AttendancePunchService
                 return $this->punchOut($openRow, $request, $user, $punchTime);
             }
 
+            // The authoritative decision, taken with $existingAttendance read
+            // FOR UPDATE. Two concurrent OUT-first punches therefore cannot both
+            // see an empty day and both create a row: the loser blocks here, and
+            // by the time it proceeds it sees the winner's row and is rejected —
+            // or, if the winner's row is still open, the branch above closes it.
+            if ($this->isRecoverableOrphanedOutPunch($request, $existingAttendance)) {
+                return $this->recoverOrphanedOutPunch($user, $punchDate, $request, $punchTime);
+            }
+
             return [
                 'status' => 'error',
-                'message' => 'No open attendance record to punch out from.',
+                'message' => self::NO_OPEN_RECORD_MESSAGE,
                 'code' => 422,
             ];
         }
@@ -656,7 +782,7 @@ class AttendancePunchService
         if ($isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
             return [
                 'status' => 'error',
-                'message' => 'Already punched in for this period.',
+                'message' => self::ALREADY_PUNCHED_IN_MESSAGE,
                 'code' => 422,
             ];
         }
@@ -694,6 +820,139 @@ class AttendancePunchService
         }
 
         return $this->punchIn($user, $punchDate, $request, $punchTime);
+    }
+
+    /**
+     * Whether an out punch with nothing to close is the OUT-first case, and may
+     * therefore be recorded as the day's check-in.
+     *
+     * Every clause is a REFUSAL, and the two that carry the weight are the last
+     * one and the caller's own findOpenAttendanceToClose() — see the
+     * RECOVERY_OUT_FIRST block for the full argument. This method is only ever
+     * reached from the branch that would otherwise return NO_OPEN_RECORD_MESSAGE,
+     * so it cannot affect a punch-out that has a punch-in to close: that punch
+     * returned from punchOut() before this was called.
+     *
+     * @param  Attendance|null  $existingAttendance  ANY row on the resolved
+     *                                               business date, open or closed
+     */
+    private function isRecoverableOrphanedOutPunch(Request $request, ?Attendance $existingAttendance): bool
+    {
+        // A day that already has a row is not a lost day. This is what keeps a
+        // stray third out punch (after a complete in→out day) rejected exactly as
+        // it is today, instead of opening a phantom second attendance record.
+        if ($existingAttendance !== null) {
+            return false;
+        }
+
+        // Exactly a plain check-out. `break_out` / `ot_out` describe an
+        // interruption to a day already under way; promoting one would invent a
+        // workday rather than recover one.
+        if ($request->input('check_type') !== 'out') {
+            return false;
+        }
+
+        // The offline sync channel replays a human's queued punch through a
+        // client-shaped payload. Checked BEFORE the source test, because that
+        // payload could itself carry `source`.
+        if ($request->attributes->get('sync_capture') === true) {
+            return false;
+        }
+
+        // Device-sourced only — the same trust boundary resolvePunchTime() uses,
+        // and one GuardsServerAuthoritativePunchTime strips from every
+        // human-facing punch request. Web / GPS / QR / manual punches send no
+        // `source` at all and are structurally unable to reach this rule.
+        return in_array($request->input('source'), ['biometric', 'device'], true);
+    }
+
+    /**
+     * Record an orphaned device check-out as the day's check-in.
+     *
+     * Deliberately just punchIn() plus an audit trail: a recovered punch-in must
+     * be indistinguishable from an ordinary one in `attendances` — same policy
+     * assessment, same domain event, same business date — because everything
+     * downstream (worked minutes, late/OT, the monthly grid) reads those rows and
+     * must not need to know this happened. What makes it distinguishable is the
+     * audit row, not a special-cased attendance row.
+     */
+    private function recoverOrphanedOutPunch($user, Carbon $date, Request $request, Carbon $punchTime): array
+    {
+        $result = $this->punchIn($user, $date, $request, $punchTime);
+
+        if (($result['status'] ?? null) !== 'success') {
+            return $result;
+        }
+
+        // Consumed by BiometricProcessingService to stamp RECOVERY_REASON onto
+        // the ATTLOG row, so the recovery is visible from the device side too.
+        $result['recovery'] = self::RECOVERY_OUT_FIRST;
+        $result['recovery_reason'] = self::RECOVERY_REASON;
+
+        $this->recordOrphanedOutRecovery($user, $result['attendance_id'] ?? null, $date, $punchTime, $request);
+
+        try {
+            Log::info('Attendance: orphaned device check-out recorded as the day\'s check-in', [
+                'user_id' => $user->id ?? null,
+                'attendance_id' => $result['attendance_id'] ?? null,
+                'date' => $date->format('Y-m-d'),
+                'punch_time' => $punchTime->format('Y-m-d H:i:s'),
+                'device_check_type' => 'out',
+                'device_serial' => $request->input('device_serial'),
+                'device_user_id' => $request->input('device_user_id'),
+            ]);
+        } catch (\Throwable) {
+            // Capture is never blocked by a log driver failure.
+        }
+
+        return $result;
+    }
+
+    /**
+     * Write the audit row that separates a recovered day from a normal one.
+     *
+     * `actor_id` is NULL on purpose: no human decided this, the ingest rules did,
+     * and attributing it to a person would be a lie in the one table that exists
+     * to say who did what. `before` is NULL because nothing was overwritten — the
+     * day had no attendance at all, which is the whole point.
+     *
+     * A failure here must never roll the punch back. The attendance record is the
+     * thing the business needs; the audit row is how we explain it. Losing the
+     * explanation is bad, losing the day again is worse — and the Log line in the
+     * caller is a second, independent record of the same event.
+     */
+    private function recordOrphanedOutRecovery($user, ?int $attendanceId, Carbon $date, Carbon $punchTime, Request $request): void
+    {
+        try {
+            AttendanceAuditLog::create([
+                'actor_id' => null,
+                'attendance_id' => $attendanceId,
+                'action' => self::RECOVERY_AUDIT_ACTION,
+                'before' => null,
+                'after' => [
+                    'user_id' => $user->id ?? null,
+                    'date' => $date->format('Y-m-d'),
+                    'punchin' => $punchTime->format('Y-m-d H:i:s'),
+                    // What the terminal actually reported, kept verbatim beside
+                    // what we did with it.
+                    'device_check_type' => 'out',
+                    'recorded_as' => 'in',
+                    'source' => (string) $request->input('source'),
+                    'device_serial' => $request->input('device_serial'),
+                    'device_user_id' => $request->input('device_user_id'),
+                ],
+                'reason' => self::RECOVERY_REASON,
+            ]);
+        } catch (\Throwable $e) {
+            try {
+                Log::error('Failed to write orphaned-check-out recovery audit row: '.$e->getMessage(), [
+                    'user_id' => $user->id ?? null,
+                    'attendance_id' => $attendanceId,
+                ]);
+            } catch (\Throwable) {
+                // Logging the logging failure is where this stops.
+            }
+        }
     }
 
     /**

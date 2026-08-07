@@ -126,6 +126,52 @@ class DeviceCapabilityService
      * these behind an explicit confirmation that names the risk, and must never
      * offer them in a bulk/multi-device action.
      *
+     * ── The attendance-state (IN/OUT) gap, and why it stays a gap ─────────────
+     * There is a real, measured defect this catalogue does NOT fix: the MB460
+     * (SN AF6P231260266, ZMM220_TFT, FW 8.0.4.6-20230217) emits the day's first
+     * punch with `status=1` (check-OUT) when the terminal is left in OUT mode —
+     * 22 user-days out of 540, part of a 6.1% attendance loss. Matrix §4b
+     * ("The OUT-first defect") has the full account.
+     *
+     * The durable fix would be a device option that pins or auto-switches the
+     * attendance state. **No such key is established for this platform, so none
+     * is listed here.** The candidates and the exact evidence against promoting
+     * each are in the matrix; in summary, every candidate is single-source, from
+     * a reverse-engineered TCP/UDP SDK parameter table extracted from ONE device
+     * of a different model, describing state *display* rather than the state a
+     * punch is recorded with — and one candidate (`AS1`..`AS16`) has an
+     * undocumented value encoding, so a guessed write would silently mis-state
+     * every punch at an hour nobody chose.
+     *
+     * A row here is an affordance: an admin clicks it and believes something
+     * happened. We have already shipped that defect once — `CLEAR_PHOTO` /
+     * `CLEAR_BIODATA` were catalogued as destructive while emitting `UNKNOWN` —
+     * and a wrong attendance-state value is worse than an inert one, because it
+     * corrupts attendance for everyone silently rather than failing loudly. So
+     * the gap is left visible and documented rather than filled with a guess.
+     *
+     * Do not add one of those keys here on the strength of the matrix listing it
+     * in §4b: that list is the reverse-engineered SDK namespace, not a statement
+     * that this firmware answers the key. Promote only on a `Return=0` with a
+     * value from the real terminal — see the diagnostic probe in §4b, which is
+     * deliberately a SEPARATE `GET OPTION` from CAPABILITY_KEYS so that a
+     * firmware which rejects a whole probe over one unknown key cannot cost us
+     * the capability screen.
+     *
+     * `TOState` below is the only currently catalogued key that touches state
+     * latching at all, and it is unconfirmed on this hardware like the rest.
+     *
+     * When one of these keys IS established, it must be added with
+     * `dangerous => true`. The existing `dangerous` rows are the strand-the-unit
+     * group, and an attendance-state key cannot strand anything — but the flag's
+     * real job is "an admin must not set this casually or in bulk", and a wrong
+     * attendance state is the worse of the two failures: a stranded terminal is
+     * noticed the same morning, whereas mis-stated punches look like normal
+     * traffic and are found weeks later, in payroll, across every employee on
+     * the device at once. That is exactly the incident above. The flag is also
+     * what keeps the key out of bulk/multi-device actions, which is where one
+     * wrong value would become an estate-wide payroll defect.
+     *
      * @var array<string, array{group: string, label: string, type: string, dangerous: bool, help: string}>
      */
     public const SETTINGS_CATALOGUE = [
@@ -260,7 +306,7 @@ class DeviceCapabilityService
             'label' => 'Status-key timeout (seconds)',
             'type' => 'int',
             'dangerous' => false,
-            'help' => 'How long a manually selected in/out state stays selected.',
+            'help' => 'How long a manually selected in/out state stays selected before the device reverts. Related to punches arriving with the wrong in/out status, but not a fix for it and unconfirmed on this hardware — read the key back before trusting a write.',
         ],
         'TOMenu' => [
             'group' => 'Display and UX',

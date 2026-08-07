@@ -660,6 +660,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/biometric-devices/{id}/probe', [BiometricDeviceController::class, 'probe'])->whereNumber('id')->name('biometric-devices.probe');
         Route::post('settings/biometric-devices/{id}/settings', [BiometricDeviceController::class, 'updateDeviceSettings'])->whereNumber('id')->name('biometric-devices.settings.update');
 
+        // Reconciliation: this device's punches vs the attendance they became.
+        // Read-only and idempotent, hence GET. ->whereNumber('id') is not
+        // optional here either — see the note above; an unconstrained {id} on a
+        // GET would also swallow settings-catalogue-shaped literals.
+        Route::get('settings/biometric-devices/{id}/reconciliation', [BiometricDeviceController::class, 'reconciliation'])->whereNumber('id')->name('biometric-devices.reconciliation');
+
         // Bulk operations
         Route::post('settings/biometric-devices/bulk/ping', [BiometricDeviceController::class, 'bulkPing'])->name('biometric-devices.bulk.ping');
         Route::post('settings/biometric-devices/bulk/delete', [BiometricDeviceController::class, 'bulkDelete'])->name('biometric-devices.bulk.delete');

@@ -408,6 +408,7 @@ so a settings UI must read before it writes and record what came back.
 | Access control | `LockOn` (lock-open duration), `UnlockPerson`, `AntiPassbackOn`, `OnlyPINCard`, `MustEnroll` |
 | Attendance rules | `WorkCode`, `AlarmReRec` (duplicate-punch minimum interval), `AlarmAttLog`, `AlarmOpLog` |
 | Display / UX | `VoiceOn`, `~ShowState`, `TOState`, `TOMenu`, `NewLng` |
+| Attendance state (IN/OUT) | `~ShowState`, `AS1`…`AS16`, `TOState` — **none established on this platform; nothing catalogued.** See "The OUT-first defect" and "Attendance state — not establishable from here" below |
 | Power | `IdleMinute`, `IdlePower`, `AutoPowerOn`, `AutoPowerOff`, `AutoPowerSuspend` |
 | Bell / alarms | `AutoAlarm1` … `AutoAlarm6` |
 | Network | `NetworkOn`, `TCPPort`, `UDPPort`, `HiSpeedNet`, `DeviceID` |
@@ -427,6 +428,133 @@ schedule can strand a device: a bad value takes the unit off the network and the
 recovery is physical access. These must not sit in the same undifferentiated form as
 `VoiceOn`. Gate them behind an explicit confirmation that names the risk, and never
 offer them in a bulk/multi-device action.
+
+### The OUT-first defect — the day's first punch arrives as a check-OUT
+
+`[V]` **Measured on the production MB460 (`AF6P231260266`), from a full raw pull of
+its entire history: 1,054 records reconciled against ERP attendance.**
+
+**33 of 540 device user-days (6.1%) never became attendance at all.** The dominant
+cause is that the device sends the day's *first* punch with `status=1` — check-OUT.
+With no check-in, there is nothing to build a day from. Verbatim from the wire:
+
+```
+2026-07-11 11:03:32  status=1   ← morning punch, sent as check-OUT
+2026-08-05 11:08:03  status=1
+```
+
+**It is device-side, not user error.** 22 of the 33 lost user-days are OUT-first, and
+on 2026-07-11 three different employees (PINs 307, 302, 304) had an OUT-first day
+*simultaneously*. Three people do not independently press the OUT key on the same
+morning; the terminal was left latched in OUT mode and stamped every punch it took
+with that state. Affected PINs across the pull: 120, 154, 155, 302, 304, 307.
+
+The `status` field is the ATTLOG record's own attendance-state column, which this
+server stores as `biometric_att_logs.check_type`. Its values `[D]`:
+
+| `status` | Meaning |
+|---|---|
+| `0` | Check-In |
+| `1` | Check-Out |
+| `2` | Break-Out |
+| `3` | Break-In |
+| `4` | Overtime-In |
+| `5` | Overtime-Out |
+
+Which value a punch carries is decided entirely on the terminal, by its punch-state
+mode. On this device family that is a front-panel menu setting (Personalize →
+Punch State Options) with the modes *Off*, *Manual*, *Auto*, *Manual and Auto*,
+*Manual Fixed* and *Fixed*, plus *Punch State Required* and *Punch State Timeout*.
+In **Manual** mode a state selected once stays selected until somebody changes it —
+which is the behaviour observed here.
+
+**Two remedies, and they are complementary rather than alternatives.**
+
+1. **At source, on the device.** Put the terminal in a mode where a stale manual
+   selection cannot persist into the next morning — *Auto* (state switches on a
+   time-of-day schedule) or *Fixed* to Check-In. Today this can only be done by
+   walking to the unit: see "Attendance state — not establishable from here" below
+   for why no remote option key is offered.
+2. **At the ERP, on ingest.** Recover an OUT-first day so a mis-stated punch stops
+   destroying attendance. Being built by a concurrent agent in
+   `AttendancePunchService` / `BiometricProcessingService`. This is the remedy that
+   protects the 1,054 records already collected and every terminal we do not
+   control; the device option, if it is ever established, only stops new ones.
+
+Do not treat (2) as making (1) unnecessary. A device that mis-states punches also
+mis-states break and overtime punches, which recovery heuristics cannot reconstruct
+as confidently as a missing check-in.
+
+### Attendance state — not establishable from here, and deliberately not guessed
+
+**Nothing was added to `SETTINGS_CATALOGUE` or to `CAPABILITY_KEYS` for this.** The
+research below is recorded so the next person does not repeat it, not so the keys can
+be lifted out of it.
+
+Candidate keys, all `[?]` — **single-source**, all from one reverse-engineered
+parameter table (`adrobinoga/zk-protocol`), whose author states the extraction came
+from a single F19 device, and which documents the **TCP/UDP SDK** namespace rather
+than PUSH:
+
+| Key | Source claim | Why it was not promoted |
+|---|---|---|
+| `~ShowState` `[?]` | SDK param 66, RW — "Whether to display the attendance status" | Governs *display*. Hiding the status indicator plausibly leaves the last state latched and merely invisible — which would hide the defect rather than fix it. A second, similarly-named key (`AlwaysShowState`, 0/1, from a distributor SDK guide) exists with no way to tell which spelling this firmware uses, so even a `Return=0` would be ambiguous |
+| `AS1` … `AS16` `[?]` | SDK params 41–56 — "Automatic status changing times", `-1` = no automatic change | This is the auto-switch schedule, and the closest thing to a real fix. **The value encoding is undocumented** — 16 slots, no stated time format, no stated state mapping. A guessed write does not fail loudly; it switches every punch to a state nobody chose at an hour nobody chose, across every employee on the unit. That is the same failure the defect above already caused |
+| `TOState` `[?]` | SDK param 31 — "Timeout to return to the initial state", seconds | Already catalogued (Display and UX). Bounds how long a state stays selected, so it is adjacent to the problem, but a timeout is not a mode and cannot make the first punch of a day a check-in. Left as-is, help text sharpened |
+
+No source of any kind names a PUSH or SDK option key for the **punch-state mode**
+itself (Off/Manual/Auto/Fixed) or for **Punch State Required** — the two settings that
+would actually fix this. The vendor PUSH PDF in Sources returns 403; the ZK Standalone
+SDK manual's `SetSysOption` key list is not publicly retrievable; and none of the four
+open-source ADMS servers this document cites implements any state option.
+
+**Why nothing was added to `SETTINGS_CATALOGUE`.** A catalogue row is an affordance:
+an administrator clicks it and believes the terminal changed. We shipped exactly that
+defect once — `CLEAR_PHOTO` / `CLEAR_BIODATA` were catalogued as destructive while
+emitting `UNKNOWN`. Here it would be worse than inert: a wrong attendance-state value
+does not error, it silently mis-states every punch on the device, which is discovered
+in payroll weeks later. An honest gap an admin can see beats a control that does
+nothing, and beats a control that does the wrong thing by a wide margin.
+
+**Danger classification, for when one of these is established: `dangerous => true`.**
+The existing `dangerous` rows are the strand-the-unit group, and an attendance-state
+key strands nothing — but the flag's actual job is "not to be set casually, and never
+in bulk". By that test attendance state qualifies more strongly than `TCPPort` does: a
+stranded terminal is noticed the same morning and costs one site visit, whereas
+mis-stated punches look like ordinary traffic and corrupt attendance for **every
+employee on the device at once**. The bulk-action exclusion the flag carries is the
+part that matters most — one wrong value applied across an estate is an estate-wide
+payroll defect.
+
+**Why nothing was added to `CAPABILITY_KEYS`.** That constant is the default probe,
+and the docblock's standing warning applies: some firmware rejects an *entire*
+`GET OPTION` when any single key is unknown, rather than answering `-1004` per key.
+The probe works against this device today and the capability screen depends on it.
+Spending that working probe to ask three single-source questions — whose positive
+answer would still be ambiguous between two spellings — is a bad trade. The
+diagnostic below is therefore a **separate, isolated command**, so a wholesale
+rejection costs only the diagnostic.
+
+**The probe to run against the real MB460.** One command, exactly:
+
+```
+GET OPTION FROM ~ShowState,AlwaysShowState,TOState,AS1,AS2
+```
+
+Read the result as follows, and record it in this section either way:
+
+- **Values come back** — the key exists on this firmware. Record the value; it is then
+  a one-key `SET OPTION` write on a *test* unit, never production, before anything is
+  catalogued.
+- **`Return=0` with the keys silently omitted** — the likeliest outcome, and
+  informative rather than a failure. This device has already answered `Return=0` while
+  omitting `MThreshold`, `AttLogCount`, `TimeZone`, `DateTime` and `GMTOffset`.
+  `SOURCE_OMITTED` records it, the snapshot reports the keys unavailable, and the
+  conclusion is that attendance state is **not remotely settable on this platform** —
+  which closes the question and makes the ERP-side recovery the only remedy.
+- **`-1004`** — same conclusion, stated by the device out loud.
+- **`-1002`, or no reply at all** — the *whole-command rejection* case. It cost us
+  nothing, which is the point of keeping this out of `CAPABILITY_KEYS`.
 
 ---
 
@@ -456,3 +584,7 @@ offer them in a bulk/multi-device action.
 - [ZKTeco ADMS Protocol overview](https://www.linkedin.com/pulse/zkteco-adms-protocol-link-your-zk-device-server-herbin-tsobeng-qg0ze)
 - [Attendance PUSH Communication Protocol 20200325](https://www.scribd.com/document/604032067/Attendance-PUSH-Communication-Protocol-20200325)
 - [ZKTeco PUSH SDK](https://www.zkteco.com/en/PUSHSDK)
+- [adrobinoga/zk-protocol — reverse-engineered TCP/UDP SDK spec](https://github.com/adrobinoga/zk-protocol/blob/master/sections/terminal.md)
+  — the only source for the device-parameter numbering and for `~ShowState` / `AS1`…`AS16`.
+  Its author states the extraction came from a **single** F19 device, so everything
+  taken from it is `[?]`, not `[D]`.

@@ -7,7 +7,7 @@ import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Badge, Box, Button, Callout, Checkbox, Code, Dialog, Flex, Grid, IconButton, Progress, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
-    ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, ChevronLeftIcon,
+    ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, ChevronDownIcon, ChevronLeftIcon,
     ChevronRightIcon, CopyIcon, Cross2Icon, DesktopIcon, DotsVerticalIcon,
     EnvelopeClosedIcon, GearIcon, InfoCircledIcon, Link2Icon, LockClosedIcon,
     LockOpen1Icon, MagnifyingGlassIcon, MixerHorizontalIcon, MobileIcon,
@@ -4261,6 +4261,494 @@ function CapabilitiesTab({ devices = [], isMobile }) {
     );
 }
 
+/* ── Reconciliation sub-tab ── */
+
+/**
+ * Ships with the reconciliation endpoint, so it goes through hasRoute() like
+ * every other cross-change route in this file — a missing route explains itself
+ * instead of taking the sub-tab down with a Ziggy throw.
+ */
+const RECON_ROUTES = {
+    report: 'biometric-devices.reconciliation',
+};
+
+/**
+ * Category `nature` → colour, driven by the server's own category metadata
+ * rather than a hardcoded list of category keys.
+ *
+ * The distinction this encodes is the whole point of the screen: `data_loss` is
+ * punches we cannot account for, `needs_review` is the system doing exactly what
+ * it was configured to do. Both mean "did not become attendance" and they are
+ * not the same event, so they must never share a colour.
+ */
+const NATURE_META = {
+    data_loss:    { color: 'red',   label: 'Data loss' },
+    needs_review: { color: 'amber', label: 'Configuration' },
+    unfinished:   { color: 'blue',  label: 'Unfinished' },
+    unknown:      { color: 'gray',  label: 'Unexplained' },
+};
+
+const natureMeta = (nature) => NATURE_META[nature] ?? NATURE_META.unknown;
+
+/** Days the range picker opens on, matching the server's own default window. */
+const RECON_DEFAULT_DAYS = 30;
+
+/**
+ * `YYYY-MM-DD` from LOCAL calendar parts.
+ *
+ * Deliberately not `toISOString().slice(0,10)`, which converts to UTC first and
+ * therefore reports the previous day for anyone east of Greenwich for part of
+ * every day. This whole feature exists because a timestamp landed on the wrong
+ * calendar day; the screen that reports it must not do the same thing.
+ */
+const toDayString = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const defaultReconRange = () => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (RECON_DEFAULT_DAYS - 1));
+
+    return { start: toDayString(start), end: toDayString(end) };
+};
+
+/**
+ * "Is this employee really absent, or did we lose his punches?"
+ *
+ * Answering that once took a full raw pull off the terminal plus a dozen ad-hoc
+ * SQL queries. It gets asked again every month about somebody else, so it is a
+ * screen.
+ *
+ * ── Two numbers, never one ──────────────────────────────────────────────────
+ *
+ * Ingestion and conversion are reported as two separate statements and there is
+ * deliberately NO combined "sync health %" anywhere on this screen. On the
+ * production MB460 ingestion is perfect (1,054 of 1,054 device records already
+ * in the ERP) while conversion is 94 % (33 of 540 user-days never became
+ * attendance). A blended figure would read ~97 %, describe nothing that exists,
+ * and hide which of the two is actually broken — which is the only thing the
+ * number would be for. They have different causes and different fixes.
+ *
+ * ── What is a finding, and what is emphatically not ─────────────────────────
+ *
+ * Only "the device has a punch on this day, the ERP has no attendance" is a
+ * finding. ERP days routinely and correctly EXCEED device days, because
+ * employees on WiFi/GPS attendance types punch through channels this terminal
+ * never sees — one employee has 21 device days against 298 ERP days. That
+ * column is therefore rendered as context with a tooltip saying so, and is never
+ * coloured, never differenced, and never counted as a discrepancy.
+ */
+function ReconciliationTab({ devices = [], isMobile }) {
+    const [deviceId, setDeviceId] = useState('');
+    const [range, setRange]       = useState(defaultReconRange);
+    const [report, setReport]     = useState(null);
+    const [loading, setLoading]   = useState(false);
+    const [error, setError]       = useState(null);
+    const [expanded, setExpanded] = useState({});
+
+    const canReconcile = hasRoute(RECON_ROUTES.report);
+
+    // First device as soon as one is known, so the tab is useful without a
+    // click. Re-runs only while nothing is selected, so an admin's choice is
+    // never overwritten by the 5 s device poll.
+    useEffect(() => {
+        if (deviceId || devices.length === 0) return;
+        setDeviceId(String(devices[0].id));
+    }, [devices, deviceId]);
+
+    const fetchReport = useCallback(async () => {
+        if (!canReconcile || !deviceId) return;
+
+        setLoading(true);
+        setError(null);
+        try {
+            const { data } = await axios.get(route(RECON_ROUTES.report, { id: deviceId }), {
+                params: { from: range.start || undefined, until: range.end || undefined },
+            });
+            setReport(data);
+            setExpanded({});
+        } catch (e) {
+            // The endpoint refuses an inverted range and one longer than it will
+            // read, and names the bound in the message. Surfaced verbatim — a
+            // generic failure would leave an admin guessing at a cap.
+            setReport(null);
+            setError(e.response?.data?.message ?? 'Failed to build the reconciliation report.');
+        } finally {
+            setLoading(false);
+        }
+    }, [canReconcile, deviceId, range.start, range.end]);
+
+    useEffect(() => { fetchReport(); }, [fetchReport]);
+
+    const toggleRow = (pin) => setExpanded(prev => ({ ...prev, [pin]: !prev[pin] }));
+
+    const categories  = report?.categories ?? {};
+    const conversion  = report?.conversion ?? null;
+    const ingestion   = report?.ingestion ?? null;
+    const employees   = report?.employees ?? [];
+
+    // Only employees with something to look at, unless the admin asks for all.
+    const [showAll, setShowAll] = useState(false);
+    const visible = useMemo(
+        () => (showAll ? employees : employees.filter(e => e.missing_days > 0)),
+        [employees, showAll],
+    );
+
+    if (!canReconcile) {
+        return (
+            <Callout.Root color="amber" size="1">
+                <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                <Callout.Text>
+                    The <Code size="1">{RECON_ROUTES.report}</Code> endpoint is not registered on this
+                    server yet, so punches cannot be reconciled against attendance from here.
+                </Callout.Text>
+            </Callout.Root>
+        );
+    }
+
+    return (
+        <Box>
+            {/* Controls */}
+            <Flex gap="3" mb="4" wrap="wrap" align="end">
+                <Box>
+                    <Text size="1" color="gray" as="div" mb="1">Device</Text>
+                    <Select.Root size="2" value={deviceId} onValueChange={setDeviceId}>
+                        <Select.Trigger style={{ width: 220 }} placeholder="Select a device" />
+                        <Select.Content>
+                            {devices.map(d => (
+                                <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                            ))}
+                        </Select.Content>
+                    </Select.Root>
+                </Box>
+                <Box>
+                    <Text size="1" color="gray" as="div" mb="1">Date range</Text>
+                    <DateTimePicker mode="dateRange" value={range} onChange={setRange} />
+                </Box>
+                <Button size="2" variant="soft" color="gray" onClick={fetchReport} disabled={loading || !deviceId}>
+                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Reconcile
+                </Button>
+                {report?.device && (
+                    <Text size="1" color="gray" ml="auto">
+                        {report.device.name} · <Code size="1">{report.device.serial_number}</Code>
+                    </Text>
+                )}
+            </Flex>
+
+            {error && (
+                <Callout.Root color="red" size="1" mb="4">
+                    <Callout.Icon><CrossCircledIcon /></Callout.Icon>
+                    <Callout.Text>{error}</Callout.Text>
+                </Callout.Root>
+            )}
+
+            {devices.length === 0 && !loading && (
+                <Callout.Root color="gray" size="1" mb="4">
+                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                    <Callout.Text>No biometric devices are registered, so there is nothing to reconcile.</Callout.Text>
+                </Callout.Root>
+            )}
+
+            {report && (
+                <>
+                    {/*
+                      * The headline. TWO statements in TWO boxes, about two
+                      * different systems — see the component docblock for why
+                      * there is no third number averaging them.
+                      */}
+                    <Grid columns={{ initial: '1', md: '2' }} gap="3" mb="4">
+                        <Box style={{ border: '1px solid var(--gray-a5)', borderRadius: 'var(--radius-3)', padding: 16 }}>
+                            <Flex align="center" gap="2" mb="2">
+                                <DownloadIcon />
+                                <Text size="2" weight="bold">Ingestion — device → ERP</Text>
+                            </Flex>
+                            {ingestion?.statement ? (
+                                <Text size="2" as="div">{ingestion.statement}</Text>
+                            ) : (
+                                <Text size="2" color="gray" as="div">
+                                    Not measured. No completed full log download is on record for this device, so
+                                    nothing here can say whether the terminal still holds punches we have never seen.
+                                </Text>
+                            )}
+                            <Text size="1" color="gray" as="div" mt="2">
+                                {ingestion?.note}
+                            </Text>
+                            {ingestion?.last_full_pull?.completed_at && (
+                                <Text size="1" color="gray" as="div" mt="1">
+                                    Last full pull: {new Date(ingestion.last_full_pull.completed_at).toLocaleString()}
+                                </Text>
+                            )}
+                        </Box>
+
+                        <Box style={{ border: '1px solid var(--gray-a5)', borderRadius: 'var(--radius-3)', padding: 16 }}>
+                            <Flex align="center" gap="2" mb="2">
+                                <ActivityLogIcon />
+                                <Text size="2" weight="bold">Conversion — punches → attendance</Text>
+                            </Flex>
+                            <Text size="2" as="div">{report.headline?.conversion}</Text>
+                            <Flex gap="2" wrap="wrap" mt="3">
+                                <Badge size="1" variant="soft" color="gray" radius="full">
+                                    <Text weight="bold">{conversion?.device_user_days ?? 0}</Text>
+                                    <Text style={{ opacity: 0.7 }}>&nbsp;device user-days</Text>
+                                </Badge>
+                                <Badge size="1" variant="soft" color="green" radius="full">
+                                    <Text weight="bold">{conversion?.converted_user_days ?? 0}</Text>
+                                    <Text style={{ opacity: 0.7 }}>&nbsp;became attendance</Text>
+                                </Badge>
+                                <Badge
+                                    size="1"
+                                    variant="soft"
+                                    radius="full"
+                                    color={(conversion?.missing_user_days ?? 0) > 0 ? 'red' : 'green'}
+                                >
+                                    <Text weight="bold">{conversion?.missing_user_days ?? 0}</Text>
+                                    <Text style={{ opacity: 0.7 }}>&nbsp;did not</Text>
+                                </Badge>
+                            </Flex>
+                        </Box>
+                    </Grid>
+
+                    {/* Why they did not convert. Split by nature, never summed. */}
+                    {(conversion?.missing_user_days ?? 0) > 0 && (
+                        <Flex gap="2" wrap="wrap" mb="4">
+                            {Object.entries(conversion.by_category)
+                                .filter(([, count]) => count > 0)
+                                .map(([key, count]) => {
+                                    const meta = categories[key] ?? {};
+                                    const nature = natureMeta(meta.nature);
+
+                                    return (
+                                        <Tooltip key={key} content={meta.summary ?? key}>
+                                            <Badge size="2" variant="soft" color={nature.color} radius="full">
+                                                <Text weight="bold">{count}</Text>
+                                                <Text style={{ opacity: 0.8 }}>&nbsp;{meta.label ?? key}</Text>
+                                            </Badge>
+                                        </Tooltip>
+                                    );
+                                })}
+                        </Flex>
+                    )}
+
+                    {report.clock?.is_applied && (
+                        <Callout.Root color="blue" size="1" mb="4">
+                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                            <Callout.Text>
+                                {report.clock.reason_label} Every punch time below is the CORRECTED moment — the
+                                one attendance was filed under — and each missing day also shows the raw time the
+                                terminal reported.
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
+
+                    {(report.unparsable_punches ?? 0) > 0 && (
+                        <Callout.Root color="amber" size="1" mb="4">
+                            <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                            <Callout.Text>
+                                {report.unparsable_punches} punch(es) carried a timestamp that could not be read and
+                                were left out of every figure above.
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
+
+                    <Flex align="center" gap="3" mb="2" wrap="wrap">
+                        <Text size="2" weight="medium">
+                            {visible.length} of {employees.length} employee(s)
+                        </Text>
+                        <Text size="1" color="gray">
+                            {report.range?.from} → {report.range?.until} ({report.range?.days} days)
+                        </Text>
+                        <Flex align="center" gap="2" ml="auto">
+                            <Switch size="1" checked={showAll} onCheckedChange={setShowAll} />
+                            <Text size="1" color="gray">Show employees with no gaps</Text>
+                        </Flex>
+                    </Flex>
+
+                    <Box style={{ overflowX: 'auto' }}>
+                        <Table.Root variant="surface" size="1">
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.ColumnHeaderCell>PIN</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell align="right">Device days</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell align="right">ERP days</Table.ColumnHeaderCell>
+                                    {!isMobile && <Table.ColumnHeaderCell align="right">From this device</Table.ColumnHeaderCell>}
+                                    <Table.ColumnHeaderCell align="right">Missing</Table.ColumnHeaderCell>
+                                    {!isMobile && <Table.ColumnHeaderCell>Why</Table.ColumnHeaderCell>}
+                                    <Table.ColumnHeaderCell />
+                                </Table.Row>
+                            </Table.Header>
+                            <Table.Body>
+                                {visible.map(row => {
+                                    const isOpen = Boolean(expanded[row.pin]);
+                                    const hasGaps = row.missing_days > 0;
+
+                                    return (
+                                        <React.Fragment key={row.pin}>
+                                            <Table.Row style={hasGaps ? { background: 'var(--red-a2)' } : undefined}>
+                                                <Table.Cell><Code size="1" variant="soft">{row.pin}</Code></Table.Cell>
+                                                <Table.Cell>
+                                                    <Flex direction="column">
+                                                        <Text size="1" weight="medium">{row.name ?? '—'}</Text>
+                                                        {row.is_placeholder && (
+                                                            <Badge size="1" color="orange" variant="soft" radius="full">
+                                                                PIN belongs to nobody
+                                                            </Badge>
+                                                        )}
+                                                    </Flex>
+                                                </Table.Cell>
+                                                <Table.Cell align="right"><Text size="1">{row.device_days}</Text></Table.Cell>
+                                                <Table.Cell align="right">
+                                                    {/* Never coloured and never differenced against device
+                                                      * days — see the docblock. Exceeding it is normal. */}
+                                                    <Tooltip content="Every attendance day in range, whatever recorded it. Employees who also use WiFi or GPS attendance legitimately have far more ERP days than device days; that is not a discrepancy.">
+                                                        <Text size="1" color="gray">{row.erp_days}</Text>
+                                                    </Tooltip>
+                                                </Table.Cell>
+                                                {!isMobile && (
+                                                    <Table.Cell align="right">
+                                                        <Tooltip content="Attendance days whose punch time matches a processed punch from this device. Best-effort attribution by exact timestamp; nothing above is computed from it.">
+                                                            <Text size="1" color="gray">{row.device_derived_days}</Text>
+                                                        </Tooltip>
+                                                    </Table.Cell>
+                                                )}
+                                                <Table.Cell align="right">
+                                                    <Text size="1" weight={hasGaps ? 'bold' : 'regular'} color={hasGaps ? 'red' : 'gray'}>
+                                                        {row.missing_days}
+                                                    </Text>
+                                                </Table.Cell>
+                                                {!isMobile && (
+                                                    <Table.Cell>
+                                                        <Flex gap="1" wrap="wrap">
+                                                            {Object.entries(row.by_category)
+                                                                .filter(([, count]) => count > 0)
+                                                                .map(([key, count]) => {
+                                                                    const meta = categories[key] ?? {};
+                                                                    const nature = natureMeta(meta.nature);
+
+                                                                    return (
+                                                                        <Tooltip key={key} content={meta.summary ?? key}>
+                                                                            <Badge size="1" variant="soft" color={nature.color} radius="full">
+                                                                                {count} {meta.label ?? key}
+                                                                            </Badge>
+                                                                        </Tooltip>
+                                                                    );
+                                                                })}
+                                                            {!hasGaps && <Text size="1" color="gray">—</Text>}
+                                                        </Flex>
+                                                    </Table.Cell>
+                                                )}
+                                                <Table.Cell>
+                                                    {hasGaps && (
+                                                        <Button size="1" variant="ghost" color="gray" onClick={() => toggleRow(row.pin)}>
+                                                            {isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                                                            {isOpen ? 'Hide days' : 'Show days'}
+                                                        </Button>
+                                                    )}
+                                                </Table.Cell>
+                                            </Table.Row>
+
+                                            {/* Drill-down: the days themselves, with the reason the
+                                              * pipeline actually recorded, verbatim. */}
+                                            {isOpen && (
+                                                <Table.Row>
+                                                    <Table.Cell colSpan={isMobile ? 6 : 8} style={{ padding: 0 }}>
+                                                        <Box p="3" style={{ background: 'var(--gray-a2)' }}>
+                                                            <Table.Root variant="ghost" size="1">
+                                                                <Table.Header>
+                                                                    <Table.Row>
+                                                                        <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
+                                                                        <Table.ColumnHeaderCell>Punches</Table.ColumnHeaderCell>
+                                                                        <Table.ColumnHeaderCell>First → last</Table.ColumnHeaderCell>
+                                                                        <Table.ColumnHeaderCell>Category</Table.ColumnHeaderCell>
+                                                                        <Table.ColumnHeaderCell>Reason recorded</Table.ColumnHeaderCell>
+                                                                    </Table.Row>
+                                                                </Table.Header>
+                                                                <Table.Body>
+                                                                    {row.missing.map(day => {
+                                                                        const meta = categories[day.category] ?? {};
+                                                                        const nature = natureMeta(meta.nature);
+
+                                                                        return (
+                                                                            <Table.Row key={day.date}>
+                                                                                <Table.Cell><Text size="1" weight="medium">{day.date}</Text></Table.Cell>
+                                                                                <Table.Cell>
+                                                                                    <Flex gap="1" wrap="wrap">
+                                                                                        <Badge size="1" variant="soft" color="gray" radius="full">{day.punches}</Badge>
+                                                                                        {day.check_types.map(t => (
+                                                                                            <Badge key={t} size="1" variant="soft" radius="full"
+                                                                                                color={t === 'out' ? 'red' : 'green'}>
+                                                                                                {t.toUpperCase()}
+                                                                                            </Badge>
+                                                                                        ))}
+                                                                                    </Flex>
+                                                                                </Table.Cell>
+                                                                                <Table.Cell>
+                                                                                    <Flex direction="column">
+                                                                                        <Text size="1">
+                                                                                            {day.first_punch.slice(11)} → {day.last_punch.slice(11)}
+                                                                                        </Text>
+                                                                                        {day.clock_corrected && (
+                                                                                            <Tooltip content="The device's own timestamps, before its clock error was corrected.">
+                                                                                                <Text size="1" color="gray">
+                                                                                                    device said {day.first_punch_raw.slice(11)} → {day.last_punch_raw.slice(11)}
+                                                                                                </Text>
+                                                                                            </Tooltip>
+                                                                                        )}
+                                                                                    </Flex>
+                                                                                </Table.Cell>
+                                                                                <Table.Cell>
+                                                                                    <Tooltip content={meta.summary ?? ''}>
+                                                                                        <Badge size="1" variant="soft" color={nature.color} radius="full">
+                                                                                            {meta.label ?? day.category}
+                                                                                        </Badge>
+                                                                                    </Tooltip>
+                                                                                </Table.Cell>
+                                                                                <Table.Cell>
+                                                                                    {day.reasons.length > 0 ? (
+                                                                                        <Flex direction="column" gap="1">
+                                                                                            {day.reasons.map(reason => (
+                                                                                                <Text key={reason} size="1" color="gray">{reason}</Text>
+                                                                                            ))}
+                                                                                        </Flex>
+                                                                                    ) : (
+                                                                                        <Text size="1" color="gray">
+                                                                                            No reason was recorded ({day.statuses.join(', ') || 'no status'}).
+                                                                                        </Text>
+                                                                                    )}
+                                                                                </Table.Cell>
+                                                                            </Table.Row>
+                                                                        );
+                                                                    })}
+                                                                </Table.Body>
+                                                            </Table.Root>
+                                                        </Box>
+                                                    </Table.Cell>
+                                                </Table.Row>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+
+                                {!loading && visible.length === 0 && (
+                                    <Table.Row>
+                                        <Table.Cell colSpan={isMobile ? 6 : 8}>
+                                            <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
+                                                {employees.length === 0
+                                                    ? 'This device recorded no punches in this range.'
+                                                    : 'Every device punch in this range became an attendance record. Switch on "Show employees with no gaps" to see them all.'}
+                                            </Text>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                )}
+                            </Table.Body>
+                        </Table.Root>
+                    </Box>
+                </>
+            )}
+        </Box>
+    );
+}
+
 /* ── Main BiometricPanel ── */
 export default function BiometricPanel({
     initialDevices = [], employees = [],
@@ -4372,6 +4860,15 @@ export default function BiometricPanel({
                     <Tabs.Trigger value="attlog">
                         <Flex align="center" gap="2"><EnvelopeClosedIcon /> ATTLOG</Flex>
                     </Tabs.Trigger>
+                    {/* ATTLOG says what happened to each punch; Reconciliation
+                      * says what did NOT happen — the days a device punch exists
+                      * for and no attendance record does. Next to ATTLOG because
+                      * that is where someone lands when chasing a punch, and the
+                      * per-row reasons here are the same punch_status_reason
+                      * values that tab shows one row at a time. */}
+                    <Tabs.Trigger value="reconciliation">
+                        <Flex align="center" gap="2"><MagnifyingGlassIcon /> Reconciliation</Flex>
+                    </Tabs.Trigger>
                     <Tabs.Trigger value="webhook">
                         <Flex align="center" gap="2"><Link2Icon /> Webhook Config</Flex>
                     </Tabs.Trigger>
@@ -4410,6 +4907,9 @@ export default function BiometricPanel({
                 </Tabs.Content>
                 <Tabs.Content value="attlog">
                     <AttLogTab isMobile={isMobile} devices={devices} employees={employeePool} />
+                </Tabs.Content>
+                <Tabs.Content value="reconciliation">
+                    <ReconciliationTab isMobile={isMobile} devices={devices} />
                 </Tabs.Content>
                 <Tabs.Content value="webhook">
                     <WebhookTab />

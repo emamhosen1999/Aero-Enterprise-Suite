@@ -7,6 +7,29 @@ use Illuminate\Support\Str;
 
 class BiometricDevice extends Model
 {
+    /**
+     * Columns on `biometric_devices` that are deliberately NOT mass-assignable,
+     * and why. Named here so the intent lives next to the list it qualifies
+     * instead of only in the service that relies on it.
+     *
+     * - `capabilities_probed_at` — maintained by DeviceCapabilityService (see
+     *   its touchProbedAt()), never admin form input. It records when WE last
+     *   probed the device; letting a form set it would let an admin fake a probe.
+     *
+     * `adms_token` is NOT on this list and is intentionally fillable: the
+     * server-side regenerateAdmsToken() below writes it through update(). It is
+     * kept out of admin input at the validation layer instead — the store() and
+     * update() rules in Settings\BiometricDeviceController deliberately omit it,
+     * and BiometricDeviceProvisioningTest asserts a posted `adms_token` is
+     * ignored. Removing it from $fillable would break regeneration without
+     * adding any protection the controller does not already give.
+     *
+     * @var list<string>
+     */
+    public const NON_FILLABLE_COLUMNS = [
+        'capabilities_probed_at',
+    ];
+
     protected $fillable = [
         'name',
         'serial_number',
@@ -32,7 +55,17 @@ class BiometricDevice extends Model
         'is_active' => 'boolean',
         'last_heartbeat_at' => 'datetime',
         'last_log_download_at' => 'datetime',
+        // Not fillable (see NON_FILLABLE_COLUMNS) but still needs a cast:
+        // $fillable governs writes, $casts governs reads, and the two are
+        // independent. DeviceCapabilityService reads this back through
+        // Carbon::parse() to answer "last probed N hours ago", which worked on
+        // the raw string by luck rather than by contract.
+        'capabilities_probed_at' => 'datetime',
         'config' => 'array',
+        // TCP service port (2026_07_29_000001), unsignedSmallInteger. Cast so
+        // MySQL's string and SQLite's int agree.
+        'port' => 'integer',
+        'users_count' => 'integer',
         // Nullable on purpose, and the cast keeps it that way: a NULL offset
         // means "this device's clock has never been measured", which behaves
         // differently from a measured zero (see DeviceClockService). An

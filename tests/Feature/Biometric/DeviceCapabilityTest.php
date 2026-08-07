@@ -1448,4 +1448,194 @@ class DeviceCapabilityTest extends TestCase
             $this->assertContains($meta['type'], ['bool', 'int', 'string', 'time']);
         }
     }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Attendance state (IN/OUT) — the deliberate gap
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * The candidate option keys for the device's attendance-state behaviour.
+     *
+     * All single-source, from one reverse-engineered TCP/UDP SDK parameter table
+     * extracted from a single device of a different model, and all describing
+     * state *display* or an undocumented schedule encoding rather than the state
+     * a punch is recorded with. Matrix §4b, "Attendance state — not
+     * establishable from here", has the evidence against each.
+     *
+     * They are named here, in the test, precisely because they are NOT in the
+     * production constants. Deleting an assertion below is the deliberate act
+     * that promoting one of them requires.
+     *
+     * @var array<int, string>
+     */
+    private const ATTENDANCE_STATE_CANDIDATES = [
+        '~ShowState',
+        'AlwaysShowState',
+        'AS1',
+        'AS2',
+    ];
+
+    public function test_no_unestablished_attendance_state_key_is_offered_as_a_setting(): void
+    {
+        // The MB460 loses 6.1% of user-days because it stamps the day's first
+        // punch check-OUT (matrix §4b). The durable fix would be a device option
+        // — but no such key is established for ZMM220_TFT / 8.0.4.6-20230217,
+        // and a catalogue row is an affordance: an admin clicks it and believes
+        // the terminal changed. We shipped that once already, when CLEAR_PHOTO
+        // and CLEAR_BIODATA were catalogued as destructive while emitting
+        // UNKNOWN. Here it would be worse than inert — a wrong attendance-state
+        // value does not error, it silently mis-states every punch on the unit.
+        $catalogue = DeviceCapabilityService::SETTINGS_CATALOGUE;
+
+        foreach (self::ATTENDANCE_STATE_CANDIDATES as $key) {
+            $this->assertArrayNotHasKey(
+                $key,
+                $catalogue,
+                "{$key} is single-source and unconfirmed on this hardware; it must not be offered as a settable row until a real device answers it Return=0. See matrix §4b."
+            );
+        }
+    }
+
+    public function test_no_unestablished_attendance_state_key_is_added_to_the_working_probe(): void
+    {
+        // CAPABILITY_KEYS is the default GET OPTION probe, and its docblock
+        // carries a standing warning: some firmware rejects a WHOLE GET OPTION
+        // when any single key is unknown, rather than answering -1004 per key.
+        // That probe works against the live MB460 and the capability screen
+        // depends on it. The attendance-state diagnostic is therefore a separate,
+        // isolated command (matrix §4b) so a wholesale rejection costs only the
+        // diagnostic.
+        foreach (self::ATTENDANCE_STATE_CANDIDATES as $key) {
+            $this->assertNotContains(
+                $key,
+                DeviceCapabilityService::CAPABILITY_KEYS,
+                "{$key} must not be spent on the default probe; run it as its own GET OPTION instead. See matrix §4b."
+            );
+        }
+    }
+
+    public function test_every_catalogued_setting_emits_a_real_set_option_string(): void
+    {
+        // The CLEAR_PHOTO/CLEAR_BIODATA class of defect, pinned generically: a
+        // key may not appear in the catalogue unless the command layer can
+        // actually put it on the wire. `UNKNOWN` is what toAdmsString() emits
+        // for anything it has no case for, and it is the exact string that
+        // reached a device last time.
+        $device = $this->device();
+
+        foreach (DeviceCapabilityService::SETTINGS_CATALOGUE as $key => $meta) {
+            $command = $this->command($device, 'SET_OPTION', ['key' => $key, 'value' => 1]);
+            $emitted = $command->toAdmsString();
+
+            $this->assertSame(
+                "C:{$command->id}:SET OPTION {$key}=1",
+                $emitted,
+                "{$key} is catalogued but does not emit a usable SET OPTION string"
+            );
+            $this->assertStringNotContainsString('UNKNOWN', $emitted);
+        }
+    }
+
+    public function test_an_omitted_attendance_state_key_degrades_to_unavailable_and_never_to_settable(): void
+    {
+        // The likeliest outcome of the §4b diagnostic, modelled on this device's
+        // established behaviour: it answers `Return=0` and silently leaves the
+        // key out, exactly as it already does for MThreshold, AttLogCount,
+        // TimeZone, DateTime and GMTOffset. That is informative, not a failure —
+        // it is how we learn attendance state is not remotely settable here.
+        $device = $this->mb460();
+        $service = $this->service();
+
+        $command = BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_OPTION',
+            'payload' => ['keys' => ['~ShowState', 'AlwaysShowState', 'TOState', 'AS1', 'AS2']],
+            'status' => BiometricDeviceCommand::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        // The command string an operator would actually run against the MB460.
+        $this->assertSame(
+            "C:{$command->id}:GET OPTION FROM ~ShowState,AlwaysShowState,TOState,AS1,AS2",
+            $command->toAdmsString()
+        );
+
+        $command->markAsExecuted('0');
+        $this->assertSame('executed', $command->fresh()->status);
+
+        // Return=0, one key of five answered. The four state keys are absent —
+        // not empty, absent.
+        $parsed = $service->parseOptionResponse($device, 'TOState=10', $command);
+        $this->assertSame(['TOState' => '10'], $parsed);
+
+        $snapshot = $service->snapshot($device->fresh());
+
+        foreach (['~ShowState', 'AlwaysShowState', 'AS1', 'AS2'] as $key) {
+            $this->assertContains($key, $snapshot['unsupported_keys'], "{$key} must read as unavailable");
+            $this->assertNotContains($key, $snapshot['supported_keys']);
+            $this->assertTrue($snapshot['options'][$key]['unsupported']);
+            $this->assertNull($snapshot['options'][$key]['value']);
+
+            // "The device ignored this key", not "the device answered -1004".
+            // Printing the wrong one of those tells an admin something untrue.
+            $this->assertSame(
+                DeviceCapabilityService::SOURCE_OMITTED,
+                $snapshot['options'][$key]['source'],
+                "{$key} was silently omitted and must be recorded as such"
+            );
+
+            // And unavailability may never leak back into the settings form.
+            $this->assertArrayNotHasKey($key, DeviceCapabilityService::SETTINGS_CATALOGUE);
+        }
+
+        // The one key that did answer is untouched, and is the only one of the
+        // five that is catalogued — so the form offers exactly what the device
+        // demonstrated it will talk about.
+        $this->assertSame('10', $snapshot['options']['TOState']['value']);
+        $this->assertFalse($snapshot['options']['TOState']['unsupported']);
+        $this->assertContains('TOState', $snapshot['supported_keys']);
+        $this->assertArrayHasKey('TOState', DeviceCapabilityService::SETTINGS_CATALOGUE);
+    }
+
+    public function test_the_state_diagnostic_is_isolated_from_the_default_probe(): void
+    {
+        // A firmware that rejects a whole GET OPTION over one unknown key must
+        // cost us the diagnostic and nothing else. Pinned as a behaviour: the
+        // -1004 condemns only the keys the diagnostic asked for, and the default
+        // probe's keys are untouched and still readable afterwards.
+        $device = $this->mb460();
+        $service = $this->service();
+
+        $diagnostic = $this->command($device, 'GET_OPTION', [
+            'keys' => ['~ShowState', 'AlwaysShowState', 'AS1', 'AS2'],
+        ]);
+        $diagnostic->markAsExecuted('-1004');
+        $service->markUnsupported($diagnostic, '-1004');
+
+        // The capability probe still works, on the same device, right after.
+        $service->parseInfoResponse($device, $this->mb460InfoPayload());
+
+        $snapshot = $service->snapshot($device->fresh());
+
+        $this->assertSame(
+            ['AS1', 'AS2', 'AlwaysShowState', '~ShowState'],
+            $snapshot['unsupported_keys'],
+            'a rejected state diagnostic may condemn only its own keys'
+        );
+
+        // Identity and capacity — the capability screen — are unharmed.
+        $this->assertSame('MB460/ID', $snapshot['identity']['device_name']);
+        $this->assertSame('ZMM220_TFT', $snapshot['identity']['platform']);
+        $this->assertSame(13, $snapshot['capacity']['users']['used']);
+        $this->assertSame(1500, $snapshot['capacity']['faces']['max']);
+
+        // …and the rejection is legible as a refusal, not as a silent omission.
+        foreach (['~ShowState', 'AlwaysShowState', 'AS1', 'AS2'] as $key) {
+            $this->assertNotSame(
+                DeviceCapabilityService::SOURCE_OMITTED,
+                $snapshot['options'][$key]['source'],
+                "{$key} was refused out loud and must not be labelled a silent omission"
+            );
+        }
+    }
 }

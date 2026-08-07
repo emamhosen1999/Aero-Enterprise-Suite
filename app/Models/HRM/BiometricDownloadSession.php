@@ -25,6 +25,19 @@ class BiometricDownloadSession extends Model
     protected $casts = [
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        // The four progress counters are `integer default 0` columns that were
+        // coming back as strings on MySQL. ProcessBiometricDownloadSession
+        // branches on `$session->failed_count > 0 && $session->processed_count == 0`
+        // to decide completed/partial/failed, and the admin panel renders
+        // "{processed_count} / {total_records}" — both were relying on loose
+        // comparison and string concatenation to paper over the type.
+        'total_records' => 'integer',
+        'processed_count' => 'integer',
+        'duplicate_count' => 'integer',
+        'failed_count' => 'integer',
+        'biometric_device_id' => 'integer',
+        'command_id' => 'integer',
+        'created_by' => 'integer',
     ];
 
     public function device()

@@ -188,6 +188,11 @@ class BiometricDeviceCommand extends Model
         'sent_at' => 'datetime',
         'executed_at' => 'datetime',
         'scheduled_at' => 'datetime',
+        'biometric_device_id' => 'integer',
+        // markAsSent() does `$this->retry_count + 1`. That happened to work on a
+        // MySQL string because PHP coerces, but the model should not depend on
+        // the coercion — and the value is emitted to the admin UI as JSON.
+        'retry_count' => 'integer',
     ];
 
     /**

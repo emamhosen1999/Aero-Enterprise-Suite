@@ -11,6 +11,7 @@ use App\Models\HRM\BiometricDownloadSession;
 use App\Models\User;
 use App\Services\Biometric\BiometricProcessingService;
 use App\Services\Biometric\DeviceCapabilityService;
+use App\Services\Biometric\DeviceReconciliationService;
 use App\Services\Biometric\TemplateRoamingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -1824,6 +1825,61 @@ class BiometricDeviceController extends Controller
             'punch_status' => 'downloaded',
             'note' => 'The punches are back in the downloaded state; biometric:import-downloaded replays them into attendance on its next run.',
         ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  Reconciliation: device punches vs attendance
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * "Is this employee really absent, or did we lose his punches?"
+     *
+     * Answering that once required a full raw pull off the terminal and a dozen
+     * ad-hoc SQL queries. It gets asked again every month about somebody else,
+     * so it is an endpoint.
+     *
+     * Read-only and device-scoped. Nothing is queued, nothing is written, and
+     * the device is never contacted — this compares what `biometric_att_logs`
+     * holds for one device against what `attendances` holds for the same people
+     * over the same dates. `DeviceReconciliationService` carries the reasoning
+     * about clock offsets, day bucketing and what does and does not count as a
+     * finding; this method is the HTTP shape around it.
+     *
+     * The date range is validated but the SEMANTIC refusals — inverted range, a
+     * window longer than the service will read — come back from the service as
+     * InvalidArgumentException and are answered 422 with the service's own
+     * message. Duplicating those bounds in a validation rule here would let the
+     * two drift apart, and the service is the one that has to honour them.
+     *
+     * Resolved from the container at call time rather than injected into the
+     * constructor, for the same reason as templates(): one reporting feature
+     * failing to resolve must not take ping, health and the device CRUD down
+     * with it.
+     */
+    public function reconciliation(Request $request, $id)
+    {
+        $request->validate([
+            'from' => 'nullable|date',
+            'until' => 'nullable|date',
+        ]);
+
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        try {
+            $report = app(DeviceReconciliationService::class)->reconcile(
+                $device,
+                $request->input('from'),
+                $request->input('until'),
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($report);
     }
 
     /**

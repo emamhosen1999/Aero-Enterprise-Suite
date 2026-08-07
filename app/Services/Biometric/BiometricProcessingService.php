@@ -206,6 +206,21 @@ class BiometricProcessingService
     }
 
     /**
+     * The two eligibility rejections that are POLICY, not defects.
+     *
+     * Both mean the employee was deliberately configured for a non-biometric
+     * method (WiFi/IP, GPS, QR) at the time they were read by a terminal. The
+     * punch is real; recording attendance from it anyway would override the
+     * attendance policy an admin actually set. `biometric:replay-orphaned-punches`
+     * matches this exact text to separate them out and REPORT them rather than
+     * replay them — so the strings are shared constants, not literals that can
+     * drift apart from their consumer.
+     */
+    public const REASON_NO_ATTENDANCE_TYPE = 'User has no attendance type assigned';
+
+    public const REASON_NOT_BIOMETRIC_PREFIX = 'Attendance type is not biometric: ';
+
+    /**
      * Validate that the user has a biometric attendance type and the device is
      * authorised for that attendance zone.
      *
@@ -214,7 +229,7 @@ class BiometricProcessingService
     public function validateAttendanceEligibility(User $user, BiometricDevice $device): array
     {
         if (! $user->attendance_type_id) {
-            return ['valid' => false, 'reason' => 'User has no attendance type assigned', 'attendance_type' => null];
+            return ['valid' => false, 'reason' => self::REASON_NO_ATTENDANCE_TYPE, 'attendance_type' => null];
         }
 
         $attendanceType = AttendanceType::with('biometricDevices')->find($user->attendance_type_id);
@@ -222,7 +237,7 @@ class BiometricProcessingService
         if (! $attendanceType || ! str_starts_with($attendanceType->slug, 'biometric')) {
             return [
                 'valid' => false,
-                'reason' => 'Attendance type is not biometric: '.($attendanceType?->slug ?? 'not found'),
+                'reason' => self::REASON_NOT_BIOMETRIC_PREFIX.($attendanceType?->slug ?? 'not found'),
                 'attendance_type' => $attendanceType,
             ];
         }
@@ -788,7 +803,15 @@ class BiometricProcessingService
                     $processedCount++;
                     DB::table('biometric_att_logs')
                         ->where('id', $logId)
-                        ->update(['punch_status' => 'processed', 'punch_status_reason' => null, 'updated_at' => now()]);
+                        ->update([
+                            'punch_status' => 'processed',
+                            // Normally null. Non-null only when the punch service
+                            // had to recover the punch rather than pair it — see
+                            // recoveryNote(). `check_type` is NOT touched: it keeps
+                            // holding the direction byte the terminal sent.
+                            'punch_status_reason' => $this->recoveryNote($result),
+                            'updated_at' => now(),
+                        ]);
                 } else {
                     $errorCount++;
                     DB::table('biometric_att_logs')
@@ -1357,7 +1380,7 @@ class BiometricProcessingService
             $result = $this->processPunch($user, $syntheticRequest);
 
             if (($result['status'] ?? null) === 'success') {
-                $this->markAttLog($log->id, 'processed', null, $user->id, $correctionColumns);
+                $this->markAttLog($log->id, 'processed', $this->recoveryNote($result), $user->id, $correctionColumns);
 
                 event(new BiometricAttendanceReceived($device, $user, [
                     'device_user_id' => $deviceUserId,
@@ -1390,6 +1413,57 @@ class BiometricProcessingService
 
             return 'failed';
         }
+    }
+
+    /**
+     * What to write into `punch_status_reason` for a SUCCESSFUL punch.
+     *
+     * Null for the overwhelming majority — a processed punch that paired normally
+     * has nothing to explain, and stamping every row with prose would make the
+     * ATTLOG screen unreadable and hide the rows that do.
+     *
+     * Non-null only when AttendancePunchService reports that it recovered the
+     * punch instead of pairing it (today: an OUT-first day, see
+     * AttendancePunchService::RECOVERY_OUT_FIRST). That row's `check_type` still
+     * says `out`, because that is what the terminal sent and it is part of the
+     * punch natural key; this column is where "…and here is why it nonetheless
+     * became a check-in" lives. The authoritative record is the
+     * `attendance_audit_logs` row the punch service writes on every ingest path;
+     * this is the same fact made visible from the device side.
+     *
+     * @param  array<string, mixed>  $result  the punch service's return value
+     */
+    protected function recoveryNote(array $result): ?string
+    {
+        if (empty($result['recovery'])) {
+            return null;
+        }
+
+        return $result['recovery_reason'] ?? null;
+    }
+
+    /**
+     * Replay ONE already-staged ATTLOG row through the live punch rules.
+     *
+     * Exposed for `biometric:replay-orphaned-punches`, which reprocesses punches
+     * that were captured and then REJECTED — `punch_status = 'failed'` — rather
+     * than punches still sitting on `downloaded`. The rules that should apply to
+     * them are identical in every respect (user resolution, zone/attendance-type
+     * eligibility, clock correction recomputed from the immutable raw timestamp,
+     * the duplicate backstop, the punch service itself, and the status write), so
+     * this deliberately delegates instead of the command growing its own copy.
+     * A second implementation of these rules is exactly how a replay path drifts
+     * away from the ingest path it is supposed to be replaying.
+     *
+     * Safe to call twice on the same row: importDownloadedLog() recomputes the
+     * clock correction from the raw `punch_time` rather than compounding it, and
+     * isDuplicatePunch() rejects a punch that already reached `attendances`.
+     *
+     * @return string one of imported|duplicate|unknown_user|failed
+     */
+    public function replayAttLog(BiometricAttLog $log, BiometricDevice $device): string
+    {
+        return $this->importDownloadedLog($log, $device);
     }
 
     /**
