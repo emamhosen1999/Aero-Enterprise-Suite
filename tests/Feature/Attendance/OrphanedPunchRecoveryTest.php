@@ -426,6 +426,112 @@ class OrphanedPunchRecoveryTest extends TestCase
         $this->assertSame(0, Attendance::where('user_id', $user->id)->count());
     }
 
+    public function test_a_config_reason_row_becomes_recoverable_once_the_employee_is_eligible(): void
+    {
+        // The production case. PIN 307's punches were captured while that PIN
+        // belonged to an employee on `wifi_ip_3`, so they were rejected with
+        // "Attendance type is not biometric: wifi_ip_3". The PIN has since moved to
+        // a biometric-eligible employee and the rows were re-pointed to him. The
+        // recorded reason describes a DIFFERENT PERSON and must not strand the day.
+        Carbon::setTestNow(Carbon::parse('2026-08-06 09:00:00'));
+
+        $device = $this->device();
+        $hannan = $this->zonedUser('307', $device);
+
+        $this->failedLog($device, '307', '2026-07-28 09:05:00', 'in', BiometricProcessingService::REASON_NOT_BIOMETRIC_PREFIX.'wifi_ip_3');
+        $this->failedLog($device, '307', '2026-07-28 18:12:00', 'out', BiometricProcessingService::REASON_NOT_BIOMETRIC_PREFIX.'wifi_ip_3');
+
+        // The dry run must show it as recoverable, and say what it originally
+        // failed with rather than hiding the stale reason.
+        $this->artisan('biometric:replay-orphaned-punches')
+            ->expectsOutputToContain('RECOVERABLE — the employee is biometric-eligible today')
+            ->expectsOutputToContain('1 user-day(s) would GAIN attendance')
+            ->expectsOutputToContain('in 09:05 → out 18:12')
+            ->assertExitCode(0);
+
+        $this->artisan('biometric:replay-orphaned-punches --apply')->assertExitCode(0);
+
+        $attendances = Attendance::where('user_id', $hannan->id)->get();
+        $this->assertCount(1, $attendances);
+        $this->assertSame('2026-07-28 09:05:00', Carbon::parse($attendances[0]->punchin)->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-07-28 18:12:00', Carbon::parse($attendances[0]->punchout)->format('Y-m-d H:i:s'));
+
+        // An ordinary in→out day: recovered by eligibility, NOT by the promotion
+        // rule, so nothing may claim a promotion happened.
+        $this->assertSame(0, AttendanceAuditLog::where('action', AttendancePunchService::RECOVERY_AUDIT_ACTION)->count());
+        $this->assertSame(0, BiometricAttLog::where('punch_status', 'failed')->count());
+    }
+
+    public function test_an_employee_still_on_wifi_today_stays_in_review(): void
+    {
+        // The reverse guard, unchanged: current eligibility is what decides, and
+        // this employee is genuinely non-biometric NOW.
+        Carbon::setTestNow(Carbon::parse('2026-08-06 09:00:00'));
+
+        $device = $this->device();
+        $stillWifi = $this->wifiUser('154');
+
+        $this->failedLog($device, '154', '2026-07-28 09:05:00', 'in', BiometricProcessingService::REASON_NOT_BIOMETRIC_PREFIX.'wifi_ip_3');
+
+        $this->artisan('biometric:replay-orphaned-punches --apply')
+            ->expectsOutputToContain('NEEDS CONFIGURATION REVIEW — reported, NOT replayed')
+            ->expectsOutputToContain('Nothing to replay')
+            ->assertExitCode(0);
+
+        $this->assertSame(0, Attendance::where('user_id', $stillWifi->id)->count());
+        $this->assertSame(1, BiometricAttLog::where('punch_status', 'failed')->count());
+    }
+
+    public function test_a_pin_that_has_changed_hands_without_the_row_is_refused(): void
+    {
+        // Prediction reads the row's `user_id`; the replay resolves by `user_pin`.
+        // When they disagree, replaying would record attendance against the WRONG
+        // employee — worse than leaving the day missing. It must be named, not guessed.
+        Carbon::setTestNow(Carbon::parse('2026-08-06 09:00:00'));
+
+        $device = $this->device();
+        $currentHolder = $this->zonedUser('307', $device);
+        $previousHolder = $this->zonedUser('397', $device);
+
+        $logId = $this->failedLog($device, '307', '2026-07-28 09:05:00', 'in', AttendancePunchService::NO_OPEN_RECORD_MESSAGE);
+
+        // The row is still attributed to the PIN's previous holder.
+        DB::table('biometric_att_logs')->where('id', $logId)->update(['user_id' => $previousHolder->id]);
+
+        $this->artisan('biometric:replay-orphaned-punches --apply')
+            ->expectsOutputToContain('SKIPPED — cannot be replayed')
+            ->expectsOutputToContain('Nothing to replay')
+            ->assertExitCode(0);
+
+        // Neither employee gains a day off the back of an ambiguous attribution.
+        $this->assertSame(0, Attendance::where('user_id', $currentHolder->id)->count());
+        $this->assertSame(0, Attendance::where('user_id', $previousHolder->id)->count());
+        $this->assertSame(1, BiometricAttLog::where('punch_status', 'failed')->count());
+    }
+
+    public function test_rows_that_fail_again_are_named_with_their_current_reason(): void
+    {
+        // A break_out punch is never promoted and has nothing to close, so it fails
+        // again. It must be named rather than left for a human to find by re-running.
+        Carbon::setTestNow(Carbon::parse('2026-08-06 09:00:00'));
+
+        $device = $this->device();
+        $user = $this->zonedUser('501', $device);
+
+        $logId = $this->failedLog($device, '501', '2026-07-28 13:00:00', 'break_out', AttendancePunchService::NO_OPEN_RECORD_MESSAGE);
+
+        $this->artisan('biometric:replay-orphaned-punches --apply')
+            ->expectsOutputToContain('STILL FAILING after replay — these need a human')
+            ->expectsOutputToContain((string) $logId)
+            ->assertExitCode(0);
+
+        $this->assertSame(0, Attendance::where('user_id', $user->id)->count());
+
+        $log = BiometricAttLog::find($logId);
+        $this->assertSame('failed', $log->punch_status);
+        $this->assertSame(AttendancePunchService::NO_OPEN_RECORD_MESSAGE, $log->punch_status_reason);
+    }
+
     public function test_already_punched_in_failures_are_reported_as_needing_no_action(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-06 09:00:00'));
