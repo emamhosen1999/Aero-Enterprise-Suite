@@ -547,8 +547,14 @@ class DeviceClockService
 
     /**
      * Signed, human-readable duration: `+2h 0m 4s`, `-1h 59m 56s`, `+8s`.
+     *
+     * Public because the admin snapshot is not the only place an offset is shown
+     * to a human: `biometric:correct-historical-clock-offset` prints the shift it
+     * is about to apply to real attendance rows, and an operator comparing that
+     * number against the device screen must not have to reconcile two different
+     * renderings of the same quantity.
      */
-    private function humanise(int $seconds): string
+    public function humanise(int $seconds): string
     {
         $sign = $seconds < 0 ? '-' : '+';
         $abs = abs($seconds);
