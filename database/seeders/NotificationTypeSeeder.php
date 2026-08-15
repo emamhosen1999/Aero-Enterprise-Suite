@@ -1,5 +1,7 @@
 <?php
+
 // database/seeders/NotificationTypeSeeder.php
+
 namespace Database\Seeders;
 
 use App\Models\NotificationType;
@@ -27,6 +29,18 @@ class NotificationTypeSeeder extends Seeder
             ['key' => 'attendance.shift_start_reminder', 'category' => 'attendance', 'label' => 'Shift start reminder', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'attendance.shift_punch_in_overdue', 'category' => 'attendance', 'label' => 'Punch-in overdue', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'attendance.shift_absence', 'category' => 'attendance', 'label' => 'Possible absence (manager)', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager', 'Super Administrator']],
+            // Biometric infrastructure alerts (scheduled: biometric:device-health-alert)
+            // Own category, not 'attendance': preferences are stored per CATEGORY
+            // (notification_preferences.user_id+category+channel), so filing this under
+            // 'attendance' would let an admin who mutes routine attendance push also mute
+            // the terminal-down alert without ever intending to. It also keeps the
+            // established key-prefix == category convention every other row follows.
+            // 'mail' is on by default here and nowhere else in the proactive alerts: this
+            // one fires out of hours, at people who may have no push token registered, and
+            // e-mail is the only channel that still lands when the admin is not carrying
+            // the app. 'database' stays locked, so no combination of user preferences can
+            // take this alert to zero channels.
+            ['key' => 'biometric.device_silent', 'category' => 'biometric', 'label' => 'Biometric device silent', 'description' => 'A terminal has stopped sending heartbeats — its punches are not reaching attendance. Recipients are everyone holding the attendance.settings permission, not a fixed role list.', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Super Administrator', 'Administrator']],
         ];
 
         foreach ($types as $t) {

@@ -9,6 +9,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -171,8 +172,11 @@ class HistoricalClockCorrectionTest extends TestCase
         $this->assertPunches($web, '2026-06-01 11:00:00', '2026-06-01 19:00:00');
         $this->assertPunches($manual, '2026-06-02 10:15:00', '2026-06-02 18:45:00');
 
-        $this->assertDatabaseCount(self::LEDGER, 1);
-        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $biometric]);
+        // Two ledger rows for the one corrected attendance row: the ledger claims
+        // punches, not rows.
+        $this->assertDatabaseCount(self::LEDGER, 2);
+        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $biometric, 'punch_column' => 'punchin']);
+        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $biometric, 'punch_column' => 'punchout']);
     }
 
     public function test_an_open_row_is_corrected_on_the_half_it_has(): void
@@ -374,6 +378,150 @@ class HistoricalClockCorrectionTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────
+    //  Which log rows count as evidence
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * @return list<array{0: string}>
+     */
+    public static function correctableStatuses(): array
+    {
+        // Every status except `downloaded`. Each describes what happened to that
+        // CAPTURE — whether that particular log row converted into attendance —
+        // not whether the value now sitting in `attendances` came from the
+        // device. The timestamp equality is what says that, and it says it just
+        // as loudly for a re-captured punch as for a first-captured one.
+        return [['processed'], ['duplicate'], ['failed'], ['unknown_user'], ['wrong_device']];
+    }
+
+    /**
+     * @dataProvider correctableStatuses
+     */
+    public function test_a_punch_is_correctable_whatever_its_log_row_status_says(string $status): void
+    {
+        $device = $this->device();
+        $user = $this->user();
+
+        $id = $this->attendance($user->id, '2026-06-01', '2026-06-01 11:00:00', '2026-06-01 19:00:00');
+        $this->attLog($device, $user, '2026-06-01 11:00:00', 'in', ['punch_status' => $status]);
+        $this->attLog($device, $user, '2026-06-01 19:00:00', 'out', ['punch_status' => $status]);
+
+        $this->artisan(self::COMMAND, [
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ])->assertExitCode(0);
+
+        $this->assertPunches($id, '2026-06-01 09:00:00', '2026-06-01 17:00:00');
+    }
+
+    public function test_a_duplicate_log_row_is_evidence_enough_on_its_own(): void
+    {
+        // The residual case, isolated. Requiring `processed` left 12 punch values
+        // uncorrected on production — 5 punch-ins and 7 punch-outs whose only
+        // surviving log row was marked `duplicate`, a redundant re-capture of a
+        // genuine device punch. `punch_status` describes the log row, not the
+        // provenance of the value in `attendances`.
+        $device = $this->device();
+        $user = $this->user();
+
+        $id = $this->attendance($user->id, '2026-07-04', '2026-07-04 11:40:46', '2026-07-04 19:09:48');
+        $this->attLog($device, $user, '2026-07-04 11:40:46', 'in', ['punch_status' => 'duplicate']);
+        $this->attLog($device, $user, '2026-07-04 19:09:48', 'out', ['punch_status' => 'duplicate']);
+
+        $this->artisan(self::COMMAND, [
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ])->assertExitCode(0);
+
+        $this->assertPunches($id, '2026-07-04 09:40:46', '2026-07-04 17:09:48');
+    }
+
+    public function test_a_downloaded_only_punch_is_reported_and_never_corrected(): void
+    {
+        // `downloaded` means staged for import and never converted into
+        // attendance, so its timestamp should not be in `attendances` at all.
+        // That it is means something put it there by a route this command does
+        // not model. Correcting it would be acting on an assumption instead of on
+        // evidence, so it is named and left alone.
+        $device = $this->device();
+        $user = $this->user();
+
+        $id = $this->attendance($user->id, '2026-06-01', '2026-06-01 11:00:00', '2026-06-01 19:00:00');
+        $this->attLog($device, $user, '2026-06-01 11:00:00', 'in', ['punch_status' => 'downloaded']);
+        $this->attLog($device, $user, '2026-06-01 19:00:00', 'out', ['punch_status' => 'downloaded']);
+
+        $output = $this->runCommand([
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ]);
+
+        $this->assertPunches($id, '2026-06-01 11:00:00', '2026-06-01 19:00:00');
+        $this->assertDatabaseCount(self::LEDGER, 0);
+
+        // Reported, not silently skipped — an operator has to be able to see it.
+        $this->assertStringContainsString("matches only a 'downloaded' log", $output);
+        $this->assertMatchesRegularExpression('/\|\s*'.$id.'\s*\|/', $output);
+    }
+
+    public function test_a_punch_staged_and_also_captured_is_corrected_normally(): void
+    {
+        // The `downloaded` exclusion is about the LOG ROW, not the punch. A punch
+        // re-staged by a later download keeps a `downloaded` row alongside the
+        // one that actually converted; it is still a genuine device punch and is
+        // corrected through the other row. Excluding on "has a downloaded row"
+        // rather than "has ONLY downloaded rows" would silently strand it.
+        $device = $this->device();
+        $user = $this->user();
+
+        $id = $this->attendance($user->id, '2026-06-01', '2026-06-01 11:00:00', '2026-06-01 19:00:00');
+
+        // Same instant, two log rows: check_type keeps them distinct under the
+        // punch natural key, which is exactly how production holds them.
+        $this->attLog($device, $user, '2026-06-01 11:00:00', 'in', ['punch_status' => 'downloaded']);
+        $this->attLog($device, $user, '2026-06-01 11:00:00', 'break_in', ['punch_status' => 'duplicate']);
+        $this->attLog($device, $user, '2026-06-01 19:00:00', 'out', ['punch_status' => 'processed']);
+
+        $output = $this->runCommand([
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ]);
+
+        $this->assertPunches($id, '2026-06-01 09:00:00', '2026-06-01 17:00:00');
+        $this->assertStringNotContainsString("matches only a 'downloaded' log", $output);
+    }
+
+    public function test_a_punch_corrected_at_ingest_is_still_excluded_whatever_its_status(): void
+    {
+        // The other exclusion, and it is unrelated to `punch_status`. A log row
+        // with corrected_punch_time set was handled by the forward fix:
+        // `attendances` holds the corrected moment and `punch_time` is only the
+        // raw string it arrived as. Matching on it would shift an already-correct
+        // value a second time.
+        $device = $this->device();
+        $user = $this->user();
+
+        $id = $this->attendance($user->id, '2026-06-01', '2026-06-01 09:00:00', '2026-06-01 17:00:00');
+
+        $this->attLog($device, $user, '2026-06-01 09:00:00', 'in', [
+            'punch_status' => 'duplicate',
+            'corrected_punch_time' => '2026-06-01 07:00:00',
+        ]);
+
+        $this->artisan(self::COMMAND, [
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ])->assertExitCode(0);
+
+        $this->assertPunches($id, '2026-06-01 09:00:00', '2026-06-01 17:00:00');
+        $this->assertDatabaseCount(self::LEDGER, 0);
+    }
+
+    // ──────────────────────────────────────────────────────────────
     //  Idempotency — the primary design constraint
     // ──────────────────────────────────────────────────────────────
 
@@ -397,17 +545,17 @@ class HistoricalClockCorrectionTest extends TestCase
         $this->artisan(self::COMMAND, $options)->assertExitCode(0);
         $this->assertPunches($id, '2026-06-01 09:00:00', '2026-06-01 17:00:00');
 
-        // And the ledger did not grow: the row was excluded, not re-archived
-        // with a no-op update.
-        $this->assertDatabaseCount(self::LEDGER, 1);
+        // And the ledger did not grow: both punches were excluded, not
+        // re-archived with a no-op update.
+        $this->assertDatabaseCount(self::LEDGER, 2);
     }
 
     public function test_a_second_run_with_a_different_offset_still_does_not_shift(): void
     {
-        // The guard is keyed on attendances.id, not on the offset or the range,
-        // so an operator who re-runs with a corrected --seconds does not get a
-        // second shift on top of the first. They get nothing, and have to repair
-        // from the archive deliberately.
+        // The guard is keyed on the punch, not on the offset or the range, so an
+        // operator who re-runs with a corrected --seconds does not get a second
+        // shift on top of the first. They get nothing, and have to repair from
+        // the archive deliberately.
         $device = $this->device();
         $user = $this->user();
         $id = $this->biometricAttendance($device, $user, '2026-06-01', '2026-06-01 11:00:00', '2026-06-01 19:00:00');
@@ -425,7 +573,7 @@ class HistoricalClockCorrectionTest extends TestCase
         ])->assertExitCode(0);
 
         $this->assertPunches($id, '2026-06-01 09:00:00', '2026-06-01 17:00:00');
-        $this->assertDatabaseCount(self::LEDGER, 1);
+        $this->assertDatabaseCount(self::LEDGER, 2);
     }
 
     public function test_a_row_already_in_the_ledger_is_never_shifted_even_though_it_still_matches(): void
@@ -443,30 +591,17 @@ class HistoricalClockCorrectionTest extends TestCase
         // reason, because at a 7200 s shift the corrected punch no longer matches
         // any log row. What that mutation run also showed is that the punch STILL
         // did not move: with the filter gone the row is selected, the archive
-        // insert hits the UNIQUE on attendance_id, the run aborts with a non-zero
-        // exit and `attendances` is untouched. So the assertions below are
-        // ordered accordingly — the data must be safe either way, and the exit
-        // code is what says the cheap pre-filter is still doing its job.
+        // insert hits the UNIQUE on (attendance_id, punch_column), the run aborts
+        // with a non-zero exit and `attendances` is untouched. So the assertions
+        // below are ordered accordingly — the data must be safe either way, and
+        // the exit code is what says the cheap pre-filter is still doing its job.
         $device = $this->device();
         $user = $this->user();
         $id = $this->biometricAttendance($device, $user, '2026-06-01', '2026-06-01 11:00:00', '2026-06-01 19:00:00');
 
-        DB::table(self::LEDGER)->insert([
-            'attendance_id' => $id,
-            'biometric_device_id' => $device->id,
-            'device_serial' => $device->serial_number,
-            'user_id' => $user->id,
-            'attendance_date' => '2026-06-01',
-            'applied_seconds' => -self::OFFSET,
-            'punchin_before' => '2026-06-01 11:00:00',
-            'punchin_after' => '2026-06-01 09:00:00',
-            'punchout_before' => '2026-06-01 19:00:00',
-            'punchout_after' => '2026-06-01 17:00:00',
-            'payload' => json_encode(['id' => $id]),
-            'run_id' => '00000000-0000-4000-8000-000000000000',
-            'archived_at' => now(),
-            'applied_at' => now(),
-        ]);
+        // Both punches claimed, as a completed earlier run would leave them.
+        $this->claimPunch($device, $user, $id, 'punchin', '2026-06-01 11:00:00', '2026-06-01 09:00:00');
+        $this->claimPunch($device, $user, $id, 'punchout', '2026-06-01 19:00:00', '2026-06-01 17:00:00');
 
         $exitCode = Artisan::call(self::COMMAND, [
             '--device' => $device->serial_number,
@@ -474,54 +609,146 @@ class HistoricalClockCorrectionTest extends TestCase
             '--apply' => true,
         ]);
 
-        // Unconditional: the punch does not move, by either layer of the guard.
+        // Unconditional: the punches do not move, by either layer of the guard.
         $this->assertPunches($id, '2026-06-01 11:00:00', '2026-06-01 19:00:00');
-        $this->assertDatabaseCount(self::LEDGER, 1);
+        $this->assertDatabaseCount(self::LEDGER, 2);
 
         // And it was excluded cleanly rather than by crashing into the unique
         // index — a successful run that found nothing to do.
-        $this->assertSame(0, $exitCode, 'A ledgered row must be filtered out of the selection, not caught by the UNIQUE constraint at write time.');
+        $this->assertSame(0, $exitCode, 'A ledgered punch must be filtered out of the selection, not caught by the UNIQUE constraint at write time.');
     }
 
-    public function test_an_archived_but_unconfirmed_row_is_reported_and_not_adopted(): void
+    public function test_a_fully_corrected_row_is_excluded_by_the_query_not_merely_skipped(): void
     {
-        // What a crash between the archive commit and the update transaction
-        // leaves behind: archived, guarded, never shifted. The command cannot
-        // tell a shifted row from an unshifted one by looking at it, so adopting
-        // it would be a coin flip on a payroll figure. It must stay out of the
-        // selection AND be surfaced, or the under-correction is silent.
+        // Two layers stop a second shift, and they are not the same layer:
+        //
+        //   · the per-column check in shiftFor() is the CORRECTNESS guarantee,
+        //     because a partially-claimed row is legitimately selected and the
+        //     decision has to be re-made per column;
+        //   · the whereNotExists in candidates() is an OPTIMISATION that keeps
+        //     the 459 punches already corrected on production out of the walk.
+        //
+        // Without this test the second layer could be deleted and every other
+        // test here would stay green, because the first layer silently absorbs
+        // it. `already_complete` is the one place the difference shows: it counts
+        // rows that reached the walk with nothing left to do, which is exactly
+        // what the query is supposed to prevent.
         $device = $this->device();
         $user = $this->user();
         $id = $this->biometricAttendance($device, $user, '2026-06-01', '2026-06-01 11:00:00', '2026-06-01 19:00:00');
 
-        DB::table(self::LEDGER)->insert([
-            'attendance_id' => $id,
-            'biometric_device_id' => $device->id,
-            'device_serial' => $device->serial_number,
-            'user_id' => $user->id,
-            'attendance_date' => '2026-06-01',
-            'applied_seconds' => -self::OFFSET,
-            'punchin_before' => '2026-06-01 11:00:00',
-            'punchin_after' => '2026-06-01 09:00:00',
-            'punchout_before' => '2026-06-01 19:00:00',
-            'punchout_after' => '2026-06-01 17:00:00',
-            'payload' => json_encode(['id' => $id]),
-            'run_id' => '00000000-0000-4000-8000-000000000002',
-            'archived_at' => now(),
-            'applied_at' => null,
-        ]);
+        // Corrected, and both punches still match their logs, so nothing but the
+        // ledger keeps this row out of the selection.
+        $this->claimPunch($device, $user, $id, 'punchin', '2026-06-01 11:00:00', '2026-06-01 11:00:00');
+        $this->claimPunch($device, $user, $id, 'punchout', '2026-06-01 19:00:00', '2026-06-01 19:00:00');
 
         $output = $this->runCommand([
             '--device' => $device->serial_number,
             '--seconds' => self::OFFSET,
-            '--apply' => true,
         ]);
 
-        $this->assertPunches($id, '2026-06-01 11:00:00', '2026-06-01 19:00:00');
-        $this->assertStringContainsString('applied_at = NULL', $output);
+        $this->assertMatchesRegularExpression('/Attendance rows selected\s*\|\s*0\s/', $output);
+        $this->assertMatchesRegularExpression(
+            '/already fully corrected \(expect 0\)\s*\|\s*0\s/',
+            $output,
+            'A fully claimed row must never reach the walk: the selection query is what keeps the already-corrected history out of it.'
+        );
     }
 
-    public function test_the_ledger_refuses_a_second_entry_for_the_same_attendance_row(): void
+    public function test_a_claimed_punch_in_does_not_block_correcting_the_punch_out(): void
+    {
+        // Attendance 9901, reproduced.
+        //
+        // The first production run corrected this row's punch-in and skipped its
+        // punch-out, because the punch-out's only log row was marked `duplicate`.
+        // The ledger then said "9901: done" and, under a per-ROW key, the
+        // punch-out could never be reached again — the archive insert would
+        // collide before any update was issued. The day would read 09:40 → 19:09,
+        // 9.5 hours for 7.5 worked, and nothing about it would look wrong.
+        //
+        // Per column, the finished punch-in stays claimed and the punch-out is
+        // free. This is the test the whole re-key exists for.
+        $device = $this->device();
+        $user = $this->user();
+
+        // The row as the first run left it: punch-in already corrected in place,
+        // punch-out still carrying the device's skewed 19:09:48.
+        $id = $this->attendance($user->id, '2026-07-04', '2026-07-04 09:40:46', '2026-07-04 19:09:48');
+
+        // The raw device logs. The punch-in's log still holds the pre-correction
+        // 11:40:46 and no longer matches the corrected attendance value.
+        $this->attLog($device, $user, '2026-07-04 11:40:46', 'in');
+        $this->attLog($device, $user, '2026-07-04 19:09:48', 'out', ['punch_status' => 'duplicate']);
+
+        $this->claimPunch($device, $user, $id, 'punchin', '2026-07-04 11:40:46', '2026-07-04 09:40:46');
+
+        // Reported as resumed, NOT as mixed-source — checked BEFORE applying,
+        // while the row is still half-corrected and the distinction is live. The
+        // punch-in is a corrected device punch, not a web one, and telling an
+        // operator otherwise would send them looking for a second punch source
+        // that does not exist.
+        $preview = $this->runCommand([
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+        ]);
+
+        $this->assertMatchesRegularExpression('/Attendance rows selected\s*\|\s*1\s/', $preview);
+        $this->assertMatchesRegularExpression('/Punch values that would move\s*\|\s*1\s/', $preview);
+        $this->assertMatchesRegularExpression('/resuming an earlier run[^|]*\|\s*1\s/', $preview);
+        $this->assertMatchesRegularExpression('/Mixed rows[^|]*\|\s*0\s/', $preview);
+
+        $this->artisan(self::COMMAND, [
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ])->assertExitCode(0);
+
+        // Punch-out fixed; punch-in exactly where the first run left it.
+        $this->assertPunches($id, '2026-07-04 09:40:46', '2026-07-04 17:09:48');
+
+        $this->assertDatabaseCount(self::LEDGER, 2);
+        $this->assertDatabaseHas(self::LEDGER, [
+            'attendance_id' => $id,
+            'punch_column' => 'punchout',
+            'punchout_before' => '2026-07-04 19:09:48',
+            'punchout_after' => '2026-07-04 17:09:48',
+        ]);
+
+        // The punch-in's original claim is untouched — same run, same values.
+        $claim = DB::table(self::LEDGER)->where('attendance_id', $id)->where('punch_column', 'punchin')->first();
+        $this->assertSame('2026-07-04 11:40:46', $this->normalise($claim->punchin_before));
+        $this->assertSame('2026-07-04 09:40:46', $this->normalise($claim->punchin_after));
+    }
+
+    public function test_resuming_a_row_never_moves_the_punch_that_was_already_corrected(): void
+    {
+        // The sharp edge of the previous test. Here the already-corrected
+        // punch-in STILL matches a device log — the log carries the corrected
+        // value, so the timestamp-equality test says "this is device-sourced" and
+        // the only thing standing between it and a second -2 h shift is its
+        // ledger claim. Remove the per-column guard and the punch-in goes to
+        // 07:40:46 while the punch-out is corrected: a row wrong in a brand new
+        // way.
+        $device = $this->device();
+        $user = $this->user();
+
+        $id = $this->attendance($user->id, '2026-07-04', '2026-07-04 09:40:46', '2026-07-04 19:09:48');
+
+        $this->attLog($device, $user, '2026-07-04 09:40:46', 'in');
+        $this->attLog($device, $user, '2026-07-04 19:09:48', 'out', ['punch_status' => 'duplicate']);
+
+        $this->claimPunch($device, $user, $id, 'punchin', '2026-07-04 11:40:46', '2026-07-04 09:40:46');
+
+        $this->artisan(self::COMMAND, [
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ])->assertExitCode(0);
+
+        $this->assertPunches($id, '2026-07-04 09:40:46', '2026-07-04 17:09:48');
+    }
+
+    public function test_the_ledger_refuses_a_second_claim_on_the_same_punch(): void
     {
         // The filter in candidates() is an optimisation. THIS is the guarantee:
         // two runs racing each other cannot both pass a check-then-act, because
@@ -537,27 +764,59 @@ class HistoricalClockCorrectionTest extends TestCase
             '--apply' => true,
         ])->assertExitCode(0);
 
-        $threw = false;
+        foreach (['punchin', 'punchout'] as $column) {
+            $threw = false;
 
-        try {
-            DB::table(self::LEDGER)->insert([
-                'attendance_id' => $id,
-                'biometric_device_id' => $device->id,
-                'device_serial' => $device->serial_number,
-                'user_id' => $user->id,
-                'attendance_date' => '2026-06-01',
-                'applied_seconds' => -self::OFFSET,
-                'payload' => json_encode([]),
-                'run_id' => '00000000-0000-4000-8000-000000000001',
-                'archived_at' => now(),
-                'applied_at' => now(),
-            ]);
-        } catch (QueryException) {
-            $threw = true;
+            try {
+                $this->claimPunch($device, $user, $id, $column, '2026-06-01 11:00:00', '2026-06-01 09:00:00');
+            } catch (QueryException) {
+                $threw = true;
+            }
+
+            $this->assertTrue($threw, "attendance_clock_corrections (attendance_id, punch_column) must be UNIQUE: a second claim on {$column} is what makes a concurrent double-shift impossible.");
         }
 
-        $this->assertTrue($threw, 'attendance_clock_corrections.attendance_id must be UNIQUE: it is the only thing that makes a concurrent double-shift impossible.');
-        $this->assertDatabaseCount(self::LEDGER, 1);
+        $this->assertDatabaseCount(self::LEDGER, 2);
+    }
+
+    public function test_claiming_the_other_punch_of_an_already_claimed_row_is_allowed(): void
+    {
+        // The other half of the constraint, and the reason it is a COMPOSITE key
+        // rather than the attendance id alone. If this insert were rejected,
+        // attendance 9901's punch-out could never be archived and so could never
+        // be corrected.
+        $device = $this->device();
+        $user = $this->user();
+        $id = $this->attendance($user->id, '2026-06-01', '2026-06-01 09:00:00', '2026-06-01 19:00:00');
+
+        $this->claimPunch($device, $user, $id, 'punchin', '2026-06-01 11:00:00', '2026-06-01 09:00:00');
+        $this->claimPunch($device, $user, $id, 'punchout', '2026-06-01 19:00:00', '2026-06-01 17:00:00');
+
+        $this->assertDatabaseCount(self::LEDGER, 2);
+    }
+
+    public function test_an_archived_but_unconfirmed_punch_is_reported_and_not_adopted(): void
+    {
+        // What a crash between the archive commit and the update transaction
+        // leaves behind: archived, claimed, never shifted. The command cannot
+        // tell a shifted punch from an unshifted one by looking at it, so
+        // adopting it would be a coin flip on a payroll figure. It must stay out
+        // of the selection AND be surfaced, or the under-correction is silent.
+        $device = $this->device();
+        $user = $this->user();
+        $id = $this->biometricAttendance($device, $user, '2026-06-01', '2026-06-01 11:00:00', '2026-06-01 19:00:00');
+
+        $this->claimPunch($device, $user, $id, 'punchin', '2026-06-01 11:00:00', '2026-06-01 09:00:00', ['applied_at' => null]);
+        $this->claimPunch($device, $user, $id, 'punchout', '2026-06-01 19:00:00', '2026-06-01 17:00:00', ['applied_at' => null]);
+
+        $output = $this->runCommand([
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ]);
+
+        $this->assertPunches($id, '2026-06-01 11:00:00', '2026-06-01 19:00:00');
+        $this->assertStringContainsString('applied_at = NULL', $output);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -588,29 +847,43 @@ class HistoricalClockCorrectionTest extends TestCase
             '--apply' => true,
         ])->assertExitCode(0);
 
-        $ledger = DB::table(self::LEDGER)->where('attendance_id', $id)->first();
+        $in = DB::table(self::LEDGER)->where('attendance_id', $id)->where('punch_column', 'punchin')->first();
+        $out = DB::table(self::LEDGER)->where('attendance_id', $id)->where('punch_column', 'punchout')->first();
 
-        $this->assertNotNull($ledger);
+        $this->assertNotNull($in);
+        $this->assertNotNull($out);
 
         // Column for column, including the id, and compared against whatever the
         // table actually had rather than a list this test remembered to write
         // down. A column added to `attendances` next year is archived without
-        // anyone updating this assertion.
-        $this->assertSame($before, json_decode((string) $ledger->payload, true));
+        // anyone updating this assertion. BOTH siblings carry it, so either one
+        // restores the original in full.
+        $this->assertSame($before, json_decode((string) $in->payload, true));
+        $this->assertSame($before, json_decode((string) $out->payload, true));
 
-        $this->assertSame('2026-06-01 11:00:00', $this->normalise($ledger->punchin_before));
-        $this->assertSame('2026-06-01 09:00:00', $this->normalise($ledger->punchin_after));
-        $this->assertSame('2026-06-01 19:00:00', $this->normalise($ledger->punchout_before));
-        $this->assertSame('2026-06-01 17:00:00', $this->normalise($ledger->punchout_after));
+        $this->assertSame('2026-06-01 11:00:00', $this->normalise($in->punchin_before));
+        $this->assertSame('2026-06-01 09:00:00', $this->normalise($in->punchin_after));
+        $this->assertSame('2026-06-01 19:00:00', $this->normalise($out->punchout_before));
+        $this->assertSame('2026-06-01 17:00:00', $this->normalise($out->punchout_after));
 
-        $this->assertSame(-self::OFFSET, (int) $ledger->applied_seconds);
-        $this->assertSame($device->id, (int) $ledger->biometric_device_id);
-        $this->assertSame($device->serial_number, $ledger->device_serial);
-        $this->assertNotNull($ledger->applied_at, 'applied_at is stamped in the same transaction as the UPDATE; a null here would mean the row is guarded but not corrected.');
+        // Each row claims its own punch and only its own punch. A row carrying
+        // the other column's correction would mean two rows claim one punch, and
+        // the per-column guard would be guarding the wrong thing.
+        $this->assertNull($in->punchout_before);
+        $this->assertNull($in->punchout_after);
+        $this->assertNull($out->punchin_before);
+        $this->assertNull($out->punchin_after);
+
+        foreach ([$in, $out] as $ledger) {
+            $this->assertSame(-self::OFFSET, (int) $ledger->applied_seconds);
+            $this->assertSame($device->id, (int) $ledger->biometric_device_id);
+            $this->assertSame($device->serial_number, $ledger->device_serial);
+            $this->assertNotNull($ledger->applied_at, 'applied_at is stamped in the same transaction as the UPDATE; a null here would mean the punch is claimed but not corrected.');
+        }
 
         // The archive is a restore path, so prove it restores.
         DB::table('attendances')->where('id', $id)->update(
-            array_diff_key(json_decode((string) $ledger->payload, true), ['id' => null])
+            array_diff_key(json_decode((string) $in->payload, true), ['id' => null])
         );
 
         $this->assertSame($before, (array) DB::table('attendances')->find($id));
@@ -635,7 +908,8 @@ class HistoricalClockCorrectionTest extends TestCase
 
         $runIds = DB::table(self::LEDGER)->distinct()->pluck('run_id');
 
-        $this->assertCount(3, DB::table(self::LEDGER)->get());
+        // Three attendance rows, two punches each.
+        $this->assertCount(6, DB::table(self::LEDGER)->get());
         $this->assertCount(1, $runIds);
     }
 
@@ -731,8 +1005,9 @@ class HistoricalClockCorrectionTest extends TestCase
 
         // A payroll period corrected on its own leaves the rest still correctable
         // later — the ledger only claims what was actually done.
-        $this->assertDatabaseCount(self::LEDGER, 1);
-        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $inside]);
+        $this->assertDatabaseCount(self::LEDGER, 2);
+        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $inside, 'punch_column' => 'punchin']);
+        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $inside, 'punch_column' => 'punchout']);
     }
 
     public function test_the_range_boundaries_are_inclusive(): void
@@ -772,8 +1047,8 @@ class HistoricalClockCorrectionTest extends TestCase
         // The device with a correct clock is why --device is required. Applying
         // one unit's offset to another's history would corrupt good data.
         $this->assertPunches($healthyRow, '2026-06-01 09:00:00', '2026-06-01 17:00:00');
-        $this->assertDatabaseCount(self::LEDGER, 1);
-        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $skewedRow]);
+        $this->assertDatabaseCount(self::LEDGER, 2);
+        $this->assertDatabaseHas(self::LEDGER, ['attendance_id' => $skewedRow, 'punch_column' => 'punchin']);
     }
 
     public function test_a_device_that_does_not_exist_corrects_nothing(): void
@@ -986,12 +1261,254 @@ class HistoricalClockCorrectionTest extends TestCase
             $this->assertPunches($id, $date.' 09:00:00', $date.' 17:00:00');
         }
 
-        $this->assertDatabaseCount(self::LEDGER, 12);
+        // 12 rows, both punches each.
+        $this->assertDatabaseCount(self::LEDGER, 24);
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  The per-column re-key migration
+    // ──────────────────────────────────────────────────────────────
+    //
+    // These matter more than their size suggests. The migration runs against a
+    // production ledger already holding 459 applied corrections, and that ledger
+    // is the only record of the original punch times and the only thing stopping
+    // a re-run from shifting them again. Losing or mangling it would be
+    // unrecoverable, so the normalisation is exercised on every shape a legacy
+    // row can have — by actually running the migration, not by re-describing it.
+
+    public function test_the_migration_normalises_every_legacy_row_shape(): void
+    {
+        $this->revertPerColumnMigration();
+
+        // One legacy row per shape the first run could produce.
+        $both = $this->legacyLedgerRow(9001, '11:00:00', '09:00:00', '19:00:00', '17:00:00');
+        $inOnly = $this->legacyLedgerRow(9002, '11:00:00', '09:00:00', null, null);
+        $outOnly = $this->legacyLedgerRow(9003, null, null, '19:00:00', '17:00:00');
+        $neither = $this->legacyLedgerRow(9004, null, null, null, null);
+
+        $this->applyPerColumnMigration();
+
+        // 2 + 1 + 1 + 2. The both-punch row and the archived-but-unshifted row
+        // each become a pair; the single-punch rows are stamped in place.
+        $this->assertDatabaseCount(self::LEDGER, 6);
+        $this->assertSame(4, DB::table(self::LEDGER)->distinct()->count('attendance_id'));
+
+        // The invariant the migration asserts on itself: no correction invented,
+        // none discarded.
+        $this->assertSame(4, DB::table(self::LEDGER)->whereNotNull('punchin_before')->count()
+            + DB::table(self::LEDGER)->whereNotNull('punchout_before')->count());
+
+        // The split pair.
+        $in = $this->ledgerFor(9001, 'punchin');
+        $out = $this->ledgerFor(9001, 'punchout');
+
+        $this->assertSame('2026-06-01 11:00:00', $this->normalise($in->punchin_before));
+        $this->assertSame('2026-06-01 09:00:00', $this->normalise($in->punchin_after));
+        $this->assertNull($in->punchout_before, 'A punch-in row must not still claim the punch-out correction.');
+        $this->assertNull($in->punchout_after);
+
+        $this->assertSame('2026-06-01 19:00:00', $this->normalise($out->punchout_before));
+        $this->assertSame('2026-06-01 17:00:00', $this->normalise($out->punchout_after));
+        $this->assertNull($out->punchin_before);
+        $this->assertNull($out->punchin_after);
+
+        // The sibling carries the same provenance, so either row restores the
+        // original and both attribute the work to the run that did it.
+        $this->assertSame($in->payload, $out->payload);
+        $this->assertSame($in->run_id, $out->run_id);
+        $this->assertSame((int) $in->applied_seconds, (int) $out->applied_seconds);
+        $this->assertNotNull($out->applied_at);
+        $this->assertSame((int) $in->user_id, (int) $out->user_id);
+        $this->assertSame((int) $in->biometric_device_id, (int) $out->biometric_device_id);
+
+        // Single-punch rows: stamped, otherwise untouched.
+        $this->assertSame('punchin', $this->ledgerFor(9002, 'punchin')->punch_column);
+        $this->assertSame('punchout', $this->ledgerFor(9003, 'punchout')->punch_column);
+        $this->assertDatabaseMissing(self::LEDGER, ['attendance_id' => 9002, 'punch_column' => 'punchout']);
+        $this->assertDatabaseMissing(self::LEDGER, ['attendance_id' => 9003, 'punch_column' => 'punchin']);
+
+        // Archived but never shifted: both columns stay claimed, so the whole row
+        // remains excluded exactly as it was under the per-row key. This command
+        // cannot tell a shifted punch from an unshifted one by looking at it, and
+        // adopting either half would be a coin flip on a payroll figure.
+        $this->assertNotNull($this->ledgerFor(9004, 'punchin'));
+        $this->assertNotNull($this->ledgerFor(9004, 'punchout'));
+        $this->assertNull($this->ledgerFor(9004, 'punchin')->punchin_before);
+
+        unset($both, $inOnly, $outOnly, $neither);
+    }
+
+    public function test_the_migration_leaves_the_composite_guard_enforced(): void
+    {
+        $this->revertPerColumnMigration();
+        $this->legacyLedgerRow(9001, '11:00:00', '09:00:00', '19:00:00', '17:00:00');
+        $this->applyPerColumnMigration();
+
+        // The point of the whole exercise: after normalisation the database — not
+        // the command — refuses a second claim on a punch, while the row's other
+        // punch remains claimable.
+        $threw = false;
+
+        try {
+            DB::table(self::LEDGER)->insert([
+                'attendance_id' => 9001,
+                'punch_column' => 'punchin',
+                'applied_seconds' => -self::OFFSET,
+                'payload' => json_encode([]),
+                'run_id' => '00000000-0000-4000-8000-0000000000ff',
+                'archived_at' => now(),
+            ]);
+        } catch (QueryException) {
+            $threw = true;
+        }
+
+        $this->assertTrue($threw, 'The composite UNIQUE must survive the migration; without it a re-run could double-shift a punch.');
+    }
+
+    public function test_the_migration_preserves_an_applied_correction_through_a_full_round_trip(): void
+    {
+        // Down and up again must not lose the record of what was applied. That
+        // ledger is what makes the 459 corrections reversible.
+        $this->revertPerColumnMigration();
+        $this->legacyLedgerRow(9001, '11:00:00', '09:00:00', '19:00:00', '17:00:00');
+        $this->applyPerColumnMigration();
+
+        $this->revertPerColumnMigration();
+
+        // Merged back into the single row it started as, with both corrections.
+        $this->assertDatabaseCount(self::LEDGER, 1);
+
+        $merged = DB::table(self::LEDGER)->where('attendance_id', 9001)->first();
+
+        $this->assertSame('2026-06-01 11:00:00', $this->normalise($merged->punchin_before));
+        $this->assertSame('2026-06-01 09:00:00', $this->normalise($merged->punchin_after));
+        $this->assertSame('2026-06-01 19:00:00', $this->normalise($merged->punchout_before));
+        $this->assertSame('2026-06-01 17:00:00', $this->normalise($merged->punchout_after));
+        $this->assertNotNull($merged->applied_at);
+
+        $this->applyPerColumnMigration();
+
+        $this->assertDatabaseCount(self::LEDGER, 2);
+        $this->assertSame('2026-06-01 09:00:00', $this->normalise($this->ledgerFor(9001, 'punchin')->punchin_after));
+        $this->assertSame('2026-06-01 17:00:00', $this->normalise($this->ledgerFor(9001, 'punchout')->punchout_after));
+    }
+
+    public function test_a_legacy_row_still_blocks_the_punch_it_corrected(): void
+    {
+        // End to end: a ledger row written by the FIRST production run, migrated,
+        // then met by a re-run. The punch it corrected must not move; the punch it
+        // never reached must. This is attendance 9901's exact situation, arrived
+        // at through the migration rather than by hand-seeding the new shape.
+        $device = $this->device();
+        $user = $this->user();
+
+        $id = $this->attendance($user->id, '2026-07-04', '2026-07-04 09:40:46', '2026-07-04 19:09:48');
+        $this->attLog($device, $user, '2026-07-04 09:40:46', 'in');
+        $this->attLog($device, $user, '2026-07-04 19:09:48', 'out', ['punch_status' => 'duplicate']);
+
+        $this->revertPerColumnMigration();
+
+        DB::table(self::LEDGER)->insert([
+            'attendance_id' => $id,
+            'biometric_device_id' => $device->id,
+            'device_serial' => $device->serial_number,
+            'user_id' => $user->id,
+            'attendance_date' => '2026-07-04',
+            'applied_seconds' => -self::OFFSET,
+            'punchin_before' => '2026-07-04 11:40:46',
+            'punchin_after' => '2026-07-04 09:40:46',
+            'punchout_before' => null,
+            'punchout_after' => null,
+            'payload' => json_encode(['id' => $id]),
+            'run_id' => '00000000-0000-4000-8000-000000000000',
+            'archived_at' => now(),
+            'applied_at' => now(),
+        ]);
+
+        $this->applyPerColumnMigration();
+
+        $this->artisan(self::COMMAND, [
+            '--device' => $device->serial_number,
+            '--seconds' => self::OFFSET,
+            '--apply' => true,
+        ])->assertExitCode(0);
+
+        $this->assertPunches($id, '2026-07-04 09:40:46', '2026-07-04 17:09:48');
     }
 
     // ──────────────────────────────────────────────────────────────
     //  Fixtures
     // ──────────────────────────────────────────────────────────────
+
+    /**
+     * The migration under test, freshly instantiated.
+     *
+     * Plain `require` rather than `require_once`: each call must return a new
+     * instance so up() and down() can be driven repeatedly within one test.
+     */
+    private function perColumnMigration(): object
+    {
+        return require database_path('migrations/2026_08_07_000001_make_attendance_clock_corrections_per_punch_column.php');
+    }
+
+    private function applyPerColumnMigration(): void
+    {
+        $this->perColumnMigration()->up();
+
+        $this->assertTrue(
+            Schema::hasColumn(self::LEDGER, 'punch_column'),
+            'The migration must leave punch_column in place.'
+        );
+    }
+
+    private function revertPerColumnMigration(): void
+    {
+        $this->perColumnMigration()->down();
+
+        $this->assertFalse(
+            Schema::hasColumn(self::LEDGER, 'punch_column'),
+            'down() must restore the pre-migration shape so the backfill can be exercised against it.'
+        );
+    }
+
+    /**
+     * A ledger row in the shape the FIRST production run wrote: one row per
+     * attendance, both punch pairs on it, no punch_column.
+     */
+    private function legacyLedgerRow(
+        int $attendanceId,
+        ?string $inBefore,
+        ?string $inAfter,
+        ?string $outBefore,
+        ?string $outAfter
+    ): int {
+        $stamp = fn (?string $time) => $time === null ? null : '2026-06-01 '.$time;
+
+        return (int) DB::table(self::LEDGER)->insertGetId([
+            'attendance_id' => $attendanceId,
+            'biometric_device_id' => 1,
+            'device_serial' => 'AF6P231260266',
+            'user_id' => 134,
+            'attendance_date' => '2026-06-01',
+            'applied_seconds' => -self::OFFSET,
+            'punchin_before' => $stamp($inBefore),
+            'punchin_after' => $stamp($inAfter),
+            'punchout_before' => $stamp($outBefore),
+            'punchout_after' => $stamp($outAfter),
+            'payload' => json_encode(['id' => $attendanceId, 'user_id' => 134]),
+            'run_id' => '00000000-0000-4000-8000-000000000000',
+            'archived_at' => now(),
+            'applied_at' => now(),
+        ]);
+    }
+
+    private function ledgerFor(int $attendanceId, string $column): ?object
+    {
+        return DB::table(self::LEDGER)
+            ->where('attendance_id', $attendanceId)
+            ->where('punch_column', $column)
+            ->first();
+    }
 
     private function device(array $overrides = []): BiometricDevice
     {
@@ -1046,6 +1563,42 @@ class HistoricalClockCorrectionTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * A ledger claim on ONE punch, exactly as a completed run leaves it.
+     *
+     * Insert-not-upsert on purpose: several tests use the QueryException this
+     * raises as the proof that the composite UNIQUE is real.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    private function claimPunch(
+        BiometricDevice $device,
+        User $user,
+        int $attendanceId,
+        string $column,
+        ?string $before,
+        ?string $after,
+        array $overrides = []
+    ): void {
+        DB::table(self::LEDGER)->insert(array_merge([
+            'attendance_id' => $attendanceId,
+            'punch_column' => $column,
+            'biometric_device_id' => $device->id,
+            'device_serial' => $device->serial_number,
+            'user_id' => $user->id,
+            'attendance_date' => '2026-06-01',
+            'applied_seconds' => -self::OFFSET,
+            'punchin_before' => $column === 'punchin' ? $before : null,
+            'punchin_after' => $column === 'punchin' ? $after : null,
+            'punchout_before' => $column === 'punchout' ? $before : null,
+            'punchout_after' => $column === 'punchout' ? $after : null,
+            'payload' => json_encode(['id' => $attendanceId]),
+            'run_id' => '00000000-0000-4000-8000-000000000000',
+            'archived_at' => now(),
+            'applied_at' => now(),
+        ], $overrides));
     }
 
     /**

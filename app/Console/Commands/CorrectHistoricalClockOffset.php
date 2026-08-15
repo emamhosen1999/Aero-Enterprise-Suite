@@ -88,17 +88,28 @@ use Illuminate\Support\Str;
  * ── Never twice: the primary design constraint ─────────────────────────────
  *
  * Shifting the same punch by another two hours would be silent, plausible and
- * payroll-visible. The guard is `attendance_clock_corrections.attendance_id`,
- * UNIQUE. Before a row is updated its full original is committed there, so:
+ * payroll-visible. The guard is UNIQUE `(attendance_id, punch_column)` on
+ * `attendance_clock_corrections`: ONE LEDGER ROW PER CORRECTED PUNCH. Before a
+ * punch is updated its row's full original is committed there, so:
  *
- *  - the ledger is keyed on the attendance PRIMARY KEY, so a re-run with a
- *    different `--seconds`, a wider date range or the wrong device still hits it;
+ *  - the claim is per punch, keyed on the attendance PRIMARY KEY plus which
+ *    column, so a re-run with a different `--seconds`, a wider date range or the
+ *    wrong device still hits it;
  *  - it is a constraint, not a filter, so two concurrent runs cannot both pass a
  *    check-then-act — the loser's batch insert throws and its transaction never
  *    reaches the `UPDATE`;
  *  - it does not rely on the shifted timestamp ceasing to match
  *    `biometric_att_logs.punch_time`. That is true at 7200 s, but it is a
  *    property of this offset, not of the design.
+ *
+ * The granularity is per COLUMN and not per row because a row can need
+ * correcting twice for two different reasons. Attendance 9901 had its punch-in
+ * corrected in the first production run and its punch-out skipped, because the
+ * punch-out's only log row was marked `duplicate`. Under a per-row key that
+ * punch-out could never be reached again: the archive insert would collide with
+ * the row's existing entry before any update was issued, and the day would stay
+ * at 9.5 hours for 7.5 worked — half-corrected, which reads as correct. Per
+ * column, the punch-in stays permanently claimed while the punch-out is free.
  *
  * The archive is committed in its OWN transaction, before the update transaction
  * opens. A crash between the two leaves a guarded-but-unshifted row
@@ -160,6 +171,19 @@ class CorrectHistoricalClockOffset extends Command
     private const MATCH_IN = 'clock_correction_match_punchin';
 
     private const MATCH_OUT = 'clock_correction_match_punchout';
+
+    private const GUARD_IN = 'clock_correction_guard_punchin';
+
+    private const GUARD_OUT = 'clock_correction_guard_punchout';
+
+    /** The two punch columns this command can shift, in row order. */
+    private const PUNCH_COLUMNS = ['punchin', 'punchout'];
+
+    /**
+     * Staged but never converted into attendance. Excluded from correction and
+     * reported instead — see reportedByDevice().
+     */
+    private const STATUS_DOWNLOADED = 'downloaded';
 
     /**
      * Refuse an offset larger than this. Shares DeviceClockService's bound: two
@@ -348,34 +372,36 @@ class CorrectHistoricalClockOffset extends Command
     {
         $query = DB::table('attendances')
             ->select('attendances.*')
-            // Which SIDE of this row the device reported. Scalar subqueries
-            // rather than a raw EXISTS: `addSelect(['alias' => $builder])` emits
-            // the same standard SQL on SQLite and MySQL, returning 1 or NULL,
-            // with no driver branch and no raw fragment to get wrong.
+            // Per-column state, decided by the database. Scalar subqueries rather
+            // than a raw EXISTS: `addSelect(['alias' => $builder])` emits the same
+            // standard SQL on SQLite and MySQL, returning 1 or NULL, with no
+            // driver branch and no raw fragment to get wrong.
             ->addSelect([
                 self::MATCH_IN => $this->reportedByDevice('punchin'),
                 self::MATCH_OUT => $this->reportedByDevice('punchout'),
+                self::GUARD_IN => $this->alreadyCorrected('punchin'),
+                self::GUARD_OUT => $this->alreadyCorrected('punchout'),
             ])
-            ->whereExists(function ($sub) {
-                $sub->select(DB::raw(1))
-                    ->from('biometric_att_logs')
-                    ->whereColumn('biometric_att_logs.user_id', 'attendances.user_id')
-                    ->where('biometric_att_logs.punch_status', 'processed')
-                    ->where('biometric_att_logs.biometric_device_id', $this->device->id)
-                    // Already corrected at ingest: `attendances` holds the
-                    // corrected moment, `punch_time` is only the raw string.
-                    ->whereNull('biometric_att_logs.corrected_punch_time')
-                    ->where(function ($match) {
-                        $match->whereColumn('biometric_att_logs.punch_time', 'attendances.punchin')
-                            ->orWhereColumn('biometric_att_logs.punch_time', 'attendances.punchout');
+            // Selected when EITHER punch is this device's AND that same punch has
+            // not already been corrected. Per column, both halves — a row whose
+            // punch-in was corrected in an earlier run is still selected for its
+            // punch-out, and vice versa.
+            ->where(function ($outer) {
+                foreach (self::PUNCH_COLUMNS as $column) {
+                    $outer->orWhere(function ($clause) use ($column) {
+                        $clause->whereExists($this->reportedByDevice($column))
+                            // An OPTIMISATION, not the guard — say so plainly,
+                            // because mislabelling it invites someone to trust
+                            // it. A row can be selected here and still have one
+                            // guarded column (that is the whole point of the OR),
+                            // so the per-column decision has to be re-made in
+                            // shiftFor() regardless. What this buys is not
+                            // safety: it keeps the 459 punches already corrected
+                            // on production out of the walk entirely instead of
+                            // dragging them through every chunk to be discarded.
+                            ->whereNotExists($this->alreadyCorrected($column));
                     });
-            })
-            // THE GUARD. Cheap pre-filter; the UNIQUE index is what actually
-            // enforces it when two runs race.
-            ->whereNotExists(function ($sub) {
-                $sub->select(DB::raw(1))
-                    ->from(self::LEDGER)
-                    ->whereColumn(self::LEDGER.'.attendance_id', 'attendances.id');
+                }
             });
 
         if ($this->from !== null) {
@@ -392,10 +418,44 @@ class CorrectHistoricalClockOffset extends Command
     /**
      * "Did THIS device report the punch currently sitting in `$column`?"
      *
-     * Same four conditions as the row-level EXISTS, narrowed to one side. The
-     * `limit(1)` matters: a scalar subquery must return at most one row, and a
-     * device can legitimately hold several log rows for the same instant (an
-     * in and an out share the natural key only up to `check_type`).
+     * The evidence is EXACT TIMESTAMP EQUALITY between the stored punch and a raw
+     * `biometric_att_logs.punch_time` for the same user and device. Nothing else
+     * identifies a device-sourced value: `attendances` has no `source` column,
+     * and a human cannot type a time that coincides with a terminal's reading to
+     * the second.
+     *
+     * ── Why `punch_status` is NOT part of the test ──────────────────────────
+     *
+     * It used to require `processed`, and that was wrong. `punch_status`
+     * describes the LOG ROW — whether that particular capture converted into
+     * attendance — not whether the value in `attendances` came from the device.
+     * A punch pushed once and re-captured later has one `processed` row and one
+     * `duplicate` row for the same instant, and which of the two the query finds
+     * says nothing about the punch. Attendance 9901 lost its punch-out correction
+     * to exactly that: a genuine device punch whose only surviving log row was
+     * marked `duplicate`, leaving the day reading 9.5 hours instead of 7.5.
+     *
+     * `failed`, `unknown_user` and `wrong_device` are included for the same
+     * reason. Each describes what happened to that capture attempt; if the
+     * timestamp is nonetheless sitting in `attendances`, the punch reached
+     * attendance by some route and the value is the device's.
+     *
+     * ── The two exclusions, and why they are different ─────────────────────
+     *
+     *  - `corrected_punch_time IS NOT NULL` — the forward fix already handled
+     *    this punch. `attendances` holds the CORRECTED moment and `punch_time` is
+     *    only the raw string it arrived as, so an equality match here would be a
+     *    coincidence against a value that is already right.
+     *  - `punch_status = 'downloaded'` — staged and never converted. Its time
+     *    should not be in `attendances` at all. If it is, something imported it
+     *    by a path this command does not model, and correcting it on that
+     *    assumption would be guessing. Those are counted and REPORTED instead;
+     *    see reportStagedOnly(). Note this excludes the log ROW, not the punch:
+     *    a punch that has both a `downloaded` row and a `duplicate` one still
+     *    matches through the latter and is corrected normally.
+     *
+     * The `limit(1)` matters: a scalar subquery must return at most one row, and
+     * a device can legitimately hold several log rows for the same instant.
      *
      * `check_type` is deliberately NOT compared against which column this is.
      * The ingest path can record a device's check-OUT as the day's check-in when
@@ -407,13 +467,52 @@ class CorrectHistoricalClockOffset extends Command
      */
     private function reportedByDevice(string $column)
     {
+        return $this->deviceLogsFor($column)
+            ->where('biometric_att_logs.punch_status', '!=', self::STATUS_DOWNLOADED);
+    }
+
+    /**
+     * The staged-only case: this punch matches a `downloaded` log and nothing
+     * else. Reported, never corrected.
+     */
+    private function stagedByDevice(string $column)
+    {
+        return $this->deviceLogsFor($column)
+            ->where('biometric_att_logs.punch_status', self::STATUS_DOWNLOADED);
+    }
+
+    /**
+     * Raw device logs whose untouched `punch_time` equals `attendances.$column`.
+     */
+    private function deviceLogsFor(string $column)
+    {
         return DB::table('biometric_att_logs')
             ->select(DB::raw(1))
             ->whereColumn('biometric_att_logs.user_id', 'attendances.user_id')
-            ->where('biometric_att_logs.punch_status', 'processed')
             ->where('biometric_att_logs.biometric_device_id', $this->device->id)
             ->whereNull('biometric_att_logs.corrected_punch_time')
             ->whereColumn('biometric_att_logs.punch_time', 'attendances.'.$column)
+            ->limit(1);
+    }
+
+    /**
+     * "Has THIS punch already been shifted by this command?"
+     *
+     * The ledger is keyed on (attendance_id, punch_column) and holds one row per
+     * corrected punch, so the question is asked and answered per column. A row
+     * whose punch-in was corrected in an earlier run answers yes for `punchin`
+     * and no for `punchout`, which is exactly what attendance 9901 needed.
+     *
+     * Deliberately not scoped to this device or this run: a punch that has been
+     * shifted once must never be shifted again, whoever asks and with whatever
+     * `--seconds`.
+     */
+    private function alreadyCorrected(string $column)
+    {
+        return DB::table(self::LEDGER)
+            ->select(DB::raw(1))
+            ->whereColumn(self::LEDGER.'.attendance_id', 'attendances.id')
+            ->where(self::LEDGER.'.punch_column', $column)
             ->limit(1);
     }
 
@@ -429,7 +528,12 @@ class CorrectHistoricalClockOffset extends Command
     {
         $columns = (array) $row;
 
-        unset($columns[self::MATCH_IN], $columns[self::MATCH_OUT]);
+        unset(
+            $columns[self::MATCH_IN],
+            $columns[self::MATCH_OUT],
+            $columns[self::GUARD_IN],
+            $columns[self::GUARD_OUT],
+        );
 
         return $columns;
     }
@@ -484,9 +588,12 @@ class CorrectHistoricalClockOffset extends Command
     {
         $scan = [
             'rows' => 0,
+            'punches' => 0,
             'with_punchin' => 0,
             'with_punchout' => 0,
             'mixed_source' => 0,
+            'resumed' => 0,
+            'already_complete' => 0,
             'crossing' => [],
             'crossing_count' => 0,
             'samples' => [],
@@ -506,10 +613,25 @@ class CorrectHistoricalClockOffset extends Command
             foreach ($rows as $row) {
                 $shift = $this->shiftFor($row);
 
+                if ($shift['shifts'] === []) {
+                    // Nothing left to move on this row: every punch this device
+                    // reported is already claimed. Counted separately from
+                    // `rows`, because the run will not touch it — and counted at
+                    // all because it is the one place the pre-filter's effect is
+                    // observable. A healthy re-run reports zero here; a non-zero
+                    // count means rows reached the walk that the query should
+                    // have excluded.
+                    $scan['already_complete']++;
+
+                    continue;
+                }
+
                 $scan['rows']++;
+                $scan['punches'] += count($shift['shifts']);
                 $scan['with_punchin'] += $shift['punchin_before'] !== null ? 1 : 0;
                 $scan['with_punchout'] += $shift['punchout_before'] !== null ? 1 : 0;
                 $scan['mixed_source'] += $shift['mixed_source'] ? 1 : 0;
+                $scan['resumed'] += $shift['resumed'] ? 1 : 0;
 
                 $date = (string) $row->date;
                 $date = $date !== '' ? substr($date, 0, 10) : null;
@@ -586,21 +708,50 @@ class CorrectHistoricalClockOffset extends Command
      */
     private function shiftFor(object $row): array
     {
-        // Only the side this device actually reported. An unmatched punch is
-        // treated exactly like an absent one: recorded as NULL in the ledger and
-        // never written back.
-        $in = empty($row->{self::MATCH_IN})
-            ? $this->noShift()
-            : $this->shiftTimestamp($row->punchin ?? null);
+        $match = [
+            'punchin' => ! empty($row->{self::MATCH_IN}),
+            'punchout' => ! empty($row->{self::MATCH_OUT}),
+        ];
 
-        $out = empty($row->{self::MATCH_OUT})
-            ? $this->noShift()
-            : $this->shiftTimestamp($row->punchout ?? null);
+        $guarded = [
+            'punchin' => ! empty($row->{self::GUARD_IN}),
+            'punchout' => ! empty($row->{self::GUARD_OUT}),
+        ];
+
+        $shifts = [];
+
+        foreach (self::PUNCH_COLUMNS as $column) {
+            // Three independent reasons to leave a punch alone, and each one is
+            // sufficient on its own:
+            //   · this device never reported it (web, admin, another terminal);
+            //   · it has already been corrected — the ledger says so, per column;
+            //   · it is absent or unparseable.
+            // All three land in the same place: no entry in $shifts, so nothing
+            // is written back and no ledger row claims it.
+            if (! $match[$column] || $guarded[$column]) {
+                continue;
+            }
+
+            $moved = $this->shiftTimestamp($row->{$column} ?? null);
+
+            if ($moved['after'] === null) {
+                continue;
+            }
+
+            $shifts[$column] = $moved;
+        }
+
+        $in = $shifts['punchin'] ?? $this->noShift();
+        $out = $shifts['punchout'] ?? $this->noShift();
 
         return [
             'id' => (int) $row->id,
             'user_id' => (int) $row->user_id,
             'date' => substr((string) $row->date, 0, 10),
+            // Keyed by column, and the single source of truth for what this run
+            // writes: both the UPDATE and the ledger rows are built from it, so
+            // they cannot disagree about which punches moved.
+            'shifts' => $shifts,
             'punchin_before' => $in['before'],
             'punchin_after' => $in['after'],
             'punchout_before' => $out['before'],
@@ -609,9 +760,21 @@ class CorrectHistoricalClockOffset extends Command
             // one of them — the other belongs to the web, an admin, or another
             // terminal, and must not move. An open row (punched in, never out)
             // is not mixed: it has one punch, not two sources.
+            //
+            // A punch this command ALREADY corrected also fails the match test,
+            // because its log still holds the pre-correction timestamp and no
+            // longer equals the stored value. That is a resumed row, not a mixed
+            // one, and conflating the two would tell an operator that attendance
+            // 9901 has a web punch-in when it has a corrected one. So a column
+            // that is merely claimed does not make the row mixed.
             'mixed_source' => ($row->punchin ?? null) !== null
                 && ($row->punchout ?? null) !== null
-                && empty($row->{self::MATCH_IN}) !== empty($row->{self::MATCH_OUT}),
+                && $match['punchin'] !== $match['punchout']
+                && ! $guarded[$match['punchin'] ? 'punchout' : 'punchin'],
+            // A row whose other punch this command corrected on an earlier run.
+            // Not a problem — it is the case attendance 9901 needed — but worth
+            // showing, because the row will look half-corrected until this runs.
+            'resumed' => $shifts !== [] && ($guarded['punchin'] || $guarded['punchout']),
             // A shifted punch that lands on a different calendar day than it
             // started on. `attendances.date` would then disagree with its own
             // punches, and the row may collide with the adjacent day's row.
@@ -694,6 +857,14 @@ class CorrectHistoricalClockOffset extends Command
                         );
                     }
 
+                    if ($shift['shifts'] === []) {
+                        // Selected by the query but with nothing left to move —
+                        // an unparseable punch, or the other column raced ahead.
+                        // Archiving it would claim a correction that never
+                        // happened and burn the guard for that punch.
+                        continue;
+                    }
+
                     $plan[] = $shift;
                 }
 
@@ -713,11 +884,11 @@ class CorrectHistoricalClockOffset extends Command
                 $applied += $this->shiftRows($plan);
             });
         } catch (QueryException $e) {
-            // Overwhelmingly the UNIQUE on attendance_id: another run got there
-            // first. The batch insert failed as a unit, so nothing in it was
-            // updated.
+            // Overwhelmingly the UNIQUE on (attendance_id, punch_column):
+            // another run corrected this punch first. The batch insert failed as
+            // a unit, so nothing in it was updated.
             $this->newLine();
-            $this->error('Aborted: the archive rejected a row that is already corrected. Another run has covered these rows. Nothing in the failing batch was changed.');
+            $this->error('Aborted: the archive rejected a punch that is already corrected. Another run has covered it. Nothing in the failing batch was changed.');
             $this->line('  '.Str::limit($e->getMessage(), 300));
 
             $this->summariseRun($runId, $archived, $applied);
@@ -750,11 +921,21 @@ class CorrectHistoricalClockOffset extends Command
     }
 
     /**
-     * Commit the full original of every row in the batch.
+     * Commit one archive row per PUNCH about to be shifted.
+     *
+     * One row per corrected punch, not per attendance row. That is the whole
+     * shape of the idempotency guard: `(attendance_id, punch_column)` is UNIQUE,
+     * so a punch that has an archive row can never acquire a second one, and a
+     * punch that has none is free to be corrected regardless of what happened to
+     * the other punch on the same day. Attendance 9901 could not be finished
+     * under the old per-row key; under this one its punch-out inserts cleanly
+     * while its punch-in stays permanently claimed.
      *
      * `payload` is the complete `attendances` row as the database returned it,
      * id included — not a chosen subset, so a restore does not depend on this
-     * command having anticipated which columns would matter later.
+     * command having anticipated which columns would matter later. Both siblings
+     * of a row corrected on both punches carry it, so either one restores the
+     * original in full.
      *
      * @param  list<array<string, mixed>>  $plan
      */
@@ -764,22 +945,33 @@ class CorrectHistoricalClockOffset extends Command
         $records = [];
 
         foreach ($plan as $shift) {
-            $records[] = [
-                'attendance_id' => $shift['id'],
-                'biometric_device_id' => $this->device->id,
-                'device_serial' => $this->device->serial_number,
-                'user_id' => $shift['user_id'],
-                'attendance_date' => $shift['date'],
-                'applied_seconds' => $this->appliedSeconds,
-                'punchin_before' => $shift['punchin_before'],
-                'punchin_after' => $shift['punchin_after'],
-                'punchout_before' => $shift['punchout_before'],
-                'punchout_after' => $shift['punchout_after'],
-                'payload' => json_encode($this->originalRow($shift['row'])),
-                'run_id' => $runId,
-                'archived_at' => $now,
-                'applied_at' => null,
-            ];
+            $payload = json_encode($this->originalRow($shift['row']));
+
+            foreach ($shift['shifts'] as $column => $moved) {
+                $records[] = [
+                    'attendance_id' => $shift['id'],
+                    // The guard. Never inferred from the before/after columns —
+                    // it is stated, and the database enforces one per pair.
+                    'punch_column' => $column,
+                    'biometric_device_id' => $this->device->id,
+                    'device_serial' => $this->device->serial_number,
+                    'user_id' => $shift['user_id'],
+                    'attendance_date' => $shift['date'],
+                    'applied_seconds' => $this->appliedSeconds,
+                    'punchin_before' => $column === 'punchin' ? $moved['before'] : null,
+                    'punchin_after' => $column === 'punchin' ? $moved['after'] : null,
+                    'punchout_before' => $column === 'punchout' ? $moved['before'] : null,
+                    'punchout_after' => $column === 'punchout' ? $moved['after'] : null,
+                    'payload' => $payload,
+                    'run_id' => $runId,
+                    'archived_at' => $now,
+                    'applied_at' => null,
+                ];
+            }
+        }
+
+        if ($records === []) {
+            return 0;
         }
 
         // Its own transaction, and it commits here. Deliberately NOT shared with
@@ -793,6 +985,12 @@ class CorrectHistoricalClockOffset extends Command
     }
 
     /**
+     * Write the corrected punches, and confirm them in the ledger.
+     *
+     * Returns the number of PUNCHES moved, so it is directly comparable with the
+     * archive count — the two must agree, and summariseRun() says so when they
+     * do not.
+     *
      * @param  list<array<string, mixed>>  $plan
      */
     private function shiftRows(array $plan): int
@@ -803,30 +1001,28 @@ class CorrectHistoricalClockOffset extends Command
             $count = 0;
 
             foreach ($plan as $shift) {
+                if ($shift['shifts'] === []) {
+                    continue;
+                }
+
                 $update = ['updated_at' => $now];
 
-                if ($shift['punchin_after'] !== null) {
-                    $update['punchin'] = $shift['punchin_after'];
-                }
-
-                if ($shift['punchout_after'] !== null) {
-                    $update['punchout'] = $shift['punchout_after'];
-                }
-
-                if (count($update) === 1) {
-                    // Nothing parseable to shift. The ledger row stays
-                    // applied_at NULL so it reads as "seen, not corrected".
-                    continue;
+                foreach ($shift['shifts'] as $column => $moved) {
+                    $update[$column] = $moved['after'];
                 }
 
                 DB::table('attendances')->where('id', $shift['id'])->update($update);
 
+                // Confirm exactly the columns just written. A ledger row for a
+                // punch this batch did not touch keeps applied_at NULL and is
+                // reported rather than silently adopted.
                 DB::table(self::LEDGER)
                     ->where('attendance_id', $shift['id'])
+                    ->whereIn('punch_column', array_keys($shift['shifts']))
                     ->whereNull('applied_at')
                     ->update(['applied_at' => $now]);
 
-                $count++;
+                $count += count($shift['shifts']);
             }
 
             return $count;
@@ -867,6 +1063,72 @@ class CorrectHistoricalClockOffset extends Command
         }
     }
 
+    /**
+     * Punches whose ONLY matching log row is `downloaded`.
+     *
+     * `downloaded` means staged for import and never converted into attendance,
+     * so its timestamp should not be sitting in `attendances` at all. When one
+     * is, something put it there by a route this command does not model — a
+     * partial import, a hand-edit that happened to copy the staged value, a
+     * status left stale by an interrupted run. Correcting it would be acting on
+     * an assumption rather than on evidence, so it is named and left alone.
+     *
+     * Deliberately a separate query rather than part of the candidate walk: these
+     * rows are an observation, not work, and folding them into the selection
+     * would make "rows selected" mean two different things.
+     */
+    private function reportStagedOnly(): void
+    {
+        $query = DB::table('attendances')
+            ->where(function ($outer) {
+                foreach (self::PUNCH_COLUMNS as $column) {
+                    $outer->orWhere(function ($clause) use ($column) {
+                        $clause->whereExists($this->stagedByDevice($column))
+                            ->whereNotExists($this->reportedByDevice($column));
+                    });
+                }
+            });
+
+        if ($this->from !== null) {
+            $query->where('attendances.date', '>=', $this->from);
+        }
+
+        if ($this->until !== null) {
+            $query->where('attendances.date', '<=', $this->until);
+        }
+
+        $count = (clone $query)->count();
+
+        if ($count === 0) {
+            return;
+        }
+
+        $sample = $query->orderBy('attendances.id')
+            ->limit(self::MAX_REPORTED_CROSSINGS)
+            ->get(['id', 'user_id', 'date', 'punchin', 'punchout']);
+
+        $this->newLine();
+        $this->warn("  {$count} attendance row(s) hold a punch that matches only a 'downloaded' log for this device.");
+        $this->line('  NOT corrected, and not counted above. A downloaded row was staged and never converted, so its');
+        $this->line('  timestamp should not be in `attendances`; that it is means something imported it by a path this');
+        $this->line('  command does not model. Correcting it would be a guess. Review these by hand:');
+
+        $this->table(
+            ['attendance', 'user', 'date', 'punch-in', 'punch-out'],
+            $sample->map(fn ($row) => [
+                $row->id,
+                $row->user_id,
+                substr((string) $row->date, 0, 10),
+                $row->punchin ?? '—',
+                $row->punchout ?? '—',
+            ])->all()
+        );
+
+        if ($count > $sample->count()) {
+            $this->line('  … and '.($count - $sample->count()).' more.');
+        }
+    }
+
     private function printScan(array $scan): void
     {
         $this->newLine();
@@ -874,10 +1136,13 @@ class CorrectHistoricalClockOffset extends Command
 
         $this->table([], [
             ['Attendance rows selected', (string) $scan['rows']],
+            ['Punch values that would move', (string) $scan['punches']],
             ['Distinct users', (string) $scan['user_count']],
             ['Punch-in values that would move', (string) $scan['with_punchin']],
             ['Punch-out values that would move', (string) $scan['with_punchout']],
             ['Mixed rows (only one punch is this device\'s)', (string) $scan['mixed_source']],
+            ['Rows resuming an earlier run (other punch already done)', (string) $scan['resumed']],
+            ['Rows reached but already fully corrected (expect 0)', (string) $scan['already_complete']],
             ['Date span', $scan['rows'] === 0 ? '—' : $scan['min_date'].' .. '.$scan['max_date']],
             ['Rows crossing a date boundary', (string) $scan['crossing_count']],
         ]);
@@ -887,6 +1152,15 @@ class CorrectHistoricalClockOffset extends Command
             $this->line('  an admin, or another terminal, is already correct, and is left exactly as it is — the sample');
             $this->line('  below shows it with no "→" value.');
         }
+
+        if ($scan['resumed'] > 0) {
+            $this->line('  A "resumed" row already has one punch in the ledger from an earlier run, and only its OTHER');
+            $this->line('  punch is being corrected now. That punch is claimed per column, so the finished one cannot');
+            $this->line('  move again. This is the attendance-9901 case: punch-in corrected in the first pass, punch-out');
+            $this->line('  left behind because its only log row was marked "duplicate".');
+        }
+
+        $this->reportStagedOnly();
 
         $alreadyCorrected = DB::table(self::LEDGER)
             ->where('biometric_device_id', $this->device->id)
@@ -898,7 +1172,7 @@ class CorrectHistoricalClockOffset extends Command
             ->count();
 
         if ($alreadyCorrected > 0) {
-            $this->line("  {$alreadyCorrected} row(s) for this device are already in ".self::LEDGER.' and are excluded from the selection above.');
+            $this->line("  {$alreadyCorrected} punch(es) for this device are already in ".self::LEDGER.' and are excluded from the selection above.');
         }
 
         if ($unconfirmed > 0) {
@@ -1055,13 +1329,13 @@ class CorrectHistoricalClockOffset extends Command
         $this->newLine();
         $this->table([], [
             ['Run id', $runId],
-            ['Rows archived', (string) $archived],
-            ['Rows corrected', (string) $applied],
+            ['Punches archived', (string) $archived],
+            ['Punches corrected', (string) $applied],
             ['Archive table', self::LEDGER],
         ]);
 
         if ($archived !== $applied) {
-            $this->warn('  '.($archived - $applied).' archived row(s) were not confirmed corrected (applied_at IS NULL). Review them before re-running.');
+            $this->warn('  '.($archived - $applied).' archived punch(es) were not confirmed corrected (applied_at IS NULL). Review them before re-running.');
         }
     }
 }
