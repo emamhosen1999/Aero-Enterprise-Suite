@@ -124,6 +124,12 @@ class UserPolicy
             return false;
         }
 
+        // Department managers can toggle status for users in their department
+        if ($user->hasRole('Department Manager') &&
+            $user->department_id === $model->department_id) {
+            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
+        }
+
         return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
     }
 
@@ -135,6 +141,12 @@ class UserPolicy
         // Users can manage their own devices
         if ($user->id === $model->id) {
             return true;
+        }
+
+        // Department managers can manage devices for users in their department
+        if ($user->hasRole('Department Manager') &&
+            $user->department_id === $model->department_id) {
+            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
         }
 
         // Admins can manage any user's devices

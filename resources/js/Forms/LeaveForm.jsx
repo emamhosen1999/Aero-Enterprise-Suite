@@ -89,6 +89,7 @@ const LeaveForm = ({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         setIsSubmitting(true);
         clearErrors();
 
@@ -122,17 +123,23 @@ const LeaveForm = ({
                 config
             );
             if (response.status === 200 || response.status === 201) {
-                setLeavesData(response.data.leavesData);
-                
-                if (currentLeave && updateLeaveOptimized) {
+                if (typeof setLeavesData === 'function' && response.data.leavesData) {
+                    setLeavesData(response.data.leavesData);
+                }
+
+                if (currentLeave && typeof updateLeaveOptimized === 'function') {
                     updateLeaveOptimized(response.data.leave);
-                } else if (addLeaveOptimized) {
+                } else if (typeof addLeaveOptimized === 'function' && response.data.leave) {
                     addLeaveOptimized(response.data.leave);
                 }
+
+                const refetch = refetchStats || fetchLeavesStats;
+                if (typeof refetch === 'function') {
+                    refetch();
+                }
                 
-                refetchStats();
-                showToast.success(response.data.message || 'Leave submitted successfully');
-                (response.data.warnings || []).forEach(w => showToast.info(w));
+                showToast.success(response.data?.message || 'Leave submitted successfully');
+                (response.data?.warnings || []).forEach(w => showToast.info(w));
                 closeModal();
                 reset();
                 setFiles([]);
@@ -142,12 +149,12 @@ const LeaveForm = ({
                 const validationErrors = error.response.data.errors || {};
                 const flatErrors = {};
                 Object.keys(validationErrors).forEach(key => {
-                    flatErrors[key] = validationErrors[key][0];
+                    flatErrors[key] = Array.isArray(validationErrors[key]) ? validationErrors[key][0] : validationErrors[key];
                 });
                 setError(flatErrors);
-                showToast.error(error.response.data.message || 'Please check the form for errors');
+                showToast.error(error.response.data.message || error.response.data.error || 'Please check the form for errors');
             } else {
-                showToast.error(error.response?.data?.message || 'Failed to submit application');
+                showToast.error(error.response?.data?.message || error.response?.data?.error || 'Failed to submit application');
             }
         } finally {
             setIsSubmitting(false);

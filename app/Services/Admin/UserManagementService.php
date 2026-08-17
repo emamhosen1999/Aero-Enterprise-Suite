@@ -278,9 +278,9 @@ class UserManagementService
      */
     public function updateFcmToken(User $user, string $fcmToken): User
     {
-        $user->notificationTokens()->updateOrCreate(
+        \App\Models\NotificationToken::updateOrCreate(
             ['token' => $fcmToken],
-            ['provider' => 'fcm', 'platform' => 'web', 'last_used_at' => now()]
+            ['user_id' => $user->id, 'provider' => 'fcm', 'platform' => 'web', 'last_used_at' => now()]
         );
 
         return $user;

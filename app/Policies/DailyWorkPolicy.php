@@ -33,6 +33,11 @@ class DailyWorkPolicy
             return true;
         }
 
+        // Department Manager can view works where incharge or assigned user is in their department
+        if ($this->isDepartmentManager($user)) {
+            return $this->isDepartmentWork($user, $dailyWork);
+        }
+
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
@@ -83,6 +88,11 @@ class DailyWorkPolicy
             return true;
         }
 
+        // Department Manager can update works where incharge or assigned user is in their department
+        if ($this->isDepartmentManager($user)) {
+            return $this->isDepartmentWork($user, $dailyWork);
+        }
+
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
@@ -118,6 +128,11 @@ class DailyWorkPolicy
         // Admins can delete any
         if ($this->isAdmin($user)) {
             return true;
+        }
+
+        // Department Manager can delete works where incharge or assigned user is in their department
+        if ($this->isDepartmentManager($user)) {
+            return $this->isDepartmentWork($user, $dailyWork);
         }
 
         // Employee logic based on jurisdiction incharge
@@ -173,6 +188,11 @@ class DailyWorkPolicy
             return true;
         }
 
+        // Department Manager can update status for works in their department
+        if ($this->isDepartmentManager($user)) {
+            return $this->isDepartmentWork($user, $dailyWork);
+        }
+
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
@@ -226,6 +246,11 @@ class DailyWorkPolicy
             return true;
         }
 
+        // Department Manager can update inspection details for works in their department
+        if ($this->isDepartmentManager($user)) {
+            return $this->isDepartmentWork($user, $dailyWork);
+        }
+
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
@@ -276,6 +301,11 @@ class DailyWorkPolicy
             return true;
         }
 
+        // Department Manager can assign users for works in their department
+        if ($this->isDepartmentManager($user)) {
+            return $this->isDepartmentWork($user, $dailyWork);
+        }
+
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
@@ -324,6 +354,42 @@ class DailyWorkPolicy
     }
 
     /**
+     * Check if user is a Department Manager with a department assignment.
+     */
+    private function isDepartmentManager(User $user): bool
+    {
+        return $user->hasRole('Department Manager') && $user->department_id !== null;
+    }
+
+    /**
+     * Check if a daily work belongs to the department manager's department.
+     * A work "belongs" to a department if either its incharge user or assigned
+     * user is a member of that department.
+     */
+    private function isDepartmentWork(User $manager, DailyWork $dailyWork): bool
+    {
+        $deptId = $manager->department_id;
+
+        // Check if the incharge user is in the manager's department
+        if ($dailyWork->incharge) {
+            $inchargeUser = User::find($dailyWork->incharge);
+            if ($inchargeUser && (int) $inchargeUser->department_id === (int) $deptId) {
+                return true;
+            }
+        }
+
+        // Check if the assigned user is in the manager's department
+        if ($dailyWork->assigned) {
+            $assignedUser = User::find($dailyWork->assigned);
+            if ($assignedUser && (int) $assignedUser->department_id === (int) $deptId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if user is the incharge for this daily work.
      */
     private function isIncharge(User $user, DailyWork $dailyWork): bool
@@ -361,3 +427,4 @@ class DailyWorkPolicy
         return (int) $dailyWork->incharge === (int) $user->report_to;
     }
 }
+

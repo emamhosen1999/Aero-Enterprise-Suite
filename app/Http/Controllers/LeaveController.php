@@ -185,8 +185,20 @@ class LeaveController extends Controller
 
             $this->storeAttachments($request, $newLeave);
 
-            // Get updated leave records using the same service as paginate method
-            $leaveData = $this->queryService->getLeaveRecords($request);
+            // Get updated leave records safely
+            try {
+                $leaveData = $this->queryService->getLeaveRecords($request);
+            } catch (\Throwable $th) {
+                Log::warning('LeaveController create: failed to fetch updated leaveRecords after creation', ['error' => $th->getMessage()]);
+                $leaveData = [
+                    'leaveRecords' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20),
+                    'leavesData' => [
+                        'leaveTypes' => LeaveSetting::all(),
+                        'leaveCountsByUser' => [],
+                        'publicHolidays' => [],
+                    ],
+                ];
+            }
 
             // Realtime: a new application lights up the approver queue live.
             app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $userId, 'apply');
@@ -217,11 +229,13 @@ class LeaveController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
+            $status = ($e->getCode() >= 400 && $e->getCode() < 500) ? $e->getCode() : 500;
+
             return response()->json([
                 'success' => false,
-                'error' => 'An error occurred while submitting the leave data.',
+                'error' => $status === 422 ? $e->getMessage() : 'An error occurred while submitting the leave data.',
                 'details' => $this->safeExceptionMessage($e, 'Internal server error'),
-            ], 500);
+            ], $status);
         }
     }
 

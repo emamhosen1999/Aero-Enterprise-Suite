@@ -40,7 +40,15 @@ class LeaveQueryService
         $leaveType = $request->get('leave_type');
         $specificUserId = $request->get('user_id'); // Extract user_id if provided
 
-        $currentYear = $year ?: ($month ? Carbon::createFromFormat('Y-m-d', $month.'-01')->year : now()->year);
+        $currentYear = $year;
+        if (! $currentYear && $month) {
+            try {
+                $currentYear = Carbon::parse($month)->year;
+            } catch (\Throwable $e) {
+                $currentYear = now()->year;
+            }
+        }
+        $currentYear = $currentYear ?: now()->year;
 
         $leavesQuery = Leave::with(['employee', 'leaveSetting'])
             ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')

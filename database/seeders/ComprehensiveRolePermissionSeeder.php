@@ -696,33 +696,89 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ->get();
         $projectManager->givePermissionTo($projectPermissions);
 
-        // Department Manager - Departmental oversight
+        // Department Manager - Full departmental oversight & operations
         $deptManager = Role::findByName('Department Manager');
         $deptPermissions = Permission::whereIn('module', ['core', 'self-service', 'ppm'])
             ->orWhereIn('name', [
+                // Employee Management
                 'employees.view',
                 'employees.update',
-                'attendance.view',
-                'attendance.create',
-                'leaves.view',
-                'leaves.approve',
                 'departments.view',
                 'designations.view',
+
+                // Attendance Management (full dept operations)
+                'attendance.view',
+                'attendance.create',
+                'attendance.update',
+                'attendance.correct',
+                'attendance.export',
+                'holidays.view',
+
+                // Leave Management (full dept operations)
+                'leaves.view',
+                'leaves.create',
+                'leaves.update',
+                'leaves.approve',
+
+                // Quality Management (Quality Control dept operations)
+                'quality.view',
+                'quality.ncr.view',
+                'quality.ncr.create',
+                'quality.ncr.update',
+
+                // Daily Works (full dept operations)
+                'daily-works.delete',
+                'daily-works.import',
+                'daily-works.export',
+
+                // Performance Management
                 'performance-reviews.view',
                 'performance-reviews.create',
                 'performance-reviews.update',
                 'performance-reviews.approve',
                 'performance-analytics.view',
+
+                // Onboarding & Offboarding (view + create/update)
                 'hr.onboarding.view',
+                'hr.onboarding.create',
+                'hr.onboarding.update',
                 'hr.offboarding.view',
+                'hr.offboarding.create',
+                'hr.offboarding.update',
+
+                // Skills & Competency (full dept operations)
                 'hr.skills.view',
+                'hr.competencies.view',
                 'hr.employee.skills.view',
+                'hr.employee.skills.create',
                 'hr.employee.skills.update',
+                'hr.employee.skills.delete',
+
+                // Employee Benefits
+                'hr.employee.benefits.view',
+
+                // Time-off Management (full dept operations)
                 'hr.timeoff.view',
                 'hr.timeoff.approve',
                 'hr.timeoff.reject',
+                'hr.timeoff.calendar.view',
+                'hr.timeoff.reports.view',
+
+                // Safety & Incidents
+                'hr.safety.view',
+                'hr.safety.incidents.view',
+                'hr.safety.incidents.create',
+                'hr.safety.inspections.view',
+
+                // HR Analytics
                 'hr.analytics.view',
+                'hr.analytics.attendance',
+                'hr.analytics.performance',
+
+                // HR Documents
+                'hr.documents.view',
                 'hr.employee.documents.view',
+                'hr.employee.documents.create',
             ])
             ->get();
         $deptManager->givePermissionTo($deptPermissions);

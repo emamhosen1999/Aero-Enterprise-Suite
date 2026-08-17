@@ -708,11 +708,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/attendance/roster/cell', [RosterController::class, 'updateCell'])->name('attendance.roster.cell');
     });
 
-    Route::middleware(['permission:attendance.settings'])->group(function () {
-
-        // Coverage (Phase 2)
+    // Coverage & Locations (Read operations accessible with attendance.view)
+    Route::middleware(['permission:attendance.view'])->group(function () {
         Route::get('/attendance/coverage', [CoverageController::class, 'index'])->name('attendance.coverage.index');
         Route::get('/attendance/work-locations', [CoverageController::class, 'workLocations'])->name('attendance.workLocations.index');
+    });
+
+    Route::middleware(['permission:attendance.settings'])->group(function () {
+        // Coverage requirements (Admin settings)
         Route::get('/attendance/coverage-requirements', [CoverageRequirementController::class, 'index'])->name('attendance.coverageRequirements.index');
         Route::post('/attendance/coverage-requirements', [CoverageRequirementController::class, 'store'])->name('attendance.coverageRequirements.store');
         Route::put('/attendance/coverage-requirements/{id}', [CoverageRequirementController::class, 'update'])->name('attendance.coverageRequirements.update');
