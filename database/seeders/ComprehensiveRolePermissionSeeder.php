@@ -247,6 +247,16 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'reports.delete' => 'Delete reports',
             ],
 
+            // Operations & Maintenance (O&M) and Traffic Monitoring Center (TMC)
+            'om' => [
+                'om.dashboard.view' => 'View O&M overview and command dashboard',
+                'om.traffic.view' => 'View traffic monitoring center and VMS controller',
+                'om.toll.view' => 'View toll operations and revenue statistics',
+                'om.incidents.view' => 'View and manage incidents and emergency patrol dispatches',
+                'om.maintenance.view' => 'View and manage routine maintenance work orders',
+                'om.equipment.view' => 'View equipment status and asset uptime',
+            ],
+
             // HR Performance Management
             'performance' => [
                 'performance-reviews.view' => 'View performance reviews',

@@ -36,7 +36,7 @@ export function ProjectHero({ project, chainage = [], objections }) {
             <Flex align="end" justify="between" gap="5" wrap="wrap" mb="4">
                 <Box style={{ minWidth: 0 }}>
                     <Text size="1" style={{ fontFamily: MONO, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gray-11)' }}>
-                        Physical Progress · Main Carriageway
+                        Operational Status · Dhaka Bypass Expressway (N-105) O&M Phase
                     </Text>
                     <Heading size={{ initial: '5', md: '7' }} style={{ letterSpacing: '-0.02em', lineHeight: 1.05 }}>
                         {project.name}

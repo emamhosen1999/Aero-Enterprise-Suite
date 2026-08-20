@@ -312,6 +312,100 @@ class ModulePermissionSeeder extends Seeder
         ],
 
         // =====================================================================
+        // OPERATIONS & MAINTENANCE & TRAFFIC MONITORING (OM)
+        // =====================================================================
+        [
+            'code' => 'OM',
+            'name' => 'Operations & Maintenance',
+            'description' => 'Expressway operations, traffic monitoring center, toll management, incidents, and maintenance',
+            'icon' => 'WrenchScrewdriverIcon',
+            'category' => Module::CATEGORY_OPERATIONS_MAINTENANCE,
+            'route_prefix' => '/om',
+            'is_active' => true,
+            'sort_order' => 4,
+            'permissions' => ['om.dashboard.view', 'om.traffic.view', 'om.toll.view', 'om.incidents.view', 'om.maintenance.view', 'om.equipment.view'],
+            'sub_modules' => [
+                [
+                    'code' => 'OM_DASHBOARD',
+                    'name' => 'O&M Overview',
+                    'description' => 'Operations and maintenance command center dashboard',
+                    'icon' => 'ChartBarIcon',
+                    'route_prefix' => '/om/dashboard',
+                    'permissions' => ['om.dashboard.view'],
+                    'components' => [
+                        ['code' => 'OM_DASHBOARD_PAGE', 'name' => 'O&M Overview Page', 'type' => 'page', 'route_name' => 'om.dashboard', 'permissions' => ['om.dashboard.view']],
+                    ],
+                ],
+                [
+                    'code' => 'TRAFFIC_MONITORING',
+                    'name' => 'Traffic Monitoring Center',
+                    'description' => 'Live traffic density, VMS controller, and speed/overload detection',
+                    'icon' => 'ComputerDesktopIcon',
+                    'route_prefix' => '/om/traffic-monitoring',
+                    'permissions' => ['om.traffic.view'],
+                    'components' => [
+                        ['code' => 'TRAFFIC_PAGE', 'name' => 'Traffic Monitoring Page', 'type' => 'page', 'route_name' => 'om.traffic', 'permissions' => ['om.traffic.view']],
+                    ],
+                ],
+                [
+                    'code' => 'TOLL_OPERATIONS',
+                    'name' => 'Toll Operations',
+                    'description' => 'Toll plaza revenue monitoring and ETC lane operations',
+                    'icon' => 'CurrencyDollarIcon',
+                    'route_prefix' => '/om/toll-operations',
+                    'permissions' => ['om.toll.view'],
+                    'components' => [
+                        ['code' => 'TOLL_PAGE', 'name' => 'Toll Operations Page', 'type' => 'page', 'route_name' => 'om.toll', 'permissions' => ['om.toll.view']],
+                    ],
+                ],
+                [
+                    'code' => 'INCIDENT_MANAGEMENT',
+                    'name' => 'Incidents & Patrol',
+                    'description' => 'Incident dispatching, response SLAs, and emergency patrol logs',
+                    'icon' => 'ShieldCheckIcon',
+                    'route_prefix' => '/om/incidents',
+                    'permissions' => ['om.incidents.view'],
+                    'components' => [
+                        ['code' => 'INCIDENTS_PAGE', 'name' => 'Incidents & Patrol Page', 'type' => 'page', 'route_name' => 'om.incidents', 'permissions' => ['om.incidents.view']],
+                    ],
+                ],
+                [
+                    'code' => 'ROUTINE_MAINTENANCE',
+                    'name' => 'Maintenance Work Orders',
+                    'description' => 'Pavement care, lighting, guardrail, and bridge work orders',
+                    'icon' => 'WrenchScrewdriverIcon',
+                    'route_prefix' => '/om/work-orders',
+                    'permissions' => ['om.maintenance.view'],
+                    'components' => [
+                        ['code' => 'WORK_ORDERS_PAGE', 'name' => 'Maintenance Work Orders Page', 'type' => 'page', 'route_name' => 'om.work-orders', 'permissions' => ['om.maintenance.view']],
+                    ],
+                ],
+                [
+                    'code' => 'FACILITY_EQUIPMENT',
+                    'name' => 'Equipment & Assets',
+                    'description' => 'CCTV, VMS, WIM scales, and toll plaza hardware status',
+                    'icon' => 'CpuChipIcon',
+                    'route_prefix' => '/om/equipment',
+                    'permissions' => ['om.equipment.view'],
+                    'components' => [
+                        ['code' => 'EQUIPMENT_PAGE', 'name' => 'Equipment Status Page', 'type' => 'page', 'route_name' => 'om.equipment', 'permissions' => ['om.equipment.view']],
+                    ],
+                ],
+                [
+                    'code' => 'SHIFT_HANDOVER',
+                    'name' => 'Shift Handover Logs',
+                    'description' => 'Digital shift logbook and operator handover records',
+                    'icon' => 'ClipboardDocumentCheckIcon',
+                    'route_prefix' => '/om/shift-logs',
+                    'permissions' => ['om.dashboard.view'],
+                    'components' => [
+                        ['code' => 'SHIFT_LOGS_PAGE', 'name' => 'Shift Handover Logs Page', 'type' => 'page', 'route_name' => 'om.shift-logs', 'permissions' => ['om.dashboard.view']],
+                    ],
+                ],
+            ],
+        ],
+
+        // =====================================================================
         // DOCUMENT MANAGEMENT SYSTEM (DMS)
         // =====================================================================
         [

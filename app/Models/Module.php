@@ -60,6 +60,8 @@ class Module extends Model
 
     public const CATEGORY_ADMINISTRATION = 'system_administration';
 
+    public const CATEGORY_OPERATIONS_MAINTENANCE = 'operations_maintenance';
+
     public static function categories(): array
     {
         return [
@@ -73,6 +75,7 @@ class Module extends Model
             self::CATEGORY_RETAIL_SALES => 'Retail & Sales',
             self::CATEGORY_FINANCIAL => 'Financial Management',
             self::CATEGORY_ADMINISTRATION => 'System Administration',
+            self::CATEGORY_OPERATIONS_MAINTENANCE => 'Operations & Maintenance',
         ];
     }
 

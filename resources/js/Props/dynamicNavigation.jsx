@@ -104,6 +104,7 @@ const defaultModuleIcons = {
   'compliance': <ShieldCheckIcon className="" />,
   'procurement': <ShoppingBagIcon className="" />,
   'quality': <BeakerIcon className="" />,
+  'om': <WrenchScrewdriverIcon className="" />,
   'analytics': <ChartBarSquareIcon className="" />,
   'admin': <Cog6ToothIcon className="" />,
 };

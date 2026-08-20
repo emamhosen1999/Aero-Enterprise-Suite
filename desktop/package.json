@@ -1,0 +1,61 @@
+{
+  "name": "dbedc-guardian-desktop",
+  "version": "1.0.0",
+  "description": "Desktop Client for DBEDC Guardian Enterprise Suite",
+  "main": "main.js",
+  "author": "Dhaka Bypass Expressway Development Company (DBEDC)",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "start:dev": "electron . --dev",
+    "build:win": "cmd /c \"set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --win nsis portable\""
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.dhakabypass.dbedcguardian",
+    "productName": "DBEDC Guardian",
+    "copyright": "Copyright © 2026 Dhaka Bypass Expressway Development Company",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "*.js",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "../public/windows11/Square44x44Logo.targetsize-256.png",
+      "legalTrademarks": "DBEDC Guardian",
+      "publisherName": "DBEDC",
+      "forceCodeSigning": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DBEDC Guardian"
+    }
+  }
+}

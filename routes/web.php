@@ -35,7 +35,7 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ObjectionController;
-// APK Install Gate (public, always accessible)
+use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
@@ -943,6 +943,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/petty-cash/admin/overview', [PettyCashController::class, 'getAdminOverview'])->name('petty-cash.admin.overview');
     Route::get('/petty-cash/categories', [PettyCashController::class, 'getCategories'])->name('petty-cash.categories');
     Route::get('/petty-cash/audit-log', [PettyCashController::class, 'getAuditLog'])->name('petty-cash.audit-log');
+});
+
+// Operations & Maintenance (O&M) and Traffic Monitoring Center (TMC / ITS) Routes
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/om/dashboard', [OperationsMaintenanceController::class, 'dashboard'])->name('om.dashboard');
+    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])->name('om.traffic');
+    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])->name('om.toll');
+    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])->name('om.incidents');
+    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])->name('om.incidents.store');
+    Route::get('/om/work-orders', [OperationsMaintenanceController::class, 'workOrders'])->name('om.work-orders');
+    Route::post('/om/work-orders', [OperationsMaintenanceController::class, 'storeWorkOrder'])->name('om.work-orders.store');
+    Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])->name('om.equipment');
+    Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])->name('om.shift-logs');
+    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])->name('om.vms.update');
 });
 
 // Notification Settings Routes (admin)

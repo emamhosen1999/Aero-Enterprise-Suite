@@ -108,6 +108,13 @@ function App({ children }) {
         return getDynamicPages(auth);
     }, [auth?.accessibleModules]);
 
+    // Synchronize dynamic navigation tree with Electron native window menu
+    useEffect(() => {
+        if (window.electronAPI && window.electronAPI.updateNativeMenu && Array.isArray(pages) && pages.length > 0) {
+            window.electronAPI.updateNativeMenu(pages);
+        }
+    }, [pages]);
+
     // Theme and media query
     const theme = useTheme(darkMode ? 'dark' : 'light', themeId);
     const isMobile = useMediaQuery('(max-width: 768px)');    // Persist darkMode, themeColor, and sidebar state
@@ -216,6 +223,51 @@ function App({ children }) {
             
 return (
         <>
+            {/* ── Navigation / Loading Disabled Overlay (Blocks User Interaction) ── */}
+            {loading && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 99999,
+                        background: 'rgba(15, 23, 42, 0.25)',
+                        backdropFilter: 'blur(2px)',
+                        cursor: 'wait',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        pointerEvents: 'all',
+                        userSelect: 'none',
+                    }}
+                >
+                    <div
+                        style={{
+                            padding: '12px 24px',
+                            background: 'var(--color-panel-solid, #ffffff)',
+                            borderRadius: 'var(--radius-3, 8px)',
+                            boxShadow: 'var(--shadow-5, 0 10px 25px rgba(0,0,0,0.15))',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            border: '1px solid var(--gray-a5, rgba(0,0,0,0.1))',
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: 20,
+                                height: 20,
+                                border: '2.5px solid var(--accent-9, #3b82f6)',
+                                borderTopColor: 'transparent',
+                                borderRadius: '50%',
+                                animation: 'spin 0.6s linear infinite',
+                            }}
+                        />
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-12, #0f172a)', fontFamily: 'system-ui, sans-serif' }}>
+                            Loading...
+                        </span>
+                    </div>
+                </div>
+            )}
             {sessionExpired && <SessionExpiredModal setSessionExpired={setSessionExpired}/>}
             <ThemeSettingDrawer
                 themeId={themeId}

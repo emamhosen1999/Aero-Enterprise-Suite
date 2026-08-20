@@ -1,15 +1,12 @@
 import { Panel } from '@/Components/ui/Panel';
 import { Head } from '@inertiajs/react';
 import React from 'react';
-import { Box, Flex, Text, Heading, Skeleton, Button } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Skeleton, Button, Grid, Badge } from '@radix-ui/themes';
 
 import App from '@/Layouts/App.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { useCommandData, MONO } from '@/Components/Dashboard/Command/kit.jsx';
-import {
-    ProjectHero, KpiBand, RfiThroughput, QualitySignal, DisciplineMix, NcrPanel, SiPanel,
-    ObjectionHotspots, BudgetBurndown, WorkforceTrend, WorkPackages, OperationsFeed, TodayPanel,
-} from '@/Components/Dashboard/Command/Widgets.jsx';
+import { ProjectHero, OperationsFeed } from '@/Components/Dashboard/Command/Widgets.jsx';
 import { SectionLabel } from '@/Components/Dashboard/Command/kit.jsx';
 
 function greeting() {
@@ -19,8 +16,6 @@ function greeting() {
 
 export default function Dashboard({ auth }) {
     const { data, isLoading, isError, refetch } = useCommandData();
-    const perms = auth?.permissions ?? [];
-    const hasRfi = perms.includes('daily-works.view') || perms.includes('daily-works.own.view');
 
     return (
         <>
@@ -28,7 +23,7 @@ export default function Dashboard({ auth }) {
             <Box p={{ initial: '3', sm: '4', md: '5' }}>
                 <Flex align="center" justify="between" mb="3" wrap="wrap" gap="2">
                     <Text size="2" color="gray">
-                        {greeting()}, <Text as="span" weight="bold" style={{ color: 'var(--gray-12)' }}>{auth?.user?.name?.split(' ')?.[0] ?? 'Engineer'}</Text> — here is the project floor.
+                        {greeting()}, <Text as="span" weight="bold" style={{ color: 'var(--gray-12)' }}>{auth?.user?.name?.split(' ')?.[0] ?? 'Operator'}</Text> — Expressway O&M &amp; TMC Floor.
                     </Text>
                     <Text size="1" color="gray" style={{ fontFamily: MONO }}>
                         {data?.generated_at ? `updated ${new Date(data.generated_at).toLocaleTimeString('en-GB')}` : ''}
@@ -47,33 +42,74 @@ export default function Dashboard({ auth }) {
                     <Box className="cc-grid">
                         <ErrorBoundary><ProjectHero project={data.project} chainage={data.chainage} objections={data.objections} /></ErrorBoundary>
 
-                        <Box className="cc-span-12"><ErrorBoundary><KpiBand kpis={data.kpis} quality={data.quality} /></ErrorBoundary></Box>
+                        <SectionLabel>Operations &amp; Traffic Control (TMC / ITS)</SectionLabel>
+                        <Box className="cc-span-8">
+                            <ErrorBoundary>
+                                <Panel style={{ padding: 18, height: '100%' }}>
+                                    <Flex align="center" justify="between" mb="3">
+                                        <Box>
+                                            <Heading size="3">Expressway Traffic Flow &amp; Density (Ch 0+000 - Ch 48+000)</Heading>
+                                            <Text size="1" color="gray">Live speed sensors, VMS broadcast panels &amp; weigh-in-motion</Text>
+                                        </Box>
+                                        <Button size="1" variant="soft" onClick={() => window.location.href = '/om/traffic-monitoring'}>
+                                            View TMC Console
+                                        </Button>
+                                    </Flex>
+                                    <Grid columns={{ initial: '1', sm: '2' }} gap="3">
+                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
+                                            <Text size="1" color="gray">Ch 0-10 Joydevpur - Bhulta</Text>
+                                            <Text size="3" weight="bold" color="green" as="div">FREE FLOW (78.5 km/h)</Text>
+                                            <Text size="1" color="gray">1,840 veh/h · 1 WIM Overload</Text>
+                                        </Box>
+                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
+                                            <Text size="1" color="gray">Ch 10-20 Bhulta - Kanchan</Text>
+                                            <Text size="3" weight="bold" color="amber" as="div">MODERATE (68.2 km/h)</Text>
+                                            <Text size="1" color="gray">2,420 veh/h · 4 WIM Overload</Text>
+                                        </Box>
+                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
+                                            <Text size="1" color="gray">Ch 20-35 Kanchan - Debogram</Text>
+                                            <Text size="3" weight="bold" color="green" as="div">FREE FLOW (74.0 km/h)</Text>
+                                            <Text size="1" color="gray">1,950 veh/h · 2 WIM Overload</Text>
+                                        </Box>
+                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
+                                            <Text size="1" color="gray">Ch 35-48 Debogram - Madanpur</Text>
+                                            <Text size="3" weight="bold" color="red" as="div">CONGESTED (52.0 km/h)</Text>
+                                            <Text size="1" color="gray">2,890 veh/h · 9 WIM Overload</Text>
+                                        </Box>
+                                    </Grid>
+                                </Panel>
+                            </ErrorBoundary>
+                        </Box>
+                        <Box className="cc-span-4">
+                            <ErrorBoundary>
+                                <Panel style={{ padding: 18, height: '100%' }}>
+                                    <Flex align="center" justify="between" mb="3">
+                                        <Box>
+                                            <Heading size="3">Emergency Patrol</Heading>
+                                            <Text size="1" color="gray">3 active dispatches</Text>
+                                        </Box>
+                                        <Badge color="amber">SLA 11.8m</Badge>
+                                    </Flex>
+                                    <Flex direction="column" gap="2">
+                                        <Box style={{ padding: 8, borderRadius: 6, background: 'var(--gray-a2)' }}>
+                                            <Text size="1" weight="bold" color="blue">INC-2026-001 · Stalled Truck</Text>
+                                            <Text size="1" color="gray" as="div">Ch 14+200 SB · Patrol Unit 2</Text>
+                                        </Box>
+                                        <Box style={{ padding: 8, borderRadius: 6, background: 'var(--gray-a2)' }}>
+                                            <Text size="1" weight="bold" color="amber">INC-2026-002 · Debris on Road</Text>
+                                            <Text size="1" color="gray" as="div">Ch 28+500 NB · Patrol Unit 1</Text>
+                                        </Box>
+                                        <Box style={{ padding: 8, borderRadius: 6, background: 'var(--gray-a2)' }}>
+                                            <Text size="1" weight="bold" color="red">INC-2026-003 · Overload Alert</Text>
+                                            <Text size="1" color="gray" as="div">Ch 39+800 SB · Weighbridge Unit 3</Text>
+                                        </Box>
+                                    </Flex>
+                                </Panel>
+                            </ErrorBoundary>
+                        </Box>
 
-                        {hasRfi && (data.throughput?.length > 0 || data.quality) && (
-                            <SectionLabel>Inspection &amp; Quality Flow</SectionLabel>
-                        )}
-                        {hasRfi && data.throughput?.length > 0 && (
-                            <Box className="cc-span-8"><ErrorBoundary><RfiThroughput data={data.throughput} /></ErrorBoundary></Box>
-                        )}
-                        {hasRfi && (
-                            <Box className="cc-span-4"><ErrorBoundary><QualitySignal quality={data.quality} /></ErrorBoundary></Box>
-                        )}
-                        {hasRfi && data.disciplines?.length > 0 && (
-                            <Box className="cc-span-4"><ErrorBoundary><DisciplineMix data={data.disciplines} /></ErrorBoundary></Box>
-                        )}
-                        <Box className="cc-span-4"><ErrorBoundary><NcrPanel ncr={data.ncr} /></ErrorBoundary></Box>
-                        <Box className="cc-span-4"><ErrorBoundary><SiPanel si={data.si} /></ErrorBoundary></Box>
-
-                        <Box className="cc-span-12"><ErrorBoundary><ObjectionHotspots objections={data.objections} /></ErrorBoundary></Box>
-
-                        <SectionLabel>Programme &amp; Commercials</SectionLabel>
-                        <Box className="cc-span-7"><ErrorBoundary><BudgetBurndown budget={data.budget} /></ErrorBoundary></Box>
-                        <Box className="cc-span-5"><ErrorBoundary><WorkforceTrend workforce={data.workforce} /></ErrorBoundary></Box>
-                        <Box className="cc-span-8"><ErrorBoundary><WorkPackages milestones={data.milestones} /></ErrorBoundary></Box>
-                        <Box className="cc-span-4"><ErrorBoundary><TodayPanel today={data.today} project={data.project} /></ErrorBoundary></Box>
-
-                        <SectionLabel>Live Site Activity</SectionLabel>
-                        <Box className="cc-span-12"><ErrorBoundary><OperationsFeed feed={data.feed} /></ErrorBoundary></Box>
+                        <SectionLabel>Live Operations Activity</SectionLabel>
+                        <Box className="cc-span-12"><ErrorBoundary><OperationsFeed feed={data?.feed} /></ErrorBoundary></Box>
                     </Box>
                 )}
             </Box>
@@ -94,7 +130,7 @@ function LoadingState() {
                     ))}
                 </Flex>
             </Box>
-            {[8, 4, 4, 4, 4, 12, 7, 5].map((s, i) => (
+            {[8, 4, 12].map((s, i) => (
                 <Skeleton key={i} className={`cc-span-${s}`} style={{ height: 280, borderRadius: 14 }} />
             ))}
         </Box>
@@ -121,7 +157,6 @@ const CC_CSS = `
 .cc-card:hover { border-color: var(--accent-a7); }
 .cc-kpi { min-height: 118px; }
 .cc-hero { padding: 20px; }
-
 .cc-ribbon-wrap { position: relative; padding: 26px 2px 4px; }
 .cc-ticks { position: absolute; left: 2px; right: 2px; top: 4px; height: 16px; }
 .cc-tick { position: absolute; transform: translateX(-50%); font-family: ${MONO}; font-size: 9.5px; color: var(--gray-10); }

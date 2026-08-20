@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\ProfileController as MobileProfileController;
 use App\Http\Controllers\Api\V1\SyncController as MobileSyncController;
 use App\Http\Controllers\Api\VersionController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SystemMonitoringController;
@@ -296,6 +297,18 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::delete('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}', [MobileDailyWorkController::class, 'deleteObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.delete');
     Route::get('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}/download', [MobileDailyWorkController::class, 'downloadObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.download');
     Route::post('/notifications/token', [NotificationController::class, 'storeToken'])->name('api.v1.notifications.token.store');
+
+    // Operations & Maintenance (O&M) and Traffic Monitoring Center (TMC) Mobile API Endpoints
+    Route::get('/om/dashboard', [OperationsMaintenanceController::class, 'dashboard'])->name('api.v1.om.dashboard');
+    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])->name('api.v1.om.traffic');
+    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])->name('api.v1.om.toll');
+    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])->name('api.v1.om.incidents');
+    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])->name('api.v1.om.incidents.store');
+    Route::get('/om/work-orders', [OperationsMaintenanceController::class, 'workOrders'])->name('api.v1.om.work-orders');
+    Route::post('/om/work-orders', [OperationsMaintenanceController::class, 'storeWorkOrder'])->name('api.v1.om.work-orders.store');
+    Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])->name('api.v1.om.equipment');
+    Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])->name('api.v1.om.shift-logs');
+    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])->name('api.v1.om.vms.update');
 
     // Self-service account security (scoped to the authenticated user).
     Route::post('/account/change-password', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'changePassword'])->name('api.v1.account.change-password');

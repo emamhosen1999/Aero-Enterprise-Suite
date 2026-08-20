@@ -112,7 +112,6 @@ const App = React.memo(({ children }) => {
             <RadixThemeDrawer open={themeDrawerOpen} onClose={closeThemeDrawer} />
 
             <AuthGuard auth={auth} url={url}>
-              <NavigationProgress />
               <Box style={{ display: 'flex', height: '100vh', overflow: 'hidden', position: 'relative' }}>
 
                 {/* Update notification */}

@@ -5,6 +5,8 @@
 .env.testing
 .env.production
 /node_modules/
+/desktop/dist/
+/desktop/node_modules/
 public/hot
 
 # Created per-environment by `php artisan storage:link` — never commit the symlink

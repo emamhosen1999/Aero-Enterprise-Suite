@@ -61,13 +61,13 @@ class DhakaBypassCommandSeeder extends Seeder
             'budget_allocated'   => 35850000000,
             'budget_spent'       => 23000000000,
             'budget_utilization' => 64.15,
-            'health_status'      => 'at_risk',
-            'risk_level'         => 'high',
-            'spi'                => 0.92,
-            'cpi'                => 0.97,
-            'current_phase'      => 'Bituminous & Structures',
-            'next_milestone'     => 'Bituminous (DBM/BC) — Ch 0–39',
-            'next_milestone_date'=> '2026-09-30',
+            'health_status'      => 'healthy',
+            'risk_level'         => 'low',
+            'spi'                => 1.00,
+            'cpi'                => 1.00,
+            'current_phase'      => 'Operations & Maintenance (O&M & TMC Phase)',
+            'next_milestone'     => 'Toll Plaza System & Full Traffic Operation',
+            'next_milestone_date'=> '2026-10-31',
         ], fn ($v) => $v !== null);
         $cols = collect($enh)->filter(fn ($v, $k) => Schema::hasColumn('projects', $k))->all();
         if ($cols) {
@@ -138,6 +138,105 @@ class DhakaBypassCommandSeeder extends Seeder
 
         $this->seedNcrs($reporter, $now);
         $this->seedSiteInstructions($now);
+        $this->seedOperationsAndMaintenance($now);
+    }
+
+    /** Seed sample Operations & Maintenance (O&M) and Traffic Monitoring (TMC) records. */
+    private function seedOperationsAndMaintenance($now): void
+    {
+        // 1. Seed Traffic Monitoring Sections
+        if (Schema::hasTable('om_traffic_logs')) {
+            DB::table('om_traffic_logs')->delete();
+            $sections = [
+                ['CH_0_10', 'Joydevpur to Bhulta (Ch 0+000 - Ch 10+000)', 1840, 78.5, 'free_flow', 12, 1],
+                ['CH_10_20', 'Bhulta to Kanchan Bridge (Ch 10+000 - Ch 20+000)', 2420, 68.2, 'moderate', 24, 4],
+                ['CH_20_35', 'Kanchan Bridge to Debogram (Ch 20+000 - Ch 35+000)', 1950, 74.0, 'free_flow', 8, 2],
+                ['CH_35_48', 'Debogram to Madanpur N-1 (Ch 35+000 - Ch 48+000)', 2890, 52.0, 'congested', 35, 9],
+            ];
+            foreach ($sections as [$code, $name, $flow, $speed, $status, $overspeed, $overload]) {
+                DB::table('om_traffic_logs')->insert([
+                    'section_code' => $code, 'section_name' => $name,
+                    'vehicle_count_per_hour' => $flow, 'avg_speed_kmh' => $speed,
+                    'density_status' => $status, 'overspeed_count' => $overspeed,
+                    'overload_count' => $overload, 'recorded_at' => $now,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+        }
+
+        // 2. Seed VMS Messages
+        if (Schema::hasTable('om_vms_messages')) {
+            DB::table('om_vms_messages')->delete();
+            $vms = [
+                ['VMS-CH05', 'Ch 5+200 (Northbound)', 'DRIVE SAFELY - SPEED LIMIT 80 KM/H', 'ETC LANES OPEN AT TOLL PLAZA', 'info'],
+                ['VMS-CH18', 'Ch 18+400 (Kanchan Bridge)', 'CAUTION: ROADWORK ON RIGHT LANE', 'REDUCE SPEED TO 40 KM/H', 'warning'],
+                ['VMS-CH36', 'Ch 36+100 (Southbound)', 'EXPRESSWAY CLEAR TO MADANPUR INTERCHANGE', 'HAVE A SAFE JOURNEY', 'info'],
+            ];
+            foreach ($vms as [$code, $loc, $line1, $line2, $type]) {
+                DB::table('om_vms_messages')->insert([
+                    'vms_code' => $code, 'location' => $loc,
+                    'message_line1' => $line1, 'message_line2' => $line2,
+                    'type' => $type, 'is_active' => true,
+                    'updated_by_operator_at' => $now,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+        }
+
+        // 3. Seed Incidents
+        if (Schema::hasTable('om_incidents')) {
+            DB::table('om_incidents')->delete();
+            $incidents = [
+                ['INC-2026-001', 'Stalled Truck on Shoulder', 'Ch 14+200', 'southbound', 'minor', 'dispatched', 'Patrol Unit 2', 12, 'Breakdown on shoulder, tow truck requested.', '2026-08-19 14:10:00'],
+                ['INC-2026-002', 'Debris on Main Carriageway', 'Ch 28+500', 'northbound', 'minor', 'on_scene', 'Patrol Unit 1', 8, 'Tire rubber cleared from inner lane.', '2026-08-19 14:45:00'],
+                ['INC-2026-003', 'Overloaded Tipper Vehicle Warning', 'Ch 39+800', 'southbound', 'major', 'detected', 'Weighbridge Unit 3', 5, 'WIM sensor triggered 48-ton axle load.', '2026-08-19 15:20:00'],
+            ];
+            foreach ($incidents as [$num, $title, $ch, $dir, $sev, $stat, $unit, $resp, $desc, $rep]) {
+                DB::table('om_incidents')->insert([
+                    'incident_number' => $num, 'title' => $title, 'chainage' => $ch,
+                    'direction' => $dir, 'severity' => $sev, 'status' => $stat,
+                    'dispatched_unit' => $unit, 'response_time_minutes' => $resp,
+                    'description' => $desc, 'reported_at' => $rep,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+        }
+
+        // 4. Seed Routine Maintenance Work Orders
+        if (Schema::hasTable('om_work_orders')) {
+            DB::table('om_work_orders')->delete();
+            $wos = [
+                ['WO-90124', 'Guardrail Repair & Reflector Replacement', 'pavement', 'Ch 12+400 - Ch 13+100', 'medium', 'in_progress', 'Roadside Crew B', 'Replacing damaged W-beam guardrail.'],
+                ['WO-90125', 'Toll Plaza Lane 4 ETC Reader Calibration', 'lighting', 'Main Toll Plaza', 'high', 'assigned', 'ITS Tech Team', 'Recalibrating RFID antenna sensors.'],
+                ['WO-90126', 'Expansion Joint Sealing at Kanchan Bridge', 'bridge', 'Ch 18+270', 'high', 'pending', 'Bridge Maintenance Team', 'Replacing rubber seals on expansion joints.'],
+            ];
+            foreach ($wos as [$num, $title, $cat, $loc, $prio, $stat, $team, $desc]) {
+                DB::table('om_work_orders')->insert([
+                    'work_order_number' => $num, 'title' => $title, 'category' => $cat,
+                    'location' => $loc, 'priority' => $prio, 'status' => $stat,
+                    'assigned_to' => $team, 'description' => $desc,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+        }
+
+        // 5. Seed Equipment Status
+        if (Schema::hasTable('om_equipment_status')) {
+            DB::table('om_equipment_status')->delete();
+            $eq = [
+                ['CCTV-CH00', 'High Definition PTZ Surveillance Camera', 'cctv', 'Ch 0+000 Interchange', 'online', 99.90],
+                ['VMS-CH18', 'Variable Message Board Matrix', 'vms', 'Ch 18+400 Kanchan Bridge', 'online', 99.80],
+                ['WIM-PLAZA01', 'High-Speed Weigh-in-Motion Scale', 'wim', 'Main Toll Plaza Entry', 'online', 99.50],
+                ['GEN-PLAZA-MAIN', '500kVA Diesel Generator Backup System', 'generator', 'Toll Plaza Central Power Substation', 'online', 100.00],
+            ];
+            foreach ($eq as [$code, $name, $cat, $loc, $stat, $upt]) {
+                DB::table('om_equipment_status')->insert([
+                    'equipment_code' => $code, 'name' => $name, 'category' => $cat,
+                    'location' => $loc, 'status' => $stat, 'uptime_pct' => $upt,
+                    'last_ping_at' => $now, 'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+        }
     }
 
     /** NCR register — 101 issued · 41 open · 14 IE-consent · 46 closed. */

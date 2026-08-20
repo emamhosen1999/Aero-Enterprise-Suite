@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DBEDC Guardian - Server Settings</title>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      user-select: none;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--primary);
+    }
+
+    .preset-btns {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    .chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-save {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-save:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-cancel {
+      background: transparent;
+      color: var(--text-muted);
+    }
+
+    .btn-cancel:hover {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <h2>Server Endpoint Settings</h2>
+  <p>Configure the DBEDC Guardian server backend URL for this desktop client.</p>
+
+  <div class="form-group">
+    <label for="server-url">Backend Server URL</label>
+    <input type="text" id="server-url" placeholder="http://erp.dhakabypass.com" />
+    <div class="preset-btns">
+      <button class="chip" id="preset-prod">Production (erp.dhakabypass.com)</button>
+      <button class="chip" id="preset-local">Local Dev (localhost:8000)</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-cancel" id="cancel-btn">Cancel</button>
+    <button class="btn-save" id="save-btn">Save & Reconnect</button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (window.electronAPI) {
+        const currentUrl = await window.electronAPI.getServerUrl();
+        document.getElementById('server-url').value = currentUrl;
+      }
+
+      document.getElementById('preset-prod').addEventListener('click', () => {
+        document.getElementById('server-url').value = 'http://erp.dhakabypass.com';
+      });
+
+      document.getElementById('preset-local').addEventListener('click', () => {
+        document.getElementById('server-url').value = 'http://localhost:8000';
+      });
+
+      document.getElementById('cancel-btn').addEventListener('click', () => {
+        if (window.electronAPI) window.electronAPI.close();
+      });
+
+      document.getElementById('save-btn').addEventListener('click', async () => {
+        let val = document.getElementById('server-url').value.trim();
+        if (!val) val = 'http://erp.dhakabypass.com';
+        if (!val.startsWith('http://') && !val.startsWith('https://')) {
+          val = 'http://' + val;
+        }
+
+        if (window.electronAPI) {
+          await window.electronAPI.setServerUrl(val);
+          window.electronAPI.reloadApp();
+          window.electronAPI.close();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

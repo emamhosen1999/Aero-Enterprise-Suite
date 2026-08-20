@@ -113,6 +113,7 @@
 
         /* Enhanced Loading Screen - Optimized Performance & UX */
         #app-loading {
+            display: none !important;
             position: fixed;
             top: 0;
             left: 0;

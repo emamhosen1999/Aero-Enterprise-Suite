@@ -12,6 +12,8 @@ import { RadixThemeShell } from './Components/RadixThemeShell';
 import { initializeDeviceAuth } from './utils/deviceAuth';
 import queryClient from './api/reactQueryClient';
 import { showToast } from './utils/toastUtils';
+import { initInstantNavigation } from './Utils/instant-navigation';
+import { subscribeDesktopNavigation } from './Utils/desktop-bridge';
 
 // Initialize secure device authentication
 initializeDeviceAuth();
@@ -182,8 +184,17 @@ createInertiaApp({
         }
     },
 }).then(() => {
-    // Initialize device authentication
+    // Initialize device authentication and instant navigation preloading
     initializeDeviceAuth();
+    initInstantNavigation();
+    
+    // SPA routing for native Electron menu bar item clicks (0ms Inertia navigation!)
+    subscribeDesktopNavigation((data) => {
+        if (data?.route) {
+            const cleanRoute = data.route.startsWith('/') ? data.route : '/' + data.route;
+            router.visit(cleanRoute, { preserveState: true, preserveScroll: true });
+        }
+    });
     
 
     

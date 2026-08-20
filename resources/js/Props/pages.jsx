@@ -24,7 +24,11 @@ import {
   ScaleIcon,
   UserGroupIcon,
   UsersIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  WrenchScrewdriverIcon,
+  ShieldCheckIcon,
+  TruckIcon,
+  CpuChipIcon
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
@@ -123,17 +127,55 @@ export const getPages = (roles, permissions, auth = null) => {
       ]
     }] : []),
 
-    // Quality — Independent Engineer registers
-    ...((permissions.includes('quality.ncr.view') || permissions.includes('quality.view')) ? [{
-      name: 'Quality',
-      icon: <ClipboardDocumentCheckIcon className="" />,
+    // Operations & Maintenance (O&M) & Traffic Monitoring Center (TMC)
+    ...((permissions.includes('om.dashboard.view') || permissions.includes('om.traffic.view') || permissions.includes('om.toll.view') || permissions.includes('om.incidents.view') || permissions.includes('om.maintenance.view') || permissions.includes('om.equipment.view') || (auth?.user)) ? [{
+      name: 'Operations & Maintenance',
+      icon: <WrenchScrewdriverIcon className="" />,
       priority: 4,
-      module: 'quality',
+      module: 'om',
       subMenu: [
-        ...(permissions.includes('quality.ncr.view') ? [{
-          name: 'NCR Register', icon: <ScaleIcon />, route: 'quality.ncr.index',
-          description: 'Non-conformance reports raised by the Independent Engineer',
-        }] : []),
+        {
+          name: 'O&M Overview',
+          icon: <ChartBarSquareIcon />,
+          route: 'om.dashboard',
+          description: 'Operations and maintenance command center overview',
+        },
+        {
+          name: 'Traffic Monitoring Center',
+          icon: <ComputerDesktopIcon />,
+          route: 'om.traffic',
+          description: 'Live traffic density, VMS controller, WIM overload alerts',
+        },
+        {
+          name: 'Toll Operations',
+          icon: <CurrencyDollarIcon />,
+          route: 'om.toll',
+          description: 'Toll plaza revenue monitoring and ETC lane stats',
+        },
+        {
+          name: 'Incidents & Patrol',
+          icon: <ShieldCheckIcon />,
+          route: 'om.incidents',
+          description: 'Incident response SLAs, dispatching, and emergency patrol',
+        },
+        {
+          name: 'Maintenance Work Orders',
+          icon: <WrenchScrewdriverIcon />,
+          route: 'om.work-orders',
+          description: 'Routine maintenance, pavement, lighting, and bridge care',
+        },
+        {
+          name: 'Equipment & Assets',
+          icon: <CpuChipIcon />,
+          route: 'om.equipment',
+          description: 'CCTV, VMS, WIM scales, and generator health status',
+        },
+        {
+          name: 'Shift Handover Logs',
+          icon: <ClipboardDocumentCheckIcon />,
+          route: 'om.shift-logs',
+          description: 'Digital shift logbook and operator handover records',
+        },
       ],
     }] : []),
 

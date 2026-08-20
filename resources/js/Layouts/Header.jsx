@@ -24,6 +24,7 @@ import {
   useMarkAllRead,
 } from '@/api/queries/useNotificationsQuery';
 import { useRealtimeNotifications } from '@/Hooks/useRealtimeNotifications';
+import { isDesktop } from '@/Utils/desktop-bridge';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -167,11 +168,13 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
       }}
     >
       {/* ── Sidebar toggle ──────────────────────────────────────────────────── */}
-      <Tooltip content={sideBarOpen ? 'Collapse sidebar' : 'Expand sidebar'} delayDuration={600}>
-        <IconButton variant="ghost" color="gray" size="2" onClick={toggleSideBar} aria-label="Toggle sidebar">
-          <HamburgerMenuIcon />
-        </IconButton>
-      </Tooltip>
+      <Box style={{ WebkitAppRegion: 'no-drag' }}>
+        <Tooltip content={sideBarOpen ? 'Collapse sidebar' : 'Expand sidebar'} delayDuration={600}>
+          <IconButton variant="ghost" color="gray" size="2" onClick={toggleSideBar} aria-label="Toggle sidebar">
+            <HamburgerMenuIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
 
       {/* ── Page title — always flex:1, always visible on ≥tablet ────────────── */}
       {!isMobile && (
@@ -191,7 +194,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
 
       {/* ── Search — anchored on RIGHT, never shifts left ────────────────────── */}
       {!isMobile && (
-        <Box ref={searchWrapRef} style={{ flexShrink: 0 }}>
+        <Box ref={searchWrapRef} style={{ flexShrink: 0, WebkitAppRegion: 'no-drag' }}>
           {searchOpen ? (
             <form
               onSubmit={handleSearchSubmit}
@@ -249,7 +252,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
       )}
 
       {/* ── Right action bar ─────────────────────────────────────────────────── */}
-      <Flex align="center" gap="2" style={{ flexShrink: 0, paddingLeft: 6 }}>
+      <Flex align="center" gap="2" style={{ flexShrink: 0, paddingLeft: 6, WebkitAppRegion: 'no-drag' }}>
 
         {/* Mobile: search icon */}
         {isMobile && (

@@ -1,7 +1,7 @@
 {
      "private": true,
      "type": "module",
-     "version": "4.0.134",
+     "version": "4.0.136",
      "homepage": "http://erp.dhakabypass.com",
      "scripts": {
           "dev": "vite",
@@ -20,7 +20,10 @@
           "lighthouse:desktop": "lighthouse http://localhost:8000 --chrome-flags=\"--headless\" --output html --output-path=storage/app/lighthouse-desktop.html",
           "lighthouse:mobile": "lighthouse http://localhost:8000 --preset=perf --chrome-flags=\"--headless\" --emulated-form-factor=mobile --output html --output-path=storage/app/lighthouse-mobile.html",
           "performance:full": "npm run performance:baseline && npm run performance:test && npm run performance:report",
-          "quality:audit": "npm run bundle:analyze && npm run lighthouse:ci && axe http://localhost:8000 --save storage/app/accessibility-audit.json"
+          "quality:audit": "npm run bundle:analyze && npm run lighthouse:ci && axe http://localhost:8000 --save storage/app/accessibility-audit.json",
+          "desktop:dev": "npm --prefix desktop run start:dev",
+          "desktop:prod": "npm --prefix desktop start",
+          "desktop:build": "npm --prefix desktop run build:win"
      },
      "devDependencies": {
           "@axe-core/cli": "^4.10.2",
