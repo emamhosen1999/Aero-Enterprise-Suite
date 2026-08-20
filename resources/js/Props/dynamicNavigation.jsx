@@ -1,3 +1,4 @@
+import { getPages } from './pages.jsx';
 import {
   HomeIcon,
   UserGroupIcon,
@@ -219,7 +220,9 @@ export const getDynamicPages = (auth = null) => {
   const accessibleModules = auth?.accessibleModules || [];
 
   if (!accessibleModules.length) {
-    return [];
+    const permissions = auth?.permissions || [];
+    const roles = auth?.roles || [];
+    return getPages(roles, permissions, auth);
   }
 
   // Convert each module to navigation format
