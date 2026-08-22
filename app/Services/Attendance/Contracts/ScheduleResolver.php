@@ -7,5 +7,5 @@ use Carbon\CarbonInterface;
 
 interface ScheduleResolver
 {
-    public function resolve(int $userId, CarbonInterface $date): ShiftSchedule;
+    public function resolve(int|string $userId, CarbonInterface $date): ShiftSchedule;
 }

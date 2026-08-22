@@ -143,7 +143,7 @@ class RegularizationService
             $before = $att ? $att->only(['punchin', 'punchout', 'date']) : null;
 
             $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
-                ->resolve((int) $r->user_id, \Carbon\Carbon::parse($r->date));
+                ->resolve($r->user_id, \Carbon\Carbon::parse($r->date));
 
             $payload = ['user_id' => $r->user_id, 'date' => $r->date->toDateString()];
             if ($r->type === 'missed_day') {

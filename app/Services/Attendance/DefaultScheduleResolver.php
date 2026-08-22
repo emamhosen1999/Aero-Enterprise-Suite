@@ -14,7 +14,7 @@ class DefaultScheduleResolver implements ScheduleResolver
 
     private bool $settingsLoaded = false;
 
-    public function resolve(int $userId, CarbonInterface $date): ShiftSchedule
+    public function resolve(int|string $userId, CarbonInterface $date): ShiftSchedule
     {
         $settings = $this->getSettings();
 

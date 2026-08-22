@@ -14,7 +14,7 @@ class RosterScheduleResolver implements ScheduleResolver
         private readonly DefaultScheduleResolver $fallback,
     ) {}
 
-    public function resolve(int $userId, CarbonInterface $date): ShiftSchedule
+    public function resolve(int|string $userId, CarbonInterface $date): ShiftSchedule
     {
         $hasRoster = RosterDay::where('user_id', $userId)->whereDate('date', $date->toDateString())->exists();
 

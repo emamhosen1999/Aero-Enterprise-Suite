@@ -7,5 +7,5 @@ use Carbon\CarbonInterface;
 
 interface PolicyResolver
 {
-    public function resolve(int $userId, CarbonInterface $date): PolicyProfile;
+    public function resolve(int|string $userId, CarbonInterface $date): PolicyProfile;
 }

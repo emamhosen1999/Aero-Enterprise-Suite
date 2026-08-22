@@ -272,7 +272,7 @@ class AttendanceController extends Controller
                     ->map(function ($leave) {
                         return [
                             'id' => (int) ($leave->id ?? 0),
-                            'user_id' => (int) ($leave->user_id ?? 0),
+                            'user_id' => (string) ($leave->user_id ?? ''),
                             'leave_type' => (int) ($leave->leave_type ?? 0),
                             'leave_type_name' => $leave->leave_type_name,
                             'from_date' => $leave->from_date,
@@ -1163,12 +1163,12 @@ class AttendanceController extends Controller
 
         try {
             $attendance = app(AttendanceDayPartitionService::class)
-                ->markPresent((int) $validated['user_id'], (string) $validated['date'], $request);
+                ->markPresent((string) $validated['user_id'], (string) $validated['date'], $request);
 
             return $this->successResponse([
                 'attendance' => [
                     'id' => (int) $attendance->id,
-                    'user_id' => (int) $attendance->user_id,
+                    'user_id' => (string) $attendance->user_id,
                     'date' => $attendance->date instanceof \Carbon\CarbonInterface
                         ? $attendance->date->toDateString()
                         : (string) $attendance->date,

@@ -16,7 +16,7 @@ class DbPolicyResolver implements PolicyResolver
     /** @var array<string, \Illuminate\Support\Collection> Per-instance active-policy candidates keyed by date. */
     private array $candidatesByDate = [];
 
-    public function resolve(int $userId, CarbonInterface $date): PolicyProfile
+    public function resolve(int|string $userId, CarbonInterface $date): PolicyProfile
     {
         // Memoize within the resolver instance so callers that resolve in a loop
         // (e.g. the monthly report over user x day) don't issue a User::find +
@@ -35,7 +35,7 @@ class DbPolicyResolver implements PolicyResolver
         $order = ['user' => 4, 'designation' => 3, 'department' => 2, 'org' => 1];
         $match = $candidates
             ->filter(fn ($p) => match ($p->scope_type) {
-                'user' => $p->scope_id === $userId,
+                'user' => (string) $p->scope_id === (string) $userId,
                 'designation' => $user && $p->scope_id === $user->designation_id,
                 'department' => $user && $p->scope_id === $user->department_id,
                 'org' => true,

@@ -148,7 +148,7 @@ class AttendanceDayPartitionService
      * can never diverge. updateOrCreate keyed on (user_id, date) makes repeat
      * calls converge on one row rather than stacking duplicates.
      */
-    public function markPresent(int $userId, string $date, ?Request $request = null): Attendance
+    public function markPresent(int|string $userId, string $date, ?Request $request = null): Attendance
     {
         $day = Carbon::parse($date, config('app.timezone'));
         $dateStr = $day->toDateString();
