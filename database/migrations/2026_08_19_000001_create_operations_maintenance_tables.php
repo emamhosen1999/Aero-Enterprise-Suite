@@ -72,7 +72,7 @@ return new class extends Migration
             $table->id();
             $table->date('shift_date');
             $table->enum('shift_type', ['morning', 'evening', 'night']);
-            $table->foreignId('operator_id')->constrained('users')->onDelete('cascade');
+            $table->string('operator_id')->nullable();
             $table->integer('open_incidents_count')->default(0);
             $table->text('handover_notes')->nullable();
             $table->text('equipment_exceptions')->nullable();
