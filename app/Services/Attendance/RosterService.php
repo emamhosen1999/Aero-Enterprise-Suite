@@ -49,7 +49,7 @@ class RosterService
         return $written;
     }
 
-    public function resolveShift(int $userId, CarbonInterface $date): ?Shift
+    public function resolveShift(int|string $userId, CarbonInterface $date): ?Shift
     {
         $dateStr = $date->copy()->startOfDay()->toDateString();
 
@@ -81,7 +81,7 @@ class RosterService
      * layers the materialized-row precedence on top of this for read-time.
      * null = off / no work.
      */
-    public function resolveFromAssignment(int $userId, CarbonInterface $date): ?Shift
+    public function resolveFromAssignment(int|string $userId, CarbonInterface $date): ?Shift
     {
         // 1. Effective-dated assignment, highest precedence scope first.
         $assignment = $this->resolveAssignment($userId, $date);
@@ -173,7 +173,7 @@ class RosterService
      * Unlike resolveShift(), this honors source=pattern rows — it is the truth
      * the employee sees and what swaps/covers operate on. null = off / no work.
      */
-    public function effectiveShiftId(int $userId, string $date): ?int
+    public function effectiveShiftId(int|string $userId, string $date): ?int
     {
         $rosterDay = RosterDay::where('user_id', $userId)->whereDate('date', $date)->first();
         if ($rosterDay) {
@@ -183,7 +183,7 @@ class RosterService
         return $this->resolveShift($userId, Carbon::parse($date))?->id;
     }
 
-    private function writeSwapDay(int $userId, string $date, ?int $shiftId): void
+    private function writeSwapDay(int|string $userId, string $date, ?int $shiftId): void
     {
         RosterDay::updateOrCreate(
             ['user_id' => $userId, 'date' => $date],
@@ -191,7 +191,7 @@ class RosterService
         );
     }
 
-    public function resolveAssignment(int $userId, CarbonInterface $date): ?ShiftAssignment
+    public function resolveAssignment(int|string $userId, CarbonInterface $date): ?ShiftAssignment
     {
         $user = User::find($userId);
         $dateStr = $date->copy()->startOfDay()->toDateString();

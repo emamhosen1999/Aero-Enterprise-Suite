@@ -22,8 +22,8 @@ class AttendancePunched extends DomainEventBase
     public const ACTION_OUT = 'punch_out';
 
     public function __construct(
-        ?int $actorId,
-        ?int $attendanceId,
+        int|string|null $actorId,
+        int|string|null $attendanceId,
         public readonly string $action,
         public readonly string $businessDate,
         array $payload = [],

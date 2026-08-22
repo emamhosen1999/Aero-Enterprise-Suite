@@ -30,9 +30,9 @@ interface DomainEvent
 
     public function occurredAt(): CarbonImmutable;
 
-    public function actorId(): ?int;
+    public function actorId(): int|string|null;
 
-    public function subjectId(): ?int;
+    public function subjectId(): int|string|null;
 
     /** @return array<string, mixed> */
     public function payload(): array;

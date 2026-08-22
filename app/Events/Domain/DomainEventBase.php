@@ -32,8 +32,8 @@ abstract class DomainEventBase implements DomainEvent, ShouldDispatchAfterCommit
      * @param  array<string, mixed>  $payload
      */
     public function __construct(
-        public readonly ?int $actorId = null,
-        public readonly ?int $subjectId = null,
+        public readonly int|string|null $actorId = null,
+        public readonly int|string|null $subjectId = null,
         public readonly array $payload = [],
         ?CarbonImmutable $occurredAt = null,
     ) {
@@ -45,12 +45,12 @@ abstract class DomainEventBase implements DomainEvent, ShouldDispatchAfterCommit
         return $this->occurredAt;
     }
 
-    public function actorId(): ?int
+    public function actorId(): int|string|null
     {
         return $this->actorId;
     }
 
-    public function subjectId(): ?int
+    public function subjectId(): int|string|null
     {
         return $this->subjectId;
     }

@@ -271,7 +271,7 @@ class AttendancePunchService
     /**
      * Get existing attendance for user and date
      */
-    private function getExistingAttendance(int $userId, Carbon $date): ?Attendance
+    private function getExistingAttendance(int|string $userId, Carbon $date): ?Attendance
     {
         return Attendance::where('user_id', $userId)
             ->whereDate('date', $date)
@@ -303,7 +303,7 @@ class AttendancePunchService
      * Day-shift users are entirely unaffected: yesterday never crosses midnight,
      * so the very first check returns today's calendar date unchanged.
      */
-    private function resolveBusinessDate(int $userId, Carbon $punchTime): Carbon
+    private function resolveBusinessDate(int|string $userId, Carbon $punchTime): Carbon
     {
         $today = $punchTime->copy()->startOfDay();
         $prevDay = $today->copy()->subDay();
@@ -456,7 +456,7 @@ class AttendancePunchService
      * that punch-in. This only changes WHICH open row an out-punch closes —
      * it never blocks capture.
      */
-    private function findOpenAttendanceToClose(int $userId, CarbonInterface $punchMoment, bool $lock = false): ?Attendance
+    private function findOpenAttendanceToClose(int|string $userId, CarbonInterface $punchMoment, bool $lock = false): ?Attendance
     {
         // 1) Today's open row — existing behavior.
         $todayQuery = Attendance::where('user_id', $userId)

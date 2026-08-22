@@ -24,7 +24,7 @@ class AttendanceQueryService
     /**
      * Get today's attendance for a user
      */
-    public function getTodayAttendance(int $userId): array
+    public function getTodayAttendance(int|string $userId): array
     {
         $attendances = $this->attendanceRepository->getTodayAttendance($userId);
         if (! $attendances->contains(fn ($a) => $a->punchout === null)) {
@@ -85,7 +85,7 @@ class AttendanceQueryService
     /**
      * Get attendance history with pagination
      */
-    public function getAttendanceHistory(int $userId, array $filters = []): array
+    public function getAttendanceHistory(int|string $userId, array $filters = []): array
     {
         if (($filters['scope'] ?? 'self') !== 'team') {
             $filters['user_id'] = $userId;
@@ -104,7 +104,7 @@ class AttendanceQueryService
         // Remove ordering from query for counting/grouping to prevent SQL errors in some SQL modes/engines.
         $query->getQuery()->orders = null;
 
-        if (!$isTeam) {
+        if (! $isTeam) {
             // Self scope: group by date
             $paginator = $query->select('date')
                 ->groupBy('date')
@@ -164,6 +164,7 @@ class AttendanceQueryService
                 })->map(function ($userDayRecords) {
                     $first = $userDayRecords->first();
                     $dateStr = Carbon::parse($first->date)->toDateString();
+
                     return $this->formatGroupedAttendance($userDayRecords, $dateStr);
                 })->values()->all();
             }
@@ -176,6 +177,7 @@ class AttendanceQueryService
                 'last_page' => $paginator->lastPage(),
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
+                'has_more' => $paginator->hasMorePages(),
                 'from' => $paginator->firstItem(),
                 'to' => $paginator->lastItem(),
             ],
@@ -187,7 +189,7 @@ class AttendanceQueryService
      * and the punch-in is within 18 hours of now (bounded overnight rule for live display).
      * Returns null for day shifts or stale rows.
      */
-    private function openOvernightSession(int $userId): ?Attendance
+    private function openOvernightSession(int|string $userId): ?Attendance
     {
         $now = Carbon::now();
         $prior = $this->attendanceRepository
@@ -251,9 +253,9 @@ class AttendanceQueryService
 
         return [
             'id' => $firstRecord?->id,
-            'user_id' => (int) ($user?->id ?? 0),
+            'user_id' => (string) ($user?->id ?? ''),
             'user' => [
-                'id' => (int) ($user?->id ?? 0),
+                'id' => (string) ($user?->id ?? ''),
                 'name' => $user?->name,
                 'employee_id' => $user?->employee_id,
                 'phone' => $user?->phone,
@@ -281,7 +283,7 @@ class AttendanceQueryService
     /**
      * Get monthly attendance summary
      */
-    public function getMonthlySummary(int $userId, int $month, int $year): array
+    public function getMonthlySummary(int|string $userId, int $month, int $year): array
     {
         $summary = $this->attendanceRepository->getAttendanceSummary(
             $userId,

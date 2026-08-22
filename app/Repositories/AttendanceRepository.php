@@ -98,7 +98,7 @@ class AttendanceRepository extends BaseRepository
      *
      * @param  string|Carbon  $date
      */
-    public function getUserAttendanceForDate(int $userId, $date): Collection
+    public function getUserAttendanceForDate(int|string $userId, $date): Collection
     {
         return $this->model
             ->where('user_id', $userId)
@@ -110,7 +110,7 @@ class AttendanceRepository extends BaseRepository
     /**
      * Get today's attendance for a user
      */
-    public function getTodayAttendance(int $userId): Collection
+    public function getTodayAttendance(int|string $userId): Collection
     {
         return $this->getUserAttendanceForDate($userId, Carbon::today());
     }
@@ -154,7 +154,7 @@ class AttendanceRepository extends BaseRepository
      * @param  string|Carbon  $fromDate
      * @param  string|Carbon  $toDate
      */
-    public function getAttendanceSummary(int $userId, $fromDate, $toDate): array
+    public function getAttendanceSummary(int|string $userId, $fromDate, $toDate): array
     {
         $attendances = $this->model
             ->where('user_id', $userId)
@@ -204,7 +204,7 @@ class AttendanceRepository extends BaseRepository
     /**
      * Get attendance for a month
      */
-    public function getMonthlyAttendance(int $userId, int $month, int $year): Collection
+    public function getMonthlyAttendance(int|string $userId, int $month, int $year): Collection
     {
         return $this->model
             ->where('user_id', $userId)
@@ -217,7 +217,7 @@ class AttendanceRepository extends BaseRepository
     /**
      * Check if user has punched in today
      */
-    public function hasPunchedInToday(int $userId): bool
+    public function hasPunchedInToday(int|string $userId): bool
     {
         return $this->model
             ->where('user_id', $userId)
@@ -229,7 +229,7 @@ class AttendanceRepository extends BaseRepository
     /**
      * Check if user has punched out today
      */
-    public function hasPunchedOutToday(int $userId): bool
+    public function hasPunchedOutToday(int|string $userId): bool
     {
         return $this->model
             ->where('user_id', $userId)
@@ -241,7 +241,7 @@ class AttendanceRepository extends BaseRepository
     /**
      * Get latest attendance record for a user
      */
-    public function getLatestAttendance(int $userId): ?Attendance
+    public function getLatestAttendance(int|string $userId): ?Attendance
     {
         return $this->model
             ->where('user_id', $userId)

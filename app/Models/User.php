@@ -230,7 +230,7 @@ class User extends Authenticatable implements HasMedia
 
     public function projects()
     {
-        return $this->belongsToMany(Project::class, 'project_user');
+        return $this->belongsToMany(Project::class, 'project_user', 'user_id', 'project_id');
     }
 
     public function experiences()
@@ -299,7 +299,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function attendanceTypes(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\HRM\AttendanceType::class, 'user_attendance_type');
+        return $this->belongsToMany(\App\Models\HRM\AttendanceType::class, 'user_attendance_type', 'user_id', 'attendance_type_id');
     }
 
     /**
@@ -308,7 +308,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function biometricDevices(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\HRM\BiometricDevice::class, 'user_biometric_device');
+        return $this->belongsToMany(\App\Models\HRM\BiometricDevice::class, 'user_biometric_device', 'user_id', 'biometric_device_id');
     }
 
     /**

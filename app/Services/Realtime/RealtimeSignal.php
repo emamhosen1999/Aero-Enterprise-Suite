@@ -60,7 +60,7 @@ class RealtimeSignal
      * @param int|null $actorId id of the user who caused the change (ID-only)
      * @param string   $action  short verb describing the change (e.g. "status", "apply")
      */
-    public function touch(string $entity, string $bucket, ?int $actorId, string $action = 'update'): void
+    public function touch(string $entity, string $bucket, int|string|null $actorId, string $action = 'update'): void
     {
         if (! config('realtime.enabled')) {
             return;

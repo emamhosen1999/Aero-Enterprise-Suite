@@ -20,9 +20,9 @@ use Carbon\CarbonImmutable;
 class DeviceSessionRevoked extends DomainEventBase
 {
     public function __construct(
-        ?int $actorId,
-        ?int $userDeviceId,
-        public readonly ?int $ownerId,
+        int|string|null $actorId,
+        int|string|null $userDeviceId,
+        public readonly int|string|null $ownerId,
         public readonly int $accessTokensRevoked = 0,
         public readonly int $refreshTokensRevoked = 0,
         public readonly bool $unboundCurrentDevice = false,

@@ -14,8 +14,8 @@ use Carbon\CarbonImmutable;
 class DailyWorkStatusChanged extends DomainEventBase
 {
     public function __construct(
-        ?int $actorId,
-        ?int $dailyWorkId,
+        int|string|null $actorId,
+        int|string|null $dailyWorkId,
         public readonly ?string $from,
         public readonly string $to,
         ?CarbonImmutable $occurredAt = null,

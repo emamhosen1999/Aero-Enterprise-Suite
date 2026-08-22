@@ -19,11 +19,11 @@ use Carbon\CarbonImmutable;
 class LeaveApproved extends DomainEventBase
 {
     public function __construct(
-        ?int $approverId,
-        ?int $leaveId,
+        int|string|null $approverId,
+        int|string|null $leaveId,
         public readonly int $level,
         public readonly bool $final,
-        public readonly ?int $employeeId = null,
+        public readonly int|string|null $employeeId = null,
         ?CarbonImmutable $occurredAt = null,
     ) {
         parent::__construct($approverId, $leaveId, [

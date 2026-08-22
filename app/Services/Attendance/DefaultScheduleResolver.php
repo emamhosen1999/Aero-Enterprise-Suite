@@ -21,6 +21,13 @@ class DefaultScheduleResolver implements ScheduleResolver
         $startTime = $settings?->office_start_time ?? '09:00';
         $endTime = $settings?->office_end_time ?? '17:00';
         $weekendDays = $settings?->weekend_days ?? ['saturday', 'sunday'];
+        if (is_string($weekendDays)) {
+            $decoded = json_decode($weekendDays, true);
+            $weekendDays = is_array($decoded) ? $decoded : [$weekendDays];
+        }
+        if (! is_array($weekendDays)) {
+            $weekendDays = ['saturday', 'sunday'];
+        }
 
         $day = $date->copy()->startOfDay();
         $isWorkingDay = ! in_array(strtolower($day->format('l')), array_map('strtolower', $weekendDays), true);
