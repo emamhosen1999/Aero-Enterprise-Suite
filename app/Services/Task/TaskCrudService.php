@@ -182,7 +182,7 @@ class TaskCrudService
         if ($userDesignationTitle === 'Supervision Engineer') {
             return [
                 'incharges' => [],
-                'juniors' => User::where('incharge', $user->user_name)->get(),
+                'juniors' => User::where('report_to', $user->employee_id)->get(),
             ];
         }
 
