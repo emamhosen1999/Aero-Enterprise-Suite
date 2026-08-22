@@ -77,9 +77,8 @@ class MobileApiLoginAndPunchTest extends TestCase
 
     public function test_mobile_api_punch_in_and_today_status(): void
     {
-        $attendanceType = AttendanceType::create([
+        $attendanceType = AttendanceType::updateOrCreate(['slug' => 'geo_polygon'], [
             'name' => 'Office Geofence',
-            'slug' => 'geo_polygon',
             'is_active' => true,
             'config' => [
                 'polygons' => [
