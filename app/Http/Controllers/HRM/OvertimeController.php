@@ -24,7 +24,7 @@ class OvertimeController extends Controller
             'reason' => 'required|string|max:500',
         ]);
 
-        $ot = $this->service->request($request->user()->id, $data);
+        $ot = $this->service->request($request->user()->employee_id ?? $request->user()->getKey(), $data);
 
         return response()->json(['message' => 'Overtime request submitted.', 'request' => $ot], 201);
     }
@@ -32,7 +32,7 @@ class OvertimeController extends Controller
     public function mine(Request $request): JsonResponse
     {
         return response()->json([
-            'requests' => OvertimeRequest::where('user_id', $request->user()->id)
+            'requests' => OvertimeRequest::where('user_id', $request->user()->employee_id ?? $request->user()->getKey())
                 ->orderByDesc('created_at')->get(),
         ]);
     }
@@ -45,7 +45,7 @@ class OvertimeController extends Controller
         }
 
         $requests = $this->approvals->forApprover($request->user(), OvertimeRequest::class, $status)
-            ->load('user:id,name');
+            ->load('user:employee_id,name');
 
         return response()->json(['requests' => $requests->values()]);
     }

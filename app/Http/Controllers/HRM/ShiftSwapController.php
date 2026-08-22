@@ -63,7 +63,7 @@ class ShiftSwapController extends Controller
         $data = $request->validate([
             'type' => 'required|in:swap,cover',
             'requester_date' => 'required|date',
-            'counterparty_id' => 'required|integer|exists:users,id',
+            'counterparty_id' => 'required|string|exists:users,employee_id',
             'counterparty_date' => 'nullable|date',
             'reason' => 'nullable|string|max:500',
         ]);
@@ -120,7 +120,7 @@ class ShiftSwapController extends Controller
     private function deptRankEligibleTeammates(User $user): \Illuminate\Support\Collection
     {
         $query = User::role('Employee')
-            ->where('users.id', '!=', $user->id)
+            ->where('users.employee_id', '!=', $user->id)
             ->where('users.department_id', $user->department_id);
 
         // Only include teammates with same or lower designation (higher hierarchy_level number)
@@ -134,12 +134,12 @@ class ShiftSwapController extends Controller
                     $q->where('designations.hierarchy_level', '>=', $requesterLevel)
                         ->orWhereNull('users.designation_id');
                 })
-                ->select('users.id', 'users.name');
+                ->select('users.employee_id as id', 'users.employee_id', 'users.name');
         }
 
         return $query
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name']);
+            ->get(['users.employee_id as id', 'users.employee_id', 'users.name']);
     }
 
     /**
@@ -188,7 +188,7 @@ class ShiftSwapController extends Controller
     public function counterpartyRoster(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'counterparty_id' => 'required|integer|exists:users,id',
+            'counterparty_id' => 'required|string|exists:users,employee_id',
             'from' => 'required|date',
             'to' => 'required|date|after_or_equal:from',
         ]);

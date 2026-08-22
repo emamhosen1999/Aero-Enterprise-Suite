@@ -158,8 +158,8 @@ class DailyWorkImportService
         $clean = [];
         foreach ($overrides as $rfi => $inchargeId) {
             $rfi = trim((string) $rfi);
-            $inchargeId = (int) $inchargeId;
-            if ($rfi !== '' && $inchargeId > 0) {
+            $inchargeId = trim((string) $inchargeId);
+            if ($rfi !== '' && $inchargeId !== '') {
                 $clean[$rfi] = $inchargeId;
             }
         }

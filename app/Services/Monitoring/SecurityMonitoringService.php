@@ -265,7 +265,7 @@ class SecurityMonitoringService
     {
         try {
             $usersWithoutRoles = DB::table('users')
-                ->leftJoin('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+                ->leftJoin('model_has_roles', 'users.employee_id', '=', 'model_has_roles.model_id')
                 ->whereNull('model_has_roles.role_id')
                 ->count();
 
@@ -516,10 +516,10 @@ class SecurityMonitoringService
                     ->orderBy('hour')
                     ->get(),
                 'top_users' => DB::table('audit_logs')
-                    ->join('users', 'audit_logs.user_id', '=', 'users.id')
+                    ->join('users', 'audit_logs.user_id', '=', 'users.employee_id')
                     ->where('audit_logs.created_at', '>=', $startTime)
                     ->selectRaw('users.name, COUNT(*) as action_count')
-                    ->groupBy('users.id', 'users.name')
+                    ->groupBy('users.employee_id', 'users.name')
                     ->orderBy('action_count', 'desc')
                     ->limit(10)
                     ->get(),
@@ -534,10 +534,10 @@ class SecurityMonitoringService
                 ->orderBy('hour')
                 ->get(),
             'top_users' => DB::table('audit_logs')
-                ->join('users', 'audit_logs.user_id', '=', 'users.id')
+                ->join('users', 'audit_logs.user_id', '=', 'users.employee_id')
                 ->where('audit_logs.created_at', '>=', $startTime)
                 ->selectRaw('users.name, COUNT(*) as action_count')
-                ->groupBy('users.id', 'users.name')
+                ->groupBy('users.employee_id', 'users.name')
                 ->orderBy('action_count', 'desc')
                 ->limit(10)
                 ->get(),

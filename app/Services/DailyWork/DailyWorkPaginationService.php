@@ -92,11 +92,13 @@ class DailyWorkPaginationService
      */
     private function buildBaseQuery(User $user, ?string $userDesignationTitle = null)
     {
+        $uid = (string) ($user->employee_id ?? $user->getKey());
+
         // Use optimized eager loading to prevent N+1 queries
         // Include active objections count for RFI warning indicators
         $baseQuery = DailyWork::with([
-            'inchargeUser:id,name', // Load user names for display
-            'assignedUser:id,name',  // Load assigned user names
+            'inchargeUser:employee_id,name', // Load user names for display
+            'assignedUser:employee_id,name',  // Load assigned user names
         ])->withCount(['activeObjections']);
 
         // Super Administrator and Administrator get all data
@@ -115,50 +117,50 @@ class DailyWorkPaginationService
         }
 
         if ($userDesignationTitle === 'Supervision Engineer') {
-            return $baseQuery->where(function ($q) use ($user) {
-                $q->where('incharge', $user->id);
+            return $baseQuery->where(function ($q) use ($user, $uid) {
+                $q->where('incharge', $uid);
                 if ($user->report_to) {
-                    $q->orWhere('incharge', $user->report_to);
+                    $q->orWhere('incharge', (string) $user->report_to);
                 }
             });
         }
 
         if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
             if ($user->report_to) {
-                return $baseQuery->where('incharge', $user->report_to);
+                return $baseQuery->where('incharge', (string) $user->report_to);
             }
 
-            return $baseQuery->where('assigned', $user->id);
+            return $baseQuery->where('assigned', $uid);
         }
 
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::where('incharge', $uid)->exists();
 
             if ($hasJurisdiction) {
-                return $baseQuery->where('incharge', $user->id);
+                return $baseQuery->where('incharge', $uid);
             } else {
                 if ($user->report_to) {
-                    return $baseQuery->where('incharge', $user->report_to);
+                    return $baseQuery->where('incharge', (string) $user->report_to);
                 }
 
-                return $baseQuery->where('incharge', $user->id);
+                return $baseQuery->where('incharge', $uid);
             }
         }
 
         // For other roles (non-employee, non-admin) with a manager: apply report_to visibility
         if ($user->report_to) {
-            return $baseQuery->where(function ($q) use ($user) {
-                $q->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id)
-                    ->orWhere('incharge', $user->report_to);
+            return $baseQuery->where(function ($q) use ($user, $uid) {
+                $q->where('incharge', $uid)
+                    ->orWhere('assigned', $uid)
+                    ->orWhere('incharge', (string) $user->report_to);
             });
         }
 
         // Otherwise, show only own works (incharge or assigned)
-        return $baseQuery->where(function ($q) use ($user) {
-            $q->where('incharge', $user->id)
-                ->orWhere('assigned', $user->id);
+        return $baseQuery->where(function ($q) use ($uid) {
+            $q->where('incharge', $uid)
+                ->orWhere('assigned', $uid);
         });
     }
 

@@ -568,7 +568,7 @@ class AttendanceController extends Controller
 
             $serializedAbsentUsers = $absentUsers->map(function (User $user) {
                 return [
-                    'id' => (int) $user->id,
+                    'id' => (string) $user->id,
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -585,7 +585,7 @@ class AttendanceController extends Controller
 
             $serializedOffUsers = $offUsers->map(function (User $user) {
                 return [
-                    'id' => (int) $user->id,
+                    'id' => (string) $user->id,
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -597,7 +597,7 @@ class AttendanceController extends Controller
 
             $serializedUpcomingUsers = $upcomingUsers->map(function (User $user) {
                 return [
-                    'id' => (int) $user->id,
+                    'id' => (string) $user->id,
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -1157,7 +1157,7 @@ class AttendanceController extends Controller
         }
 
         $validated = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'user_id' => ['required', 'string', 'exists:users,employee_id'],
             'date' => ['required', 'date_format:Y-m-d'],
         ]);
 
@@ -1224,7 +1224,7 @@ class AttendanceController extends Controller
         }
 
         return [
-            'id' => (int) $user->id,
+            'id' => (string) $user->id,
             'name' => $user->name,
             'employee_id' => $user->employee_id,
             'email' => $user->email,

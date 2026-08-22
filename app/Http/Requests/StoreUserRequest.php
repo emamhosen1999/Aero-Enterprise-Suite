@@ -28,7 +28,7 @@ class StoreUserRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
-            'employee_id' => ['nullable', 'string', 'max:50', 'unique:users,employee_id'],
+            'employee_id' => ['required', 'string', 'max:50', 'unique:users,employee_id'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'department_id' => ['nullable', 'exists:departments,id'],
             'designation_id' => ['nullable', 'exists:designations,id'],
@@ -49,7 +49,7 @@ class StoreUserRequest extends FormRequest
             'single_device_login_enabled' => ['nullable'],
             'profile_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png', 'max:2048'],
             'user_name' => ['nullable', 'string', 'max:255'],
-            'report_to' => ['nullable', 'exists:users,id'],
+            'report_to' => ['nullable', 'exists:users,employee_id'],
         ];
     }
 
@@ -67,6 +67,7 @@ class StoreUserRequest extends FormRequest
             'email.email' => 'Please provide a valid email address.',
             'email.unique' => 'This email address is already registered.',
             'phone.unique' => 'This phone number is already in use.',
+            'employee_id.required' => 'Employee ID is required.',
             'employee_id.unique' => 'This employee ID already exists.',
             'password.required' => 'Password is required.',
             'password.confirmed' => 'The password confirmation does not match.',

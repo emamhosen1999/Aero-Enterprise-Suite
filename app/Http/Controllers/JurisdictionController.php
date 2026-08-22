@@ -38,7 +38,7 @@ class JurisdictionController extends Controller
                 'location' => 'required|string|unique:jurisdictions,location',
                 'start_chainage' => 'required|string',
                 'end_chainage' => 'required|string',
-                'incharge' => 'required|exists:users,id',
+                'incharge' => 'required|exists:users,employee_id',
             ], [
                 'location.required' => 'Jurisdiction name is required.',
                 'location.unique' => 'A jurisdiction with this name already exists.',
@@ -76,7 +76,7 @@ class JurisdictionController extends Controller
                 'location' => 'required|string|unique:jurisdictions,location,' . $request->id,
                 'start_chainage' => 'required|string',
                 'end_chainage' => 'required|string',
-                'incharge' => 'required|exists:users,id',
+                'incharge' => 'required|exists:users,employee_id',
             ], [
                 'location.required' => 'Jurisdiction name is required.',
                 'location.unique' => 'A jurisdiction with this name already exists.',

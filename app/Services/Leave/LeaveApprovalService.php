@@ -730,9 +730,10 @@ class LeaveApprovalService
 
         $approvalChain = $leave->approval_chain;
         $currentLevel = $leave->current_approval_level;
+        $uid = (string) ($user->employee_id ?? $user->getKey());
 
         foreach ($approvalChain as $level) {
-            if ($level['level'] === $currentLevel && $level['approver_id'] === $user->id && $level['status'] === 'pending') {
+            if ($level['level'] === $currentLevel && (string) ($level['approver_id'] ?? '') === $uid && $level['status'] === 'pending') {
                 return true;
             }
         }
@@ -818,8 +819,9 @@ class LeaveApprovalService
             ->where('status', 'approved')
             ->get()
             ->filter(function ($leave) use ($user) {
+                $uid = (string) ($user->employee_id ?? $user->getKey());
                 foreach ($leave->approval_chain as $level) {
-                    if ($level['approver_id'] === $user->id && $level['status'] === 'approved') {
+                    if ((string) ($level['approver_id'] ?? '') === $uid && $level['status'] === 'approved') {
                         return true;
                     }
                 }
@@ -832,8 +834,9 @@ class LeaveApprovalService
             ->where('status', 'rejected')
             ->get()
             ->filter(function ($leave) use ($user) {
+                $uid = (string) ($user->employee_id ?? $user->getKey());
                 foreach ($leave->approval_chain as $level) {
-                    if ($level['approver_id'] === $user->id && $level['status'] === 'rejected') {
+                    if ((string) ($level['approver_id'] ?? '') === $uid && $level['status'] === 'rejected') {
                         return true;
                     }
                 }

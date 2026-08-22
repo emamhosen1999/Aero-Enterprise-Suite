@@ -32,7 +32,7 @@ class AttendanceReportService
             ->leftJoin('designations', 'users.designation_id', '=', 'designations.id');
 
         if ($userId !== null) {
-            $query->where('users.id', $userId);
+            $query->where('users.employee_id', (string) $userId);
         } else {
             $query->role('Employee');
 

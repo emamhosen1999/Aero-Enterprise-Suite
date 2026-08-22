@@ -154,11 +154,11 @@ class DailyWorkController extends Controller
         $perPage = (int) $request->input('perPage', 10);
 
         $baseQuery = RfiObjection::query()
-            ->where('created_by', (int) $user->id);
+            ->where('created_by', (string) $user->id);
 
         $query = (clone $baseQuery)
             ->with([
-                'createdBy:id,name',
+                'createdBy:employee_id,name',
                 'dailyWorks:id,number,date,location,type,status',
             ])
             ->withCount('dailyWorks');
@@ -219,7 +219,7 @@ class DailyWorkController extends Controller
 
         $query = (clone $baseQuery)
             ->with([
-                'createdBy:id,name',
+                'createdBy:employee_id,name',
                 'dailyWorks:id,number,date,location,type,status',
             ])
             ->withCount('dailyWorks');
@@ -405,7 +405,7 @@ class DailyWorkController extends Controller
 
         $query = RfiObjection::query()
             ->select('rfi_objections.*')
-            ->with(['createdBy:id,name'])
+            ->with(['createdBy:employee_id,name'])
             ->where(function ($objectionQuery) use ($dailyWork) {
                 $objectionQuery->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWork) {
                     $dailyWorkQuery->where('daily_works.id', $dailyWork->id);
@@ -922,7 +922,7 @@ class DailyWorkController extends Controller
                 ->filter(fn (DailyWork $dailyWork): bool => $this->canUpdateAssigned($user, $dailyWork))
                 ->pluck('incharge')
                 ->filter()
-                ->map(fn ($inchargeId): int => (int) $inchargeId)
+                ->map(fn ($inchargeId): string => (string) $inchargeId)
                 ->unique()
                 ->values()
                 ->all()
@@ -933,7 +933,7 @@ class DailyWorkController extends Controller
                 continue;
             }
 
-            $inchargeId = $dailyWork->incharge ? (int) $dailyWork->incharge : null;
+            $inchargeId = $dailyWork->incharge ? (string) $dailyWork->incharge : null;
 
             if (! $inchargeId || array_key_exists($inchargeId, $assignedByIncharge)) {
                 continue;
@@ -1203,8 +1203,8 @@ class DailyWorkController extends Controller
             return true;
         }
 
-        return (int) $dailyWork->incharge === (int) $user->id
-            || (int) $dailyWork->assigned === (int) $user->id;
+        return (string) $dailyWork->incharge === (string) $user->id
+            || (string) $dailyWork->assigned === (string) $user->id;
     }
 
     private function canUpdateIncharge(User $user): bool
@@ -1218,7 +1218,7 @@ class DailyWorkController extends Controller
             return true;
         }
 
-        return (int) $dailyWork->incharge === (int) $user->id;
+        return (string) $dailyWork->incharge === (string) $user->id;
     }
 
     private function canViewIncharge(User $user): bool
@@ -1232,7 +1232,7 @@ class DailyWorkController extends Controller
             return true;
         }
 
-        return (int) $dailyWork->incharge === (int) $user->id;
+        return (string) $dailyWork->incharge === (string) $user->id;
     }
 
     private function getUserDesignationTitle(User $user): string
@@ -1251,7 +1251,7 @@ class DailyWorkController extends Controller
 
         $query = User::query()
             ->whereNull('deleted_at')
-            ->select(['id', 'name'])
+            ->select(['employee_id as id', 'employee_id', 'name'])
             ->orderBy('name');
 
         if (Schema::hasColumn('users', 'designation_id') && Schema::hasTable('designations')) {
@@ -1264,7 +1264,7 @@ class DailyWorkController extends Controller
             ->get()
             ->map(function (User $candidate): array {
                 return [
-                    'id' => (int) $candidate->id,
+                    'id' => $candidate->employee_id ?? $candidate->id,
                     'name' => $candidate->name,
                 ];
             })
@@ -1284,13 +1284,13 @@ class DailyWorkController extends Controller
      * an in-charge with no reports, so the cache still registers a hit and no
      * follow-up query is issued.
      *
-     * @param  array<int, int>  $inchargeUserIds
+     * @param  array<int, string|int>  $inchargeUserIds
      */
     private function primeAssigneeCandidates(array $inchargeUserIds): void
     {
         $missing = array_values(array_filter(
             $inchargeUserIds,
-            fn (int $id): bool => $id > 0 && ! array_key_exists($id, $this->assigneeCandidatesCache)
+            fn ($id): bool => ! empty($id) && ! array_key_exists($id, $this->assigneeCandidatesCache)
         ));
 
         if ($missing === []) {
@@ -1300,7 +1300,7 @@ class DailyWorkController extends Controller
         $grouped = User::query()
             ->whereNull('deleted_at')
             ->whereIn('report_to', $missing)
-            ->select(['id', 'name', 'report_to'])
+            ->select(['employee_id as id', 'employee_id', 'name', 'report_to'])
             ->orderBy('name')
             ->get()
             ->groupBy('report_to');
@@ -1309,7 +1309,7 @@ class DailyWorkController extends Controller
             $this->assigneeCandidatesCache[$inchargeUserId] = $grouped
                 ->get($inchargeUserId, collect())
                 ->map(fn (User $candidate): array => [
-                    'id' => (int) $candidate->id,
+                    'id' => $candidate->employee_id ?? $candidate->id,
                     'name' => $candidate->name,
                 ])
                 ->values()
@@ -1318,9 +1318,9 @@ class DailyWorkController extends Controller
     }
 
     /**
-     * @return array<int, array{id:int,name:string}>
+     * @return array<int, array{id:string|int,name:string}>
      */
-    private function getAssigneeCandidatesForIncharge(?int $inchargeUserId): array
+    private function getAssigneeCandidatesForIncharge(string|int|null $inchargeUserId): array
     {
         if (! $inchargeUserId) {
             return [];
@@ -1333,12 +1333,12 @@ class DailyWorkController extends Controller
         $candidates = User::query()
             ->whereNull('deleted_at')
             ->where('report_to', $inchargeUserId)
-            ->select(['id', 'name'])
+            ->select(['employee_id as id', 'employee_id', 'name'])
             ->orderBy('name')
             ->get()
             ->map(function (User $candidate): array {
                 return [
-                    'id' => (int) $candidate->id,
+                    'id' => $candidate->employee_id ?? $candidate->id,
                     'name' => $candidate->name,
                 ];
             })

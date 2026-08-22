@@ -131,7 +131,7 @@ class AccountSecurityController extends Controller
             return $this->notFoundResponse('Device not found.');
         }
 
-        if ((int) $userDevice->user_id !== (int) $user->id) {
+        if ((string) $userDevice->user_id !== (string) $user->id) {
             return $this->forbiddenResponse('You can only revoke your own devices.');
         }
 
@@ -180,7 +180,7 @@ class AccountSecurityController extends Controller
             //    With no resolvable current device we leave refresh tokens intact
             //    rather than risk killing the caller's own chain.
             $refreshTokensRevoked = $currentDeviceId !== ''
-                ? (int) $this->refreshTokenService->revokeForOtherDevices((int) $user->id, $currentDeviceId)
+                ? (int) $this->refreshTokenService->revokeForOtherDevices((string) $user->id, $currentDeviceId)
                 : 0;
 
             // 3. Devices: deactivate every active device except the current one.
@@ -214,7 +214,7 @@ class AccountSecurityController extends Controller
     protected function revokeSingleDevice(User $user, UserDevice $userDevice, string $deviceId): array
     {
         $tokenIds = $deviceId !== ''
-            ? ($this->tokenIdMapForUser((int) $user->id)[$deviceId] ?? [])
+            ? ($this->tokenIdMapForUser((string) $user->id)[$deviceId] ?? [])
             : [];
 
         $accessTokensRevoked = 0;
@@ -230,7 +230,7 @@ class AccountSecurityController extends Controller
         // An empty device_id would make revokeChainForUserDevice wipe EVERY refresh
         // token the user owns, so only run it for a genuinely device-bound record.
         $refreshTokensRevoked = $deviceId !== ''
-            ? (int) $this->refreshTokenService->revokeChainForUserDevice((int) $user->id, $deviceId)
+            ? (int) $this->refreshTokenService->revokeChainForUserDevice((string) $user->id, $deviceId)
             : 0;
 
         $this->deviceAuthService->deactivateDevice($user, (int) $userDevice->id);

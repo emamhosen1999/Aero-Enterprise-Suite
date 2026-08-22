@@ -31,7 +31,7 @@ class ProfileImageController extends Controller
         try {
             // Validate the request
             $validator = Validator::make($request->all(), [
-                'user_id' => 'required|integer|exists:users,id',
+                'user_id' => 'required|string|exists:users,employee_id',
                 'profile_image' => [
                     'required',
                     'image',
@@ -161,7 +161,7 @@ class ProfileImageController extends Controller
         try {
             // Validate the request
             $validator = Validator::make($request->all(), [
-                'user_id' => 'required|integer|exists:users,id',
+                'user_id' => 'required|string|exists:users,employee_id',
             ]);
 
             if ($validator->fails()) {

@@ -15,7 +15,8 @@ class UpdateUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $user = User::findOrFail($this->route('id'));
+        $userId = $this->route('id') ?? $this->route('user') ?? $this->route('employee_id');
+        $user = User::findOrFail($userId);
 
         return $this->user()->can('update', $user);
     }
@@ -27,13 +28,13 @@ class UpdateUserRequest extends FormRequest
      */
     public function rules(): array
     {
-        $userId = $this->route('id');
+        $userId = $this->route('id') ?? $this->route('user') ?? $this->route('employee_id');
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($userId)],
-            'phone' => ['nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($userId)],
-            'employee_id' => ['nullable', 'string', 'max:50', Rule::unique('users', 'employee_id')->ignore($userId)],
+            'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($userId, 'employee_id')],
+            'phone' => ['nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($userId, 'employee_id')],
+            'employee_id' => ['sometimes', 'required', 'string', 'max:50', Rule::unique('users', 'employee_id')->ignore($userId, 'employee_id')],
             'department_id' => ['nullable', 'exists:departments,id'],
             'designation_id' => ['nullable', 'exists:designations,id'],
             'attendance_type_id' => ['nullable', 'exists:attendance_types,id'],
@@ -49,7 +50,7 @@ class UpdateUserRequest extends FormRequest
             'salary_amount' => ['nullable', 'numeric', 'min:0'],
             'profile_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png', 'max:2048'],
             'user_name' => ['nullable', 'string', 'max:255'],
-            'report_to' => ['nullable', 'exists:users,id'],
+            'report_to' => ['nullable', 'exists:users,employee_id'],
             'single_device_login_enabled' => ['nullable'],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'about' => ['nullable', 'string', 'max:1000'],

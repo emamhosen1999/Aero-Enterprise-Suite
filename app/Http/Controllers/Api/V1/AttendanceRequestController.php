@@ -80,7 +80,7 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->approvals->forApprover($request->user(), AttendanceRegularization::class, $status)
-            ->load(['user:id,name,employee_id', 'user.media']);
+            ->load(['user:employee_id,name', 'user.media']);
 
         return $this->successResponse($requests->values());
     }
@@ -98,7 +98,7 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->decidedForApprover($request->user(), AttendanceRegularization::class)
-            ->load(['user:id,name,employee_id', 'user.media']);
+            ->load(['user:employee_id,name', 'user.media']);
 
         return $this->successResponse($requests->values());
     }
@@ -181,7 +181,7 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->approvals->forApprover($request->user(), OvertimeRequest::class, $status)
-            ->load(['user:id,name,employee_id', 'user.media']);
+            ->load(['user:employee_id,name', 'user.media']);
 
         return $this->successResponse($requests->values());
     }
@@ -199,7 +199,7 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->decidedForApprover($request->user(), OvertimeRequest::class)
-            ->load(['user:id,name,employee_id', 'user.media']);
+            ->load(['user:employee_id,name', 'user.media']);
 
         return $this->successResponse($requests->values());
     }
@@ -294,7 +294,7 @@ class AttendanceRequestController extends Controller
         $data = $request->validate([
             'from'    => 'required|date',
             'to'      => 'required|date|after_or_equal:from',
-            'user_id' => 'nullable|integer|exists:users,id',
+            'user_id' => 'nullable|string|exists:users,employee_id',
         ]);
 
         $targetUser = $request->user();
@@ -315,7 +315,7 @@ class AttendanceRequestController extends Controller
             }
         }
 
-        $rows = RosterDay::with(['shift:id,code,color,name,start_time,end_time,type,crosses_midnight', 'user:id,name'])
+        $rows = RosterDay::with(['shift:id,code,color,name,start_time,end_time,type,crosses_midnight', 'user:employee_id,name'])
             ->where('user_id', $targetUser->id)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->get();
@@ -365,7 +365,7 @@ class AttendanceRequestController extends Controller
             // A pickup gives up nothing → requester_date is not sent; every other
             // type still requires it. counterparty_date is the shift being picked up.
             'requester_date'    => 'nullable|required_unless:type,pickup|date',
-            'counterparty_id'   => 'required|integer|exists:users,id',
+            'counterparty_id'   => 'required|string|exists:users,employee_id',
             'counterparty_date' => 'nullable|required_if:type,pickup|date',
             'reason'            => 'nullable|string|max:500',
         ]);
@@ -482,8 +482,9 @@ class AttendanceRequestController extends Controller
      */
     private function deptRankEligibleTeammates(User $user): \Illuminate\Support\Collection
     {
+        $uid = (string) ($user->employee_id ?? $user->getKey());
         $query = User::role('Employee', 'web')
-            ->where('users.id', '!=', $user->id)
+            ->where('users.employee_id', '!=', $uid)
             ->where('users.department_id', $user->department_id);
 
         // Only include teammates with same or lower designation (higher hierarchy_level number).
@@ -497,7 +498,7 @@ class AttendanceRequestController extends Controller
                     $q->where('designations.hierarchy_level', '>=', $requesterLevel)
                       ->orWhereNull('users.designation_id');
                 })
-                ->select('users.id', 'users.name');
+                ->select('users.employee_id as id', 'users.employee_id', 'users.name');
         }
 
         // The avatar comes from the media library (profile_image_url accessor), NOT
@@ -505,7 +506,7 @@ class AttendanceRequestController extends Controller
         return $query
             ->with('media')
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name']);
+            ->get(['users.employee_id as id', 'users.employee_id', 'users.name']);
     }
 
     public function swapEligible(Request $request): JsonResponse
@@ -619,7 +620,7 @@ class AttendanceRequestController extends Controller
     public function counterpartyRoster(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'counterparty_id' => 'required|integer|exists:users,id',
+            'counterparty_id' => 'required|string|exists:users,employee_id',
             'from'            => 'required|date',
             'to'              => 'required|date|after_or_equal:from',
         ]);

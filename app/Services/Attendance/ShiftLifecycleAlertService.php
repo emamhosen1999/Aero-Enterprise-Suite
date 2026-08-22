@@ -55,7 +55,7 @@ class ShiftLifecycleAlertService
         $onLeave = $this->usersOnApprovedLeave($userIds, $dateString);
 
         $users = User::query()
-            ->whereIn('id', $userIds)
+            ->whereIn('employee_id', $userIds)
             ->whereNull('deleted_at')
             ->with(['reportsTo', 'department'])
             ->get();
@@ -63,13 +63,13 @@ class ShiftLifecycleAlertService
         $rows = collect();
 
         foreach ($users as $user) {
-            if (in_array((int) $user->id, $onLeave, true)) {
+            if (in_array((string) $user->employee_id, $onLeave, true) || in_array((int) $user->employee_id, $onLeave, true)) {
                 continue;
             }
 
             // resolveShift honours materialized-row precedence (manual > swap >
             // pattern) and returns null for an off/swap-to-off top row.
-            $shift = $this->roster->resolveShift($user->id, $date);
+            $shift = $this->roster->resolveShift($user->employee_id ?? $user->getKey(), $date);
             if ($shift === null) {
                 continue;
             }

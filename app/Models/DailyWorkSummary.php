@@ -22,7 +22,7 @@ class DailyWorkSummary extends Model
     protected $casts = [
         'id' => 'integer',
         'date' => 'date',
-        'incharge' => 'integer',
+        'incharge' => 'string',
         'totalDailyWorks' => 'integer',
         'resubmissions' => 'integer',
         'embankment' => 'integer',

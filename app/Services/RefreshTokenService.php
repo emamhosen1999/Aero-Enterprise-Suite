@@ -50,7 +50,7 @@ class RefreshTokenService
         $plain = $this->generatePlainText();
 
         $model = RefreshToken::create([
-            'user_id' => $user->id,
+            'user_id' => (string) ($user->employee_id ?? $user->getKey()),
             'device_id' => $deviceId !== '' ? $deviceId : null,
             'token_hash' => $this->hashToken($plain),
             'expires_at' => Carbon::now()->addDays($this->ttlDays()),
@@ -69,7 +69,7 @@ class RefreshTokenService
     public function issueForLogin(User $user, string $deviceId): array
     {
         return DB::transaction(function () use ($user, $deviceId) {
-            $this->revokeActiveForUserDevice((int) $user->id, $deviceId);
+            $this->revokeActiveForUserDevice((string) ($user->employee_id ?? $user->getKey()), $deviceId);
 
             return $this->create($user, $deviceId);
         });
@@ -106,7 +106,7 @@ class RefreshTokenService
         });
     }
 
-    public function revokeActiveForUserDevice(int $userId, ?string $deviceId): int
+    public function revokeActiveForUserDevice(string|int $userId, ?string $deviceId): int
     {
         $query = RefreshToken::query()
             ->where('user_id', $userId)
@@ -122,7 +122,7 @@ class RefreshTokenService
      * response when a revoked/replayed refresh token is presented, and on logout.
      * A null/empty device revokes ALL of the user's active refresh tokens.
      */
-    public function revokeChainForUserDevice(int $userId, ?string $deviceId): int
+    public function revokeChainForUserDevice(string|int $userId, ?string $deviceId): int
     {
         $query = RefreshToken::query()
             ->where('user_id', $userId)
@@ -139,7 +139,7 @@ class RefreshTokenService
      * Revoke every active refresh token for the user that is NOT bound to the
      * given device — mirrors the single-device access-token rotation on login.
      */
-    public function revokeForOtherDevices(int $userId, string $exceptDeviceId): int
+    public function revokeForOtherDevices(string|int $userId, string $exceptDeviceId): int
     {
         if ($exceptDeviceId === '') {
             return 0;

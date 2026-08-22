@@ -40,10 +40,10 @@ class ObjectionController extends Controller
 
         $query = RfiObjection::query()
             ->with([
-                'createdBy:id,name,email',
-                'resolvedBy:id,name,email',
+                'createdBy:employee_id,name,email',
+                'resolvedBy:employee_id,name,email',
                 'dailyWorks:id,number,location',
-                'statusLogs.changedBy:id,name',
+                'statusLogs.changedBy:employee_id,name',
                 'chainages', // Load chainages for proper display
                 'media', // Eager load media to prevent N+1 queries
             ])
@@ -195,7 +195,7 @@ class ObjectionController extends Controller
 
             return response()->json([
                 'message' => 'Objection created successfully.',
-                'objection' => $objection->load(['createdBy:id,name', 'dailyWorks:id,number']),
+                'objection' => $objection->load(['createdBy:employee_id,name', 'dailyWorks:id,number']),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -260,7 +260,7 @@ class ObjectionController extends Controller
 
             return response()->json([
                 'message' => 'Objection updated successfully.',
-                'objection' => $objection->fresh(['createdBy:id,name', 'dailyWorks:id,number', 'chainages']),
+                'objection' => $objection->fresh(['createdBy:employee_id,name', 'dailyWorks:id,number', 'chainages']),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -962,7 +962,7 @@ class ObjectionController extends Controller
         try {
             $query = RfiObjection::query()
                 ->with([
-                    'createdBy:id,name',
+                    'createdBy:employee_id,name',
                     'resolvedBy:id,name',
                     'dailyWorks:id,number,location,type,date,rfi_submission_date',
                 ]);

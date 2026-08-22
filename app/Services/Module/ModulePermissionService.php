@@ -534,9 +534,9 @@ class ModulePermissionService
         Cache::forget('module_permission_structure');
 
         // Clear user-specific caches
-        $users = User::select('id')->get();
+        $users = User::select('employee_id as id', 'employee_id')->get();
         foreach ($users as $user) {
-            Cache::forget('user_accessible_modules_'.$user->id);
+            Cache::forget('user_accessible_modules_'.($user->employee_id ?? $user->id));
         }
 
         Module::clearCache();

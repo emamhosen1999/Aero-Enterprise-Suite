@@ -24,7 +24,7 @@ class RfiObjectionController extends Controller
         $this->authorize('viewAny', RfiObjection::class);
 
         $objections = $dailyWork->objections()
-            ->with(['createdBy:id,name,email', 'resolvedBy:id,name,email', 'media'])
+            ->with(['createdBy:employee_id,name,email', 'resolvedBy:employee_id,name,email', 'media'])
             ->get()
             ->map(function ($objection) {
                 return array_merge($objection->toArray(), [
@@ -52,10 +52,10 @@ class RfiObjectionController extends Controller
         $this->authorize('view', $objection);
 
         $objection->load([
-            'createdBy:id,name,email',
-            'updatedBy:id,name,email',
-            'resolvedBy:id,name,email',
-            'statusLogs.changedBy:id,name',
+            'createdBy:employee_id,name,email',
+            'updatedBy:employee_id,name,email',
+            'resolvedBy:employee_id,name,email',
+            'statusLogs.changedBy:employee_id,name',
         ]);
 
         return response()->json([
@@ -113,7 +113,7 @@ class RfiObjectionController extends Controller
 
             DB::commit();
 
-            $objection->load(['createdBy:id,name,email']);
+            $objection->load(['createdBy:employee_id,name,email']);
 
             return response()->json([
                 'message' => 'Objection created successfully.',
@@ -149,7 +149,7 @@ class RfiObjectionController extends Controller
         try {
             $objection->update($validated);
 
-            $objection->load(['createdBy:id,name,email']);
+            $objection->load(['createdBy:employee_id,name,email']);
 
             return response()->json([
                 'message' => 'Objection updated successfully.',
@@ -201,7 +201,7 @@ class RfiObjectionController extends Controller
         try {
             $objection = $this->objectionService->submit($objection, auth()->user());
 
-            $objection->load(['createdBy:id,name,email']);
+            $objection->load(['createdBy:employee_id,name,email']);
 
             return response()->json([
                 'message' => 'Objection submitted for review.',
@@ -230,7 +230,7 @@ class RfiObjectionController extends Controller
         try {
             $objection = $this->objectionService->startReview($objection, auth()->user());
 
-            $objection->load(['createdBy:id,name,email']);
+            $objection->load(['createdBy:employee_id,name,email']);
 
             return response()->json([
                 'message' => 'Objection is now under review.',
@@ -263,7 +263,7 @@ class RfiObjectionController extends Controller
         try {
             $objection = $this->objectionService->resolve($objection, $validated['resolution_notes'], auth()->user());
 
-            $objection->load(['createdBy:id,name,email', 'resolvedBy:id,name,email']);
+            $objection->load(['createdBy:employee_id,name,email', 'resolvedBy:employee_id,name,email']);
 
             return response()->json([
                 'message' => 'Objection resolved successfully.',
@@ -301,7 +301,7 @@ class RfiObjectionController extends Controller
         try {
             $objection = $this->objectionService->reject($objection, $reason, auth()->user());
 
-            $objection->load(['createdBy:id,name,email', 'resolvedBy:id,name,email']);
+            $objection->load(['createdBy:employee_id,name,email', 'resolvedBy:employee_id,name,email']);
 
             return response()->json([
                 'message' => 'Objection rejected.',
@@ -450,7 +450,7 @@ class RfiObjectionController extends Controller
         $query = RfiObjection::query()
             ->whereNotIn('id', $attachedIds)
             ->whereIn('status', [RfiObjection::STATUS_DRAFT, RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])
-            ->with(['createdBy:id,name,email', 'chainages', 'media'])
+            ->with(['createdBy:employee_id,name,email', 'chainages', 'media'])
             ->orderBy('created_at', 'desc')
             ->limit(200); // Fetch more to filter
 

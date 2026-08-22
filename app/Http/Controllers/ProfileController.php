@@ -43,12 +43,12 @@ class ProfileController extends Controller
     public function index(Request $request, User $user): Response
     {
         $reportTo = User::find($user->report_to);
-        $userDetails = $this->crudService->getUserWithDetails($user->id);
+        $userDetails = $this->crudService->getUserWithDetails($user->employee_id ?? $user->getKey());
 
         return Inertia::render('Profile/UserProfile', [
             'title' => 'Profile',
             'user' => $userDetails,
-            'allUsers' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            'allUsers' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
             'departments' => Department::all(),
             'designations' => Designation::all(),
             'report_to' => $reportTo,

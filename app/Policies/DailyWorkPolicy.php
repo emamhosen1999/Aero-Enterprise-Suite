@@ -45,15 +45,15 @@ class DailyWorkPolicy
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             } else {
                 // Employee has no jurisdiction: can view works where their manager (report_to) is incharge
                 if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                    return (string) $dailyWork->incharge === (string) $user->report_to;
                 }
 
                 // No jurisdiction and no manager: can view own works
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             }
         }
 
@@ -100,15 +100,15 @@ class DailyWorkPolicy
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             } else {
                 // Employee has no jurisdiction: can update works where their manager (report_to) is incharge
                 if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                    return (string) $dailyWork->incharge === (string) $user->report_to;
                 }
 
                 // No jurisdiction and no manager: can update own works
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             }
         }
 
@@ -142,15 +142,15 @@ class DailyWorkPolicy
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can delete works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             } else {
                 // Employee has no jurisdiction: can delete works where their manager (report_to) is incharge
                 if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                    return (string) $dailyWork->incharge === (string) $user->report_to;
                 }
 
                 // No jurisdiction and no manager: can delete own works
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             }
         }
 
@@ -200,15 +200,15 @@ class DailyWorkPolicy
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update status of works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             } else {
                 // Employee has no jurisdiction: can update status of works where their manager (report_to) is incharge
                 if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                    return (string) $dailyWork->incharge === (string) $user->report_to;
                 }
 
                 // No jurisdiction and no manager: can update status of own works
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             }
         }
 
@@ -258,15 +258,15 @@ class DailyWorkPolicy
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update inspection details of works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             } else {
                 // Employee has no jurisdiction: can update inspection details of works where their manager (report_to) is incharge
                 if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                    return (string) $dailyWork->incharge === (string) $user->report_to;
                 }
 
                 // No jurisdiction and no manager: can update inspection details of own works
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             }
         }
 
@@ -313,15 +313,15 @@ class DailyWorkPolicy
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can assign users to works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             } else {
                 // Employee has no jurisdiction: can assign users to works where their manager (report_to) is incharge
                 if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                    return (string) $dailyWork->incharge === (string) $user->report_to;
                 }
 
                 // No jurisdiction and no manager: can assign users to own works
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === (string) $user->id;
             }
         }
 
@@ -394,7 +394,7 @@ class DailyWorkPolicy
      */
     private function isIncharge(User $user, DailyWork $dailyWork): bool
     {
-        return (int) $dailyWork->incharge === (int) $user->id;
+        return (string) $dailyWork->incharge === (string) $user->id;
     }
 
     /**
@@ -402,7 +402,7 @@ class DailyWorkPolicy
      */
     private function isAssigned(User $user, DailyWork $dailyWork): bool
     {
-        return (int) $dailyWork->assigned === (int) $user->id;
+        return (string) $dailyWork->assigned === (string) $user->id;
     }
 
     /**
@@ -424,7 +424,7 @@ class DailyWorkPolicy
         }
 
         // Check if the user's manager is the incharge of this daily work
-        return (int) $dailyWork->incharge === (int) $user->report_to;
+        return (string) $dailyWork->incharge === (string) $user->report_to;
     }
 }
 

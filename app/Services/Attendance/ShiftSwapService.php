@@ -382,7 +382,7 @@ class ShiftSwapService
 
         $violations = [];
         foreach (array_filter([$swap->requester_id, $swap->counterparty_id]) as $userId) {
-            $userViolations = $this->compliance->evaluate((int) $userId, $from, $to);
+            $userViolations = $this->compliance->evaluate((string) $userId, $from, $to);
             if ($userViolations) {
                 $violations[$userId] = $userViolations;
             }

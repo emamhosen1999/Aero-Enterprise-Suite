@@ -55,7 +55,7 @@ class UserManagementService
 
             // Biometric panel
             'devices' => BiometricDevice::all(),
-            'employees' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->get(),
+            'employees' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->get(),
             'attendanceTypes' => AttendanceType::where('is_active', true)->select('id', 'name', 'slug')->get(),
         ];
     }

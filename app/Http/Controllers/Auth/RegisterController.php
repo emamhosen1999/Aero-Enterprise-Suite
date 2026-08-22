@@ -57,6 +57,7 @@ class RegisterController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'employee_id' => 'required|string|max:50|unique:users,employee_id',
             'email' => 'required|string|lowercase|email|max:255|unique:users',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'terms' => 'required|accepted',
@@ -80,6 +81,7 @@ class RegisterController extends Controller
         try {
             $user = User::create([
                 'name' => $request->name,
+                'employee_id' => $request->employee_id,
                 'user_name' => $request->name, // Using name as username for now
                 'email' => $request->email,
                 'password' => Hash::make($request->password),

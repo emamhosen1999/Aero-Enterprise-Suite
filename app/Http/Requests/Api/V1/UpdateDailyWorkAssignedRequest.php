@@ -14,7 +14,7 @@ class UpdateDailyWorkAssignedRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'assigned' => ['present', 'nullable', 'integer', 'exists:users,id'],
+            'assigned' => ['present', 'nullable', 'string', 'exists:users,employee_id'],
         ];
     }
 }

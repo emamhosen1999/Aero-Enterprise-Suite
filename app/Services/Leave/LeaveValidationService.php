@@ -14,7 +14,7 @@ class LeaveValidationService
     {
         return [
             'id' => 'nullable|exists:leaves,id',
-            'user_id' => 'required|exists:users,id',
+            'user_id' => 'required|exists:users,employee_id',
             'leaveType' => 'required|exists:leave_settings,type',
             'fromDate' => 'required|date|before_or_equal:toDate',
             'toDate' => 'required|date|after_or_equal:fromDate|before:'.now()->addYear()->format('Y-m-d'),

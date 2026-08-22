@@ -37,7 +37,7 @@ class ClientErrorController extends Controller
     {
         $filters = $this->filters($request);
 
-        $query = ClientErrorLog::query()->with('resolver:id,name');
+        $query = ClientErrorLog::query()->with('resolver:employee_id,name');
 
         $this->applyFilters($query, $filters);
 
@@ -87,7 +87,7 @@ class ClientErrorController extends Controller
     public function show(Request $request, int $error): JsonResponse
     {
         /** @var ClientErrorLog $group */
-        $group = ClientErrorLog::with(['user:id,name,email', 'resolver:id,name'])->findOrFail($error);
+        $group = ClientErrorLog::with(['user:employee_id,name,email', 'resolver:employee_id,name'])->findOrFail($error);
 
         $affectedUsers = User::query()
             ->select('id', 'name', 'email')

@@ -78,7 +78,8 @@ trait ResolvesTeamMembers
      */
     protected function isDepartmentHead(User $user): bool
     {
-        if (Department::query()->where('manager_id', $user->id)->exists()) {
+        $uid = (string) ($user->employee_id ?? $user->getKey());
+        if (Department::query()->where('manager_id', $uid)->exists()) {
             return true;
         }
 
@@ -90,11 +91,12 @@ trait ResolvesTeamMembers
      * reporting tree AND — if they head a department — that department's
      * members. The manager's own id is never included.
      *
-     * @return array<int, int>
+     * @return array<int, string|int>
      */
     protected function resolveTeamMemberIds(User $user): array
     {
-        $ids = $this->collectDescendantIds($user->id);
+        $uid = (string) ($user->employee_id ?? $user->getKey());
+        $ids = $this->collectDescendantIds($uid);
 
         if ($this->isDepartmentHead($user)) {
             $ids = array_merge($ids, $this->departmentMemberIds($user));
@@ -103,9 +105,9 @@ trait ResolvesTeamMembers
         // De-duplicate and drop the manager's own id.
         $unique = [];
         foreach ($ids as $id) {
-            $id = (int) $id;
-            if ($id !== (int) $user->id) {
-                $unique[$id] = true;
+            $idStr = (string) $id;
+            if ($idStr !== $uid) {
+                $unique[$idStr] = true;
             }
         }
 
@@ -117,12 +119,13 @@ trait ResolvesTeamMembers
      * assignment, plus their own department when they hold the Department
      * Manager role.
      *
-     * @return array<int, int>
+     * @return array<int, string|int>
      */
     protected function departmentMemberIds(User $user): array
     {
+        $uid = (string) ($user->employee_id ?? $user->getKey());
         $departmentIds = Department::query()
-            ->where('manager_id', $user->id)
+            ->where('manager_id', $uid)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();
@@ -140,9 +143,8 @@ trait ResolvesTeamMembers
         return User::query()
             ->whereNull('deleted_at')
             ->whereIn('department_id', $departmentIds)
-            ->where('id', '!=', $user->id)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
+            ->where('employee_id', '!=', $uid)
+            ->pluck('employee_id')
             ->all();
     }
 
@@ -151,21 +153,20 @@ trait ResolvesTeamMembers
      * Depth-capped at 10 levels and 500 users to guard against circular
      * references and runaway queries in very large orgs.
      *
-     * @return array<int, int>
+     * @return array<int, string|int>
      */
-    protected function collectDescendantIds(int $rootId, int $maxDepth = 10): array
+    protected function collectDescendantIds(string|int $rootId, int $maxDepth = 10): array
     {
         $collected = [];
-        $currentLevelIds = [$rootId];
-        $visited = [$rootId => true];
+        $currentLevelIds = [(string) $rootId];
+        $visited = [(string) $rootId => true];
 
         for ($depth = 0; $depth < $maxDepth; $depth++) {
             $children = User::query()
                 ->whereNull('deleted_at')
                 ->whereIn('report_to', $currentLevelIds)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn ($id) => ! isset($visited[$id]))
+                ->pluck('employee_id')
+                ->filter(fn ($id) => ! isset($visited[(string) $id]))
                 ->values()
                 ->all();
 
@@ -174,8 +175,9 @@ trait ResolvesTeamMembers
             }
 
             foreach ($children as $childId) {
-                $visited[$childId] = true;
-                $collected[] = $childId;
+                $childStr = (string) $childId;
+                $visited[$childStr] = true;
+                $collected[] = $childStr;
             }
 
             $currentLevelIds = $children;

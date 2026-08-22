@@ -14,7 +14,7 @@ class StoreOnboardingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employee_id' => 'required|exists:users,id',
+            'employee_id' => 'required|exists:users,employee_id',
             'start_date' => 'required|date',
             'expected_completion_date' => 'required|date|after_or_equal:start_date',
             'notes' => 'nullable|string',
@@ -22,7 +22,7 @@ class StoreOnboardingRequest extends FormRequest
             'tasks.*.task' => 'required|string',
             'tasks.*.description' => 'nullable|string',
             'tasks.*.due_date' => 'nullable|date|after_or_equal:start_date',
-            'tasks.*.assigned_to' => 'nullable|exists:users,id',
+            'tasks.*.assigned_to' => 'nullable|exists:users,employee_id',
         ];
     }
 

@@ -88,7 +88,7 @@ class LeaveApiService
 
         $query = DB::table('leaves')
             ->leftJoin('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
-            ->where("leaves.{$userColumn}", $user->id);
+            ->where("leaves.{$userColumn}", $user->employee_id ?? $user->getKey());
 
         if (! empty($filters['status'])) {
             $status = strtolower((string) $filters['status']);
@@ -150,7 +150,7 @@ class LeaveApiService
             return null;
         }
 
-        if ((int) ($leave->{$userColumn} ?? 0) !== (int) $user->id) {
+        if ((string) ($leave->{$userColumn} ?? '') !== (string) ($user->employee_id ?? $user->getKey())) {
             throw new RuntimeException('You are not authorized to access this leave request.', 403);
         }
 
@@ -196,7 +196,7 @@ class LeaveApiService
             }
 
             $query = DB::table('leaves')
-                ->where("leaves.{$userColumn}", (int) $user->id)
+                ->where("leaves.{$userColumn}", $user->employee_id ?? $user->getKey())
                 ->whereDate('leaves.from_date', '<=', $endOfMonth->toDateString())
                 ->whereDate('leaves.to_date', '>=', $startOfMonth->toDateString());
 
@@ -435,7 +435,7 @@ class LeaveApiService
         }
 
         $rawLeaveUsage = DB::table('leaves')
-            ->where("leaves.{$userColumn}", (int) $user->id)
+            ->where("leaves.{$userColumn}", (string) $user->id)
             ->whereYear('from_date', $year)
             ->when($leaveTypeId, function ($query) use ($leaveTypeId) {
                 $query->where('leave_type', $leaveTypeId);
@@ -559,7 +559,7 @@ class LeaveApiService
         $hasLeaveSettings = Schema::hasTable('leave_settings');
 
         $query = DB::table('leaves')
-            ->where("leaves.{$userColumn}", (int) $user->id)
+            ->where("leaves.{$userColumn}", (string) $user->id)
             ->whereYear('leaves.from_date', $year);
 
         if ($hasLeaveSettings) {
@@ -713,7 +713,7 @@ class LeaveApiService
             throw new RuntimeException('Leave cannot be applied for past dates.', 422);
         }
 
-        if ($this->hasOverlappingLeave($userColumn, (int) $user->id, $from, $to)) {
+        if ($this->hasOverlappingLeave($userColumn, (string) $user->id, $from, $to)) {
             throw new RuntimeException('Leave dates overlap with an existing leave request.', 422);
         }
 
@@ -796,7 +796,7 @@ class LeaveApiService
             throw new RuntimeException('Leave request not found.', 404);
         }
 
-        if ((int) ($leave->{$userColumn} ?? 0) !== (int) $user->id) {
+        if ((string) ($leave->{$userColumn} ?? '') !== (string) $user->id) {
             throw new RuntimeException('You are not authorized to update this leave request.', 403);
         }
 
@@ -818,7 +818,7 @@ class LeaveApiService
             throw new RuntimeException('Leave cannot be applied for past dates.', 422);
         }
 
-        if ($this->hasOverlappingLeave($userColumn, (int) $user->id, $from, $to, $leaveId)) {
+        if ($this->hasOverlappingLeave($userColumn, (string) $user->id, $from, $to, $leaveId)) {
             throw new RuntimeException('Leave dates overlap with an existing leave request.', 422);
         }
 
@@ -869,7 +869,7 @@ class LeaveApiService
             throw new RuntimeException('Leave request not found.', 404);
         }
 
-        if ((int) ($leave->{$userColumn} ?? 0) !== (int) $user->id) {
+        if ((string) ($leave->{$userColumn} ?? '') !== (string) $user->id) {
             throw new RuntimeException('You are not authorized to cancel this leave request.', 403);
         }
 

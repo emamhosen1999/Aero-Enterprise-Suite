@@ -150,7 +150,7 @@ class LogRequestMiddleware
             return null;
         }
 
-        $body = $request->all();
+        $body = $request->except(array_keys($request->allFiles()));
 
         $sensitiveKeys = ['password', 'password_confirmation', 'current_password', 'token', 'secret'];
 

@@ -24,7 +24,7 @@ class BulkLeaveRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => 'required|exists:users,id',
+            'user_id' => 'required|exists:users,employee_id',
             'dates' => 'required|array|min:1|max:50',
             'dates.*' => 'required|date',
             'leave_type_id' => 'required|exists:leave_settings,id',

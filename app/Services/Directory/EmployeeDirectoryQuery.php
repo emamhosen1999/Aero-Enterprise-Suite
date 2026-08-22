@@ -23,7 +23,7 @@ class EmployeeDirectoryQuery
     {
         $q = trim((string) ($params['q'] ?? ''));
         $limit = (int) ($params['limit'] ?? 20);
-        $excludeIds = array_filter(array_map('intval', (array) ($params['excludeIds'] ?? [])));
+        $excludeIds = array_filter((array) ($params['excludeIds'] ?? []));
 
         $query = $this->scope->applyBaseScope(User::query(), $requester)
             ->whereNull('deleted_at')
@@ -32,7 +32,7 @@ class EmployeeDirectoryQuery
         $this->applyCallerScope($query, $requester, (string) ($params['scope'] ?? 'all'));
 
         if ($excludeIds) {
-            $query->whereNotIn('id', $excludeIds);
+            $query->whereNotIn('employee_id', $excludeIds);
         }
 
         if ($q !== '') {
@@ -130,7 +130,7 @@ class EmployeeDirectoryQuery
         if ($type === 'department' && $id !== null) {
             $query->where('department_id', (int) $id);
         } elseif ($type === 'manager' && $id !== null) {
-            $query->where('report_to', (int) $id);
+            $query->where('report_to', (string) $id);
         }
     }
 }

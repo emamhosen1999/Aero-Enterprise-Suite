@@ -33,7 +33,7 @@ class UpdateOffboardingRequest extends FormRequest
             'tasks.*.due_date' => 'nullable|date|after_or_equal:initiation_date',
             'tasks.*.completed_date' => 'nullable|date|after_or_equal:initiation_date',
             'tasks.*.status' => 'required|in:pending,in_progress,completed,not-applicable',
-            'tasks.*.assigned_to' => 'nullable|exists:users,id',
+            'tasks.*.assigned_to' => 'nullable|exists:users,employee_id',
             'tasks.*.notes' => 'nullable|string',
         ];
     }

@@ -162,7 +162,7 @@ class ObjectionService
 
             $usersToNotify = $usersToNotify
                 ->unique('id')
-                ->filter(fn (User $user): bool => (int) $user->id !== (int) $actorId);
+                ->filter(fn (User $user): bool => (string) $user->id !== (string) $actorId);
 
             foreach ($usersToNotify as $user) {
                 $user->notify(new RfiObjectionNotification($objection, $event));

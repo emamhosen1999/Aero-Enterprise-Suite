@@ -19,7 +19,7 @@ class ExperienceController extends Controller
                 'experiences.*.period_from' => 'required|date',
                 'experiences.*.period_to' => 'required|date', // period_to can be null for ongoing positions
                 'experiences.*.description' => 'required|string',
-                'experiences.*.user_id' => 'required|exists:users,id',
+                'experiences.*.user_id' => 'required|exists:users,employee_id',
             ], [
                 'experiences.*.id.exists' => 'The specified experience ID does not exist.',
                 'experiences.*.company_name.required' => 'Company name is required.',
@@ -75,7 +75,7 @@ class ExperienceController extends Controller
         try {
             $validated = $request->validate([
                 'id' => 'required|exists:experiences,id',
-                'user_id' => 'required|exists:users,id',
+                'user_id' => 'required|exists:users,employee_id',
             ], [
                 'id.required' => 'Experience ID is required.',
                 'id.exists' => 'The specified experience ID does not exist.',

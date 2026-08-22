@@ -24,7 +24,7 @@ class RequestLog extends Model
         'headers' => 'array',
         'request_body' => 'array',
         'response_status' => 'integer',
-        'user_id' => 'integer',
+        'user_id' => 'string',
         'duration_ms' => 'integer',
     ];
 

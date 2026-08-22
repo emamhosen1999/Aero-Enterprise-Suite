@@ -14,7 +14,7 @@ class UpdateDailyWorkInchargeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'incharge' => ['present', 'nullable', 'integer', 'exists:users,id'],
+            'incharge' => ['present', 'nullable', 'string', 'exists:users,employee_id'],
         ];
     }
 }

@@ -115,7 +115,7 @@ class CoverageService
     private function assignedWeights(CarbonInterface $start, CarbonInterface $end, ?array $locationIds): array
     {
         $rows = RosterDay::query()
-            ->join('users', 'users.id', '=', 'roster_days.user_id')
+            ->join('users', 'users.employee_id', '=', 'roster_days.user_id')
             ->whereBetween('roster_days.date', [$start->toDateString(), $end->toDateString()])
             ->whereNotNull('roster_days.shift_id')
             ->select([

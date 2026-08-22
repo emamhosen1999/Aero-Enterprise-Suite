@@ -18,7 +18,7 @@ class RequestLogController extends Controller
 
     public function list(Request $request)
     {
-        $query = RequestLog::with('user:id,name,employee_id');
+        $query = RequestLog::with('user:employee_id,name');
 
         // Filters
         if ($request->has('ip_address') && $request->ip_address) {
@@ -57,7 +57,7 @@ class RequestLogController extends Controller
 
     public function show($id)
     {
-        $log = RequestLog::with('user:id,name,employee_id')->find($id);
+        $log = RequestLog::with('user:employee_id,name')->find($id);
 
         if (! $log) {
             return response()->json(['message' => 'Log not found'], 404);
@@ -105,7 +105,7 @@ class RequestLogController extends Controller
 
     public function export(Request $request)
     {
-        $query = RequestLog::with('user:id,name,employee_id');
+        $query = RequestLog::with('user:employee_id,name');
 
         // Apply same filters as list method
         if ($request->has('ip_address') && $request->ip_address) {

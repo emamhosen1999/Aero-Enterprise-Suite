@@ -56,7 +56,7 @@ class ManagerDashboardController extends Controller
         $today = now()->toDateString();
         $teamMemberIds = $this->resolveTeamMemberIds($user);
         $workloadUserIds = collect($teamMemberIds)
-            ->push((int) $user->id)
+            ->push((string) $user->id)
             ->unique()
             ->values()
             ->all();
@@ -72,7 +72,7 @@ class ManagerDashboardController extends Controller
                 ->whereDate('date', $today)
                 ->distinct()
                 ->pluck('user_id')
-                ->map(fn ($id) => (int) $id)
+                ->map(fn ($id) => (string) $id)
                 ->all();
         }
 
@@ -90,9 +90,9 @@ class ManagerDashboardController extends Controller
         if ($teamMemberIds !== []) {
             $presentIdLookup = array_flip($presentUserIds);
             $nonPresentUsers = User::query()
-                ->whereIn('id', $teamMemberIds)
+                ->whereIn('employee_id', $teamMemberIds)
                 ->get()
-                ->reject(fn (User $member) => isset($presentIdLookup[(int) $member->id]))
+                ->reject(fn (User $member) => isset($presentIdLookup[(string) $member->id]))
                 ->values();
 
             $todayPartition = $upcomingShiftService->todayPartition(Carbon::parse($today), $nonPresentUsers);
@@ -209,7 +209,7 @@ class ManagerDashboardController extends Controller
         $hasProfileImageColumn = Schema::hasColumn('users', 'profile_image');
 
         $leaveQuery = DB::table('leaves')
-            ->leftJoin('users', "leaves.{$userColumn}", '=', 'users.id')
+            ->leftJoin('users', "leaves.{$userColumn}", '=', 'users.employee_id')
             ->whereIn("leaves.{$userColumn}", $teamMemberIds)
             ->whereDate('leaves.from_date', '<=', $queryRangeEnd)
             ->whereDate('leaves.to_date', '>=', $queryRangeStart)
@@ -228,7 +228,7 @@ class ManagerDashboardController extends Controller
             'leaves.no_of_days',
             'leaves.reason',
             'leaves.status',
-            'users.id as employee_id',
+            'users.employee_id as employee_id',
             'users.name as employee_name',
         ];
 
@@ -281,9 +281,9 @@ class ManagerDashboardController extends Controller
             $membersById = [];
 
             foreach ($matchingLeaves as $leaveRow) {
-                $memberId = (int) ($leaveRow->user_id ?? 0);
+                $memberId = (string) ($leaveRow->user_id ?? '');
 
-                if ($memberId <= 0) {
+                if ($memberId === '') {
                     continue;
                 }
 
@@ -293,7 +293,7 @@ class ManagerDashboardController extends Controller
                     $membersById[$memberId] = [
                         'user_id' => $memberId,
                         'employee' => [
-                            'id' => (int) ($leaveRow->employee_id ?? $memberId),
+                            'id' => (string) ($leaveRow->employee_id ?? $memberId),
                             'name' => (string) ($leaveRow->employee_name ?? 'Team Member'),
                             'employee_id' => $leaveRow->employee_code,
                             'profile_image' => $leaveRow->profile_image,

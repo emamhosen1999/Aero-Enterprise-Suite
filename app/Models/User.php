@@ -45,6 +45,18 @@ class User extends Authenticatable implements HasMedia
 {
     use HasApiTokens, HasFactory, HasPushSubscriptions, HasRoles, InteractsWithMedia, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
 
+    protected $primaryKey = 'employee_id';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    /**
+     * Alias 'id' accessor to primary key 'employee_id'.
+     */
+    public function getIdAttribute(): ?string
+    {
+        return $this->attributes['employee_id'] ?? $this->employee_id ?? null;
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -142,7 +154,7 @@ class User extends Authenticatable implements HasMedia
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
-        'report_to' => 'integer',
+        'report_to' => 'string',
         'designation_id' => 'integer',
         'department_id' => 'integer',
         'attendance_type_id' => 'integer',
@@ -159,6 +171,7 @@ class User extends Authenticatable implements HasMedia
      * @var array<int, string>
      */
     protected $appends = [
+        'id',
         'profile_image_url',
     ];
 
@@ -202,12 +215,12 @@ class User extends Authenticatable implements HasMedia
 
     public function notificationTokens(): HasMany
     {
-        return $this->hasMany(NotificationToken::class);
+        return $this->hasMany(NotificationToken::class, 'user_id');
     }
 
     public function notificationPreferences(): HasMany
     {
-        return $this->hasMany(NotificationPreference::class);
+        return $this->hasMany(NotificationPreference::class, 'user_id');
     }
 
     public function ledProjects()
@@ -222,12 +235,12 @@ class User extends Authenticatable implements HasMedia
 
     public function experiences()
     {
-        return $this->hasMany(Experience::class);
+        return $this->hasMany(Experience::class, 'user_id');
     }
 
     public function educations()
     {
-        return $this->hasMany(Education::class);
+        return $this->hasMany(Education::class, 'user_id');
     }
 
     public function leaves()
@@ -417,7 +430,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function devices(): HasMany
     {
-        return $this->hasMany(UserDevice::class);
+        return $this->hasMany(UserDevice::class, 'user_id');
     }
 
     /**
@@ -425,7 +438,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function activeDevices()
     {
-        return $this->hasMany(UserDevice::class)->active();
+        return $this->hasMany(UserDevice::class, 'user_id')->active();
     }
 
     /**
@@ -433,7 +446,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function currentDevice()
     {
-        return $this->hasOne(UserDevice::class)->active()->latest('last_used_at');
+        return $this->hasOne(UserDevice::class, 'user_id')->active()->latest('last_used_at');
     }
 
     /**
@@ -561,7 +574,7 @@ class User extends Authenticatable implements HasMedia
             return;
         }
 
-        DB::table('users')->where('id', $this->getKey())->increment('sync_epoch');
+        DB::table('users')->where('employee_id', $this->getKey())->increment('sync_epoch');
 
         // Keep THIS instance truthful. The increment above is deliberately a raw
         // query (so it cannot recurse through the observer), which means the loaded

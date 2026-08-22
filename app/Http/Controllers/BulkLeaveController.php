@@ -215,7 +215,7 @@ class BulkLeaveController extends Controller
     public function getCalendarData(Request $request): JsonResponse
     {
         try {
-            $userId = $request->get('user_id', Auth::id());
+            $userId = $request->get('user_id', Auth::user()?->employee_id ?? Auth::id());
             $year = $request->get('year', now()->year);
 
             // Get existing leaves for the user for the entire year (removed month filtering)
@@ -284,7 +284,7 @@ class BulkLeaveController extends Controller
 
             // Get the leaves to be deleted with their user info for authorization
             $leavesToDelete = Leave::whereIn('id', $leaveIds)
-                ->with('employee:id,name')
+                ->with('employee:employee_id,name')
                 ->get();
 
             if ($leavesToDelete->isEmpty()) {

@@ -25,10 +25,10 @@ class ShiftController extends Controller
         $user = auth()->user();
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
 
-        $query = Shift::with('creator:id,name')->orderBy('start_time')->orderBy('name');
+        $query = Shift::with('creator:employee_id,name')->orderBy('start_time')->orderBy('name');
 
         if (! $isGlobal) {
-            $query->where('created_by', $user->id);
+            $query->where('created_by', $user->employee_id ?? $user->getKey());
         }
 
         return response()->json([
@@ -61,7 +61,7 @@ class ShiftController extends Controller
 
         $shift = DB::transaction(fn () => Shift::create($data));
 
-        return response()->json(['message' => 'Shift created.', 'shift' => $shift->load('creator:id,name')], 201);
+        return response()->json(['message' => 'Shift created.', 'shift' => $shift->load('creator:employee_id,name')], 201);
     }
 
     /**
@@ -198,7 +198,7 @@ class ShiftController extends Controller
 
         return response()->json([
             'message' => 'Shift updated.',
-            'shift' => $shift->load('creator:id,name'),
+            'shift' => $shift->load('creator:employee_id,name'),
             'versions_count' => $shift->versions()->count(),
             'historical_days_affected' => RosterDay::where('shift_id', $shift->id)
                 ->where('date', '<', $effectiveFrom->toDateString())
@@ -226,7 +226,7 @@ class ShiftController extends Controller
         $user = auth()->user();
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
 
-        $query = ShiftRotationPattern::with('creator:id,name')->orderBy('name');
+        $query = ShiftRotationPattern::with('creator:employee_id,name')->orderBy('name');
 
         if (! $isGlobal) {
             $query->where('created_by', $user->id);
@@ -251,7 +251,7 @@ class ShiftController extends Controller
 
         $pattern = DB::transaction(fn () => ShiftRotationPattern::create($data));
 
-        return response()->json(['message' => 'Pattern created.', 'pattern' => $pattern->load('creator:id,name')], 201);
+        return response()->json(['message' => 'Pattern created.', 'pattern' => $pattern->load('creator:employee_id,name')], 201);
     }
 
     public function updatePattern(Request $request, int $id): JsonResponse
@@ -274,7 +274,7 @@ class ShiftController extends Controller
 
         DB::transaction(fn () => $pattern->update($data));
 
-        return response()->json(['message' => 'Pattern updated.', 'pattern' => $pattern->fresh()->load('creator:id,name')]);
+        return response()->json(['message' => 'Pattern updated.', 'pattern' => $pattern->fresh()->load('creator:employee_id,name')]);
     }
 
     public function destroyPattern(int $id): JsonResponse

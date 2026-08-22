@@ -29,7 +29,7 @@ class WorkLocationController extends Controller
             'title' => 'Work Locations Management',
             'workLocations' => $this->locationsWithMeta(),
             'attendanceTypes' => AttendanceType::all(),
-            'users' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            'users' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
         ]);
     }
 

@@ -64,7 +64,7 @@ class LeaveController extends Controller
     {
         return Inertia::render('LeavesEmployee', [
             'title' => 'Leaves',
-            'allUsers' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            'allUsers' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
 
         ]);
     }
@@ -73,7 +73,7 @@ class LeaveController extends Controller
     {
         return Inertia::render('LeavesAdmin', [
             'title' => 'Leaves',
-            'allUsers' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
+            'allUsers' => User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with('roles:id,name')->get(),
         ]);
     }
 
@@ -887,7 +887,7 @@ class LeaveController extends Controller
     protected function getDepartmentComparison($year)
     {
         return Department::withCount(['users as average_days' => function ($query) use ($year) {
-            $query->join('leaves', 'users.id', '=', 'leaves.user_id')
+            $query->join('leaves', 'users.employee_id', '=', 'leaves.user_id')
                 ->whereYear('leaves.from_date', $year)
                 ->where('leaves.status', 'approved')
                 ->select(DB::raw('AVG(leaves.no_of_days)'));

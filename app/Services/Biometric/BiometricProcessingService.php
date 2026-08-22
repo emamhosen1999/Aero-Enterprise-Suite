@@ -295,7 +295,7 @@ class BiometricProcessingService
      */
     public function queryAttLogs(?string $search, ?string $status, ?string $deviceId, int $perPage, int $page)
     {
-        $query = BiometricAttLog::with(['user:id,name,employee_id', 'device:id,name,serial_number'])
+        $query = BiometricAttLog::with(['user:employee_id,name', 'device:id,name,serial_number'])
             ->orderByDesc('punch_time');
 
         if ($search) {
@@ -2359,7 +2359,7 @@ class BiometricProcessingService
      */
     public function getDownloadSessions(?int $deviceId = null, $perPage = 20, int $page = 1)
     {
-        $query = BiometricDownloadSession::with(['device:id,name,serial_number', 'creator:id,name', 'command'])
+        $query = BiometricDownloadSession::with(['device:id,name,serial_number', 'creator:employee_id,name', 'command'])
             ->where('status', '!=', 'failed')
             ->orderBy('created_at', 'desc');
 

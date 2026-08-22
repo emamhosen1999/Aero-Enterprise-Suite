@@ -52,7 +52,7 @@ class LeaveQueryService
 
         $leavesQuery = Leave::with(['employee', 'leaveSetting'])
             ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
-            ->join('users', 'leaves.user_id', '=', 'users.id') // Ensure user exists
+            ->join('users', 'leaves.user_id', '=', 'users.employee_id') // Ensure user exists
             ->select('leaves.*', 'leave_settings.type as leave_type');
 
         // If a specific user_id is provided, filter by that user
@@ -397,12 +397,12 @@ class LeaveQueryService
 
         // Use join like in the main query for consistency
         $query = Leave::join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
-            ->join('users', 'leaves.user_id', '=', 'users.id') // Ensure user exists
+            ->join('users', 'leaves.user_id', '=', 'users.employee_id') // Ensure user exists
             ->select('leaves.*', 'leave_settings.type as leave_type_name');
 
         // Base filtering
         if (! $isAdmin) {
-            $query->where('leaves.user_id', $user->id);
+            $query->where('leaves.user_id', $user->employee_id ?? $user->getKey());
         }
 
         // Apply filters
@@ -465,12 +465,12 @@ class LeaveQueryService
         }
 
         $year = (int) $request->get('year', now()->year);
-        $requestedUserId = (int) ($request->get('user_id') ?: $user->id);
+        $requestedUserId = (string) ($request->get('user_id') ?: ($user->employee_id ?? $user->getKey()));
 
         // Authorization check: Only self or manager/approver can view
-        if ($requestedUserId !== $user->id
+        if ($requestedUserId !== (string) ($user->employee_id ?? $user->getKey())
             && !$user->can('leaves.approve') && !$user->can('leaves.manage')) {
-            $requestedUserId = (int) $user->id;
+            $requestedUserId = (string) ($user->employee_id ?? $user->getKey());
         }
 
         $rows = LeaveLedger::query()

@@ -138,7 +138,7 @@ class UserManagementTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('users', [
-            'id' => $user->id,
+            'employee_id' => $user->employee_id,
             'name' => 'Updated Name',
         ]);
     }
@@ -163,7 +163,7 @@ class UserManagementTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('users', [
-            'id' => $user->id,
+            'employee_id' => $user->employee_id,
             'name' => 'Wang FuChen',
             'user_name' => 'wangfuchen', // preserved, not nulled/blanked
         ]);
@@ -225,6 +225,7 @@ class UserManagementTest extends TestCase
             'email' => 'john@example.com',
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
+            'employee_id' => 'EMP999',
             'profile_image' => UploadedFile::fake()->image('profile.jpg'),
         ];
 
@@ -267,9 +268,7 @@ class UserManagementTest extends TestCase
         $response = $this->delete(route('users.destroy', $user->id));
 
         $response->assertStatus(200);
-        $this->assertSoftDeleted('users', [
-            'id' => $user->id,
-        ]);
+        $this->assertSoftDeleted($user);
     }
 
     /** @test */

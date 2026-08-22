@@ -14,7 +14,7 @@ class PunchExceptionService
     public function pending(): Collection
     {
         return Attendance::where('needs_approval', true)->where('policy_status', 'provisional')
-            ->with('user:id,name')->orderByDesc('date')->get();
+            ->with('user:employee_id,name')->orderByDesc('date')->get();
     }
 
     public function approve(int $attendanceId, User $approver): array
@@ -23,7 +23,7 @@ class PunchExceptionService
             $att = Attendance::findOrFail($attendanceId);
             $before = $att->only(['policy_status', 'needs_approval']);
             $att->update(['policy_status' => 'accepted', 'needs_approval' => false]);
-            $this->audit->record('policy.exception.approve', $att->id, $before, $att->only(['policy_status', 'needs_approval']), 'Punch exception approved by '.$approver->id, null);
+            $this->audit->record('policy.exception.approve', $att->id, $before, $att->only(['policy_status', 'needs_approval']), 'Punch exception approved by '.($approver->employee_id ?? $approver->getKey()), null);
 
             return ['success' => true, 'status' => 'accepted'];
         });

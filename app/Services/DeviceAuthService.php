@@ -21,14 +21,14 @@ class DeviceAuthService
         $this->agent = new Agent;
     }
 
-    public function generateDeviceToken(string $deviceId, int $userId): string
+    public function generateDeviceToken(string $deviceId, string|int $userId): string
     {
         $data = $deviceId.'|'.$userId;
 
         return hash_hmac('sha256', $data, (string) config('app.key'));
     }
 
-    public function verifyDeviceToken(string $deviceId, int $userId, string $storedToken): bool
+    public function verifyDeviceToken(string $deviceId, string|int $userId, string $storedToken): bool
     {
         $data = $deviceId.'|'.$userId;
         $calculatedToken = hash_hmac('sha256', $data, (string) config('app.key'));
@@ -43,9 +43,11 @@ class DeviceAuthService
         ?array $deviceSignature = null,
         ?string $deviceName = null
     ): ?UserDevice {
+        $userId = (string) ($user->employee_id ?? $user->getKey());
+
         if (! $this->isValidUuid($deviceId)) {
             Log::warning('Invalid device_id format', [
-                'user_id' => $user->id,
+                'user_id' => $userId,
                 'device_id' => $deviceId,
             ]);
 
@@ -54,21 +56,21 @@ class DeviceAuthService
 
         // Prevent IntegrityConstraintViolation if this device ID is already registered to a different user.
         $deletedCount = UserDevice::where('device_id', $deviceId)
-            ->where('user_id', '!=', $user->id)
+            ->where('user_id', '!=', $userId)
             ->delete();
 
         if ($deletedCount > 0) {
             Log::info('Deleted existing device association for other users to allow registration', [
                 'device_id' => $deviceId,
-                'new_user_id' => $user->id,
+                'new_user_id' => $userId,
                 'deleted_count' => $deletedCount,
             ]);
         }
 
-        $deviceToken = $this->generateDeviceToken($deviceId, $user->id);
+        $deviceToken = $this->generateDeviceToken($deviceId, $userId);
         $deviceInfo = $this->getDeviceInfo($request, $deviceSignature, $deviceName);
 
-        $existingDevice = UserDevice::where('user_id', $user->id)
+        $existingDevice = UserDevice::where('user_id', $userId)
             ->where('device_id', $deviceId)
             ->first();
 
@@ -99,7 +101,7 @@ class DeviceAuthService
         }
 
         return UserDevice::create([
-            'user_id' => $user->id,
+            'user_id' => $userId,
             'device_id' => $deviceId,
             'device_token' => $deviceToken,
             'device_name' => $deviceInfo['device_name'],

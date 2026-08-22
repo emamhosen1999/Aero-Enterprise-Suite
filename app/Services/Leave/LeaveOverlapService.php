@@ -84,9 +84,9 @@ class LeaveOverlapService
      * pending/approved leave overlapping the requested range. Returned as
      * warnings — informs the approver, never blocks the request.
      */
-    public function teamConflictWarnings(int $userId, Carbon $fromDate, Carbon $toDate): array
+    public function teamConflictWarnings(string|int $userId, Carbon $fromDate, Carbon $toDate): array
     {
-        $departmentId = \App\Models\User::where('id', $userId)->value('department_id');
+        $departmentId = \App\Models\User::where('employee_id', $userId)->value('department_id');
         if (! $departmentId) {
             return [];
         }
@@ -94,9 +94,9 @@ class LeaveOverlapService
         $threshold = max(1, (int) config('leave.team_conflict_warn_threshold', 1));
 
         $conflicts = Leave::query()
-            ->join('users', 'users.id', '=', 'leaves.user_id')
+            ->join('users', 'users.employee_id', '=', 'leaves.user_id')
             ->where('users.department_id', $departmentId)
-            ->where('leaves.user_id', '!=', $userId)
+            ->where('leaves.user_id', '!=', (string) $userId)
             ->whereIn('leaves.status', ['pending', 'approved'])
             ->where('leaves.from_date', '<=', $toDate)
             ->where('leaves.to_date', '>=', $fromDate)

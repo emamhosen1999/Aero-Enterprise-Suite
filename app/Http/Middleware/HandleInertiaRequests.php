@@ -46,7 +46,7 @@ class HandleInertiaRequests extends Middleware
             'designation',
             'attendanceType.biometricDevices:id,name',
             'employeeAttendanceType.biometricDevice:id,name',
-        ])->find($user->id) : null;
+        ])->find($user->employee_id ?? $user->getKey()) : null;
 
         // Get company settings for global use
         $companySettings = CompanySetting::first();

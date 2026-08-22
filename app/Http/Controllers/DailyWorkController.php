@@ -64,7 +64,7 @@ class DailyWorkController extends Controller
         $allData = $userDesignationTitle === 'Supervision Engineer'
             ? [
                 'allInCharges' => [],
-                'juniors' => User::where('report_to', $user->id)->get(),
+                'juniors' => User::where('report_to', $user->employee_id ?? $user->getKey())->get(),
 
             ]
             : (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])
@@ -81,7 +81,7 @@ class DailyWorkController extends Controller
             );
         $reports = Report::all();
         $reports_with_daily_works = Report::with('daily_works')->has('daily_works')->get();
-        $users = User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with(['roles', 'designation', 'media'])->get();
+        $users = User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')->with(['roles', 'designation', 'media'])->get();
 
         // Loop through each user and add role and designation_title fields
         $users->transform(function ($user) {
@@ -411,7 +411,7 @@ class DailyWorkController extends Controller
                         'active_objections_count' => $activeObjectionsCount,
                         'message' => "This RFI has {$activeObjectionsCount} active objection(s). Changing the submission date may affect approvals, records, or claims. Please confirm to proceed.",
                         'objections' => $dailyWork->activeObjections()
-                            ->with('createdBy:id,name')
+                            ->with('createdBy:employee_id,name')
                             ->get(['id', 'title', 'category', 'status', 'created_by', 'created_at']),
                     ], 422);
                 }
@@ -820,7 +820,7 @@ class DailyWorkController extends Controller
         try {
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
-                'incharge' => 'nullable|exists:users,id',
+                'incharge' => 'nullable|exists:users,employee_id',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
@@ -843,7 +843,7 @@ class DailyWorkController extends Controller
         try {
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
-                'assigned' => 'nullable|exists:users,id',
+                'assigned' => 'nullable|exists:users,employee_id',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
@@ -866,7 +866,7 @@ class DailyWorkController extends Controller
         try {
             $request->validate([
                 'id' => 'required|exists:daily_works,id',
-                'assigned' => 'required|exists:users,id',
+                'assigned' => 'required|exists:users,employee_id',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);

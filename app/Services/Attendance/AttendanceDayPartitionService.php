@@ -61,7 +61,7 @@ class AttendanceDayPartitionService
         $now = Carbon::now(config('app.timezone'));
 
         $users = $this->inScopeUsers($departmentId, $memberIds, $designationId);
-        $userIds = $users->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $userIds = $users->pluck('id')->map(fn ($id) => (string) $id)->all();
 
         $attendanceByUser = $this->attendanceForDate($userIds, $dateStr);
         $leaveByUser = $this->approvedLeaveForDate($userIds, $dateStr);
@@ -72,7 +72,7 @@ class AttendanceDayPartitionService
         $offLeave = collect();
 
         foreach ($users as $user) {
-            $uid = (int) $user->id;
+            $uid = (string) $user->id;
             $records = $attendanceByUser->get($uid);
             $schedule = $this->schedules->resolve($uid, $day);
 
@@ -314,7 +314,7 @@ class AttendanceDayPartitionService
             return null;
         }
 
-        $shift = $this->roster->resolveShift((int) $user->id, $day);
+        $shift = $this->roster->resolveShift($user->id, $day);
 
         return [
             'code' => $shift?->code,
@@ -326,7 +326,7 @@ class AttendanceDayPartitionService
     private function serializeUser(User $user): array
     {
         return [
-            'id' => (int) $user->id,
+            'id' => (string) $user->id,
             'name' => $user->name,
             'employee_id' => $user->employee_id,
             'profile_image_url' => $user->profile_image_url,

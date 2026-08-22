@@ -40,7 +40,7 @@ class ProfileValidationService
     public function getBaseUpdateRules(): array
     {
         return [
-            'id' => 'required|exists:users,id',
+            'id' => 'required|exists:users,employee_id',
         ];
     }
 

@@ -352,7 +352,7 @@ class DailyWorkService
             $objection->description = $data['description'] ?? null;
             $objection->reason = $data['reason'] ?? null;
             $objection->status = $data['status'] ?? RfiObjection::STATUS_DRAFT;
-            $objection->created_by = (int) $user->id;
+            $objection->created_by = (string) $user->id;
 
             if (Schema::hasColumn('rfi_objections', 'type')) {
                 $objection->type = $data['type'] ?? null;
@@ -391,7 +391,7 @@ class DailyWorkService
                 $objection->syncChainages($specificChainages, $rangeFrom, $rangeTo);
             }
 
-            return $objection->fresh(['createdBy:id,name']) ?? $objection;
+            return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
         });
     }
 
@@ -402,7 +402,7 @@ class DailyWorkService
     {
         $objection->submit('Submitted for review');
 
-        return $objection->fresh(['createdBy:id,name']) ?? $objection;
+        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
     }
 
     /**
@@ -412,7 +412,7 @@ class DailyWorkService
     {
         $objection->startReview('Review started');
 
-        return $objection->fresh(['createdBy:id,name']) ?? $objection;
+        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
     }
 
     /**
@@ -422,7 +422,7 @@ class DailyWorkService
     {
         $objection->resolve($resolutionNotes);
 
-        return $objection->fresh(['createdBy:id,name']) ?? $objection;
+        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
     }
 
     /**
@@ -432,7 +432,7 @@ class DailyWorkService
     {
         $objection->reject($rejectionReason);
 
-        return $objection->fresh(['createdBy:id,name']) ?? $objection;
+        return $objection->fresh(['createdBy:employee_id,name']) ?? $objection;
     }
 
     /**
@@ -626,32 +626,34 @@ class DailyWorkService
             return true;
         }
 
+        $uid = (string) ($user->employee_id ?? $user->getKey());
+
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::where('incharge', $uid)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === $uid;
             } else {
                 // Employee has no jurisdiction: can view works where their manager (report_to) is incharge
                 if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                    return (string) $dailyWork->incharge === (string) $user->report_to;
                 }
 
                 // No jurisdiction and no manager: can view own works
-                return (int) $dailyWork->incharge === (int) $user->id;
+                return (string) $dailyWork->incharge === $uid;
             }
         }
 
         // For other roles (non-employee, non-admin): can view if incharge/assigned OR manager is incharge
-        if ((int) $dailyWork->incharge === (int) $user->id
-            || (int) $dailyWork->assigned === (int) $user->id) {
+        if ((string) $dailyWork->incharge === $uid
+            || (string) $dailyWork->assigned === $uid) {
             return true;
         }
 
-        if ($user->report_to && (int) $dailyWork->incharge === (int) $user->report_to) {
+        if ($user->report_to && (string) $dailyWork->incharge === (string) $user->report_to) {
             return true;
         }
 
@@ -663,7 +665,8 @@ class DailyWorkService
      */
     public function canSubmitObjection(User $user, RfiObjection $objection): bool
     {
-        return (int) $objection->created_by === (int) $user->id || $this->isPrivilegedUser($user);
+        $uid = (string) ($user->employee_id ?? $user->getKey());
+        return (string) $objection->created_by === $uid || $this->isPrivilegedUser($user);
     }
 
     /**
@@ -671,8 +674,9 @@ class DailyWorkService
      */
     public function canViewObjectionFiles(User $user, DailyWork $dailyWork, RfiObjection $objection): bool
     {
+        $uid = (string) ($user->employee_id ?? $user->getKey());
         return $this->isPrivilegedUser($user)
-            || (int) $objection->created_by === (int) $user->id
+            || (string) $objection->created_by === $uid
             || $this->canAccessDailyWork($user, $dailyWork);
     }
 
@@ -685,8 +689,9 @@ class DailyWorkService
             return false;
         }
 
+        $uid = (string) ($user->employee_id ?? $user->getKey());
         return $this->isPrivilegedUser($user)
-            || (int) $objection->created_by === (int) $user->id
+            || (string) $objection->created_by === $uid
             || $this->canAccessDailyWork($user, $dailyWork);
     }
 
@@ -704,7 +709,7 @@ class DailyWorkService
     public function findObjectionForDailyWork(int $dailyWorkId, int $objectionId): ?RfiObjection
     {
         return RfiObjection::query()
-            ->with(['createdBy:id,name'])
+            ->with(['createdBy:employee_id,name'])
             ->where('id', $objectionId)
             ->where(function ($objectionQuery) use ($dailyWorkId) {
                 $objectionQuery->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {

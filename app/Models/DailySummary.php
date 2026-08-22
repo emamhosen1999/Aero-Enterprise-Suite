@@ -21,7 +21,7 @@ class DailySummary extends Model
 
     protected $casts = [
         'date' => 'date',
-        'incharge' => 'integer',
+        'incharge' => 'string',
         'totalTasks' => 'integer',
         'totalResubmission' => 'integer',
         'embankmentTasks' => 'integer',

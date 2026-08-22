@@ -76,7 +76,7 @@ class DataSyncService
             // model built in memory that never re-read its DB defaults). Fetch the
             // authoritative value rather than silently reporting epoch 1, which
             // would suppress every reset directive for that device.
-            $epoch = DB::table('users')->where('id', $user->getKey())->value('sync_epoch');
+            $epoch = DB::table('users')->where('employee_id', $user->getKey())->value('sync_epoch');
         }
 
         return max(1, (int) ($epoch ?? 1));
@@ -478,7 +478,7 @@ class DataSyncService
                 // 1. Reserve. The unique index is the mutex.
                 try {
                     DB::table('mobile_sync_mutations')->insert([
-                        'user_id' => (int) $user->id,
+                        'user_id' => (string) $user->id,
                         'idempotency_key' => $idempotencyKey,
                         'module' => $module,
                         'action' => $action,
@@ -494,7 +494,7 @@ class DataSyncService
 
                     return [
                         'outcome' => 'duplicate',
-                        'result' => $this->fetchStoredResult((int) $user->id, $idempotencyKey),
+                        'result' => $this->fetchStoredResult((string) $user->id, $idempotencyKey),
                     ];
                 }
 
@@ -503,7 +503,7 @@ class DataSyncService
 
                 // 3. Persist the terminal result atomically with the apply.
                 DB::table('mobile_sync_mutations')
-                    ->where('user_id', (int) $user->id)
+                    ->where('user_id', (string) $user->id)
                     ->where('idempotency_key', $idempotencyKey)
                     ->update([
                         'status' => (string) ($result['status'] ?? 'failed'),
@@ -706,7 +706,7 @@ class DataSyncService
             ];
         }
 
-        if ($this->hasOverlappingLeave($userColumn, (int) $user->id, $fromDate, $toDate)) {
+        if ($this->hasOverlappingLeave($userColumn, (string) $user->id, $fromDate, $toDate)) {
             return [
                 'status' => 'failed',
                 'message' => 'Leave dates overlap with an existing leave request.',
@@ -736,14 +736,14 @@ class DataSyncService
             'updated_at' => now(),
         ];
 
-        $insertPayload[$userColumn] = (int) $user->id;
+        $insertPayload[$userColumn] = (string) $user->id;
 
         if ($userColumn === 'user_id' && Schema::hasColumn('leaves', 'user')) {
-            $insertPayload['user'] = (int) $user->id;
+            $insertPayload['user'] = (string) $user->id;
         }
 
         if ($userColumn === 'user' && Schema::hasColumn('leaves', 'user_id')) {
-            $insertPayload['user_id'] = (int) $user->id;
+            $insertPayload['user_id'] = (string) $user->id;
         }
 
         if (Schema::hasColumn('leaves', 'submitted_at')) {
@@ -806,9 +806,9 @@ class DataSyncService
             ];
         }
 
-        $ownerId = (int) ($leave->{$userColumn} ?? 0);
+        $ownerId = (string) ($leave->{$userColumn} ?? '');
 
-        if ($ownerId !== (int) $user->id) {
+        if ($ownerId !== (string) $user->id) {
             return [
                 'status' => 'failed',
                 'message' => 'You are not authorized to cancel this leave request.',
@@ -829,7 +829,7 @@ class DataSyncService
         // Hard deletes leave no trace for an already-synced device to act on, so
         // emit a tombstone the pull can return. Without this the cancelled leave
         // lives forever in the client's local store.
-        $this->recordTombstone((int) $user->id, 'leaves', $leaveId);
+        $this->recordTombstone((string) $user->id, 'leaves', $leaveId);
 
         return [
             'status' => 'applied',
@@ -1217,12 +1217,12 @@ class DataSyncService
             return true;
         }
 
-        if ((int) $dailyWork->incharge === (int) $user->id
-            || (int) $dailyWork->assigned === (int) $user->id) {
+        if ((string) $dailyWork->incharge === (string) $user->id
+            || (string) $dailyWork->assigned === (string) $user->id) {
             return true;
         }
 
-        if ($user->report_to && (int) $dailyWork->incharge === (int) $user->report_to) {
+        if ($user->report_to && (string) $dailyWork->incharge === (string) $user->report_to) {
             return true;
         }
 
@@ -1231,7 +1231,7 @@ class DataSyncService
 
     private function canSubmitObjection(User $user, RfiObjection $objection): bool
     {
-        return (int) $objection->created_by === (int) $user->id || $this->isPrivilegedUser($user);
+        return (string) $objection->created_by === (string) $user->id || $this->isPrivilegedUser($user);
     }
 
     private function canReviewObjection(User $user): bool

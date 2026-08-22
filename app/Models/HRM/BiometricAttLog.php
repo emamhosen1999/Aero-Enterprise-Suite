@@ -53,7 +53,7 @@ class BiometricAttLog extends Model
         'occurred_at' => 'datetime',
         'context' => 'array',
         'biometric_device_id' => 'integer',
-        'user_id' => 'integer',
+        'user_id' => 'string',
     ];
 
     public function user(): BelongsTo

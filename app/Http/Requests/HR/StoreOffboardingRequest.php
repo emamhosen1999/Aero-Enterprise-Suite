@@ -14,7 +14,7 @@ class StoreOffboardingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employee_id' => 'required|exists:users,id',
+            'employee_id' => 'required|exists:users,employee_id',
             'initiation_date' => 'required|date',
             'last_working_date' => 'required|date|after_or_equal:initiation_date',
             'exit_interview_date' => 'nullable|date|after_or_equal:initiation_date',
@@ -25,7 +25,7 @@ class StoreOffboardingRequest extends FormRequest
             'tasks.*.task' => 'required|string',
             'tasks.*.description' => 'nullable|string',
             'tasks.*.due_date' => 'nullable|date|after_or_equal:initiation_date',
-            'tasks.*.assigned_to' => 'nullable|exists:users,id',
+            'tasks.*.assigned_to' => 'nullable|exists:users,employee_id',
         ];
     }
 

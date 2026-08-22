@@ -36,16 +36,17 @@ class RosterController extends Controller
 
         $currentUser = $request->user();
 
+        $uid = (string) ($currentUser->employee_id ?? $currentUser->getKey());
         // A manager sees their reporting tree; anyone else sees only themselves.
         $userIds = $this->isManagerUser($currentUser)
             ? $this->resolveTeamMemberIds($currentUser)
-            : [$currentUser->id];
+            : [$uid];
 
         if ($userIds === []) {
-            $userIds = [$currentUser->id];
+            $userIds = [$uid];
         }
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:employee_id,name', 'user.media'])
             ->whereIn('user_id', $userIds)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(

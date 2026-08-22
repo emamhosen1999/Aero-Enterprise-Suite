@@ -21,7 +21,7 @@ class ListObjectionQueueRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', Rule::in(RfiObjection::$statuses)],
             'category' => ['nullable', 'string', Rule::in(RfiObjection::$categories)],
-            'created_by' => ['nullable', 'integer', 'exists:users,id'],
+            'created_by' => ['nullable', 'string', 'exists:users,employee_id'],
         ];
     }
 }

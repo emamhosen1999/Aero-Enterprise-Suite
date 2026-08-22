@@ -51,7 +51,7 @@ class UserController extends Controller
         $designationsQuery = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')
             ->with('department:id,name') // department_name is appended in Designation::toArray(); avoid lazy-load violation
             ->orderBy('hierarchy_level', 'asc');
-        $usersQuery = User::select('id', 'name', 'email', 'department_id', 'designation_id')
+        $usersQuery = User::select('employee_id as id', 'employee_id', 'name', 'email', 'department_id', 'designation_id')
             ->whereNull('deleted_at');
 
         if (!$isGlobal && $userDeptId !== null) {
@@ -80,7 +80,7 @@ class UserController extends Controller
             'inactive' => $departments->where('is_active', false)->count(),
             'parent_departments' => $parentDepartments->count(),
         ];
-        $departmentsPaginateQuery = Department::with(['manager:id,name,email', 'parent:id,name'])
+        $departmentsPaginateQuery = Department::with(['manager:employee_id,name,email', 'parent:id,name'])
             ->withCount('employees');
         $designationsPaginateQuery = Designation::with('department:id,name')
             ->withCount(['users as employee_count']);
@@ -438,7 +438,7 @@ class UserController extends Controller
     public function updateReportTo(Request $request, $id)
     {
         $request->validate([
-            'report_to' => 'nullable|exists:users,id',
+            'report_to' => 'nullable|exists:users,employee_id',
         ]);
 
         try {

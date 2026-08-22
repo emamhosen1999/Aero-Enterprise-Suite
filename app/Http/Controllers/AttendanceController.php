@@ -68,7 +68,7 @@ class AttendanceController extends Controller
 
         $departmentsQuery = Department::active();
         $employeesQuery = User::role('Employee')
-            ->select('id', 'name', 'department_id', 'designation_id')
+            ->select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')
             ->orderBy('name');
 
         $designationsQuery = Designation::select('id', 'title', 'department_id')->orderBy('title');
@@ -139,7 +139,7 @@ class AttendanceController extends Controller
             return collect();
         }
 
-        return User::select('id', 'name', 'employee_id')
+        return User::select('employee_id as id', 'name', 'employee_id')
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();
@@ -749,7 +749,7 @@ class AttendanceController extends Controller
 
             $serializedAbsentUsers = $absentUsers->map(function (User $user) {
                 return [
-                    'id' => (int) $user->id,
+                    'id' => (string) $user->id,
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -766,7 +766,7 @@ class AttendanceController extends Controller
 
             $serializedOffUsers = $offUsers->map(function (User $user) {
                 return [
-                    'id' => (int) $user->id,
+                    'id' => (string) $user->id,
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -778,7 +778,7 @@ class AttendanceController extends Controller
 
             $serializedUpcomingUsers = $upcomingUsers->map(function (User $user) {
                 return [
-                    'id' => (int) $user->id,
+                    'id' => (string) $user->id,
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -877,7 +877,7 @@ class AttendanceController extends Controller
 
             $lateCount = 0;
             foreach ($dayPunches as $userId => $punches) {
-                $shift = $resolver->resolve((int) $userId, Carbon::parse($date));
+                $shift = $resolver->resolve((string) $userId, Carbon::parse($date));
                 $day = $statusService->resolve($punches, $shift);
                 if ($day->late_minutes > 0) {
                     $lateCount++;
@@ -893,7 +893,7 @@ class AttendanceController extends Controller
                     ->whereRaw('LOWER(status) = ?', ['approved']);
 
                 if ($departmentId) {
-                    $onLeaveQuery->join('users', 'leaves.'.$leaveUserColumn, '=', 'users.id')
+                    $onLeaveQuery->join('users', 'leaves.'.$leaveUserColumn, '=', 'users.employee_id')
                         ->where('users.department_id', $departmentId);
                     $onLeaveUserIds = $onLeaveQuery->pluck('leaves.'.$leaveUserColumn)->unique();
                 } else {
@@ -1000,7 +1000,7 @@ class AttendanceController extends Controller
     {
         try {
             $validated = $request->validate([
-                'user_id' => 'required|exists:users,id',
+                'user_id' => 'required|exists:users,employee_id',
                 'date' => 'required|date',
             ]);
 
@@ -1026,7 +1026,7 @@ class AttendanceController extends Controller
         try {
             $validated = $request->validate([
                 'user_ids' => 'required|array',
-                'user_ids.*' => 'exists:users,id',
+                'user_ids.*' => 'exists:users,employee_id',
                 'date' => 'required|date',
             ]);
 
@@ -1036,7 +1036,7 @@ class AttendanceController extends Controller
             $partitionService = app(AttendanceDayPartitionService::class);
             $attendances = [];
             foreach ($validated['user_ids'] as $userId) {
-                $attendances[] = $partitionService->markPresent((int) $userId, $date, $request);
+                $attendances[] = $partitionService->markPresent((string) $userId, $date, $request);
             }
 
             return response()->json([
@@ -1323,7 +1323,7 @@ class AttendanceController extends Controller
 
         try {
             $validated = $request->validate([
-                'user_id' => 'required|exists:users,id',
+                'user_id' => 'required|exists:users,employee_id',
                 'date' => 'required|date',
                 'punchin' => 'nullable|date_format:Y-m-d H:i:s',
                 'punchout' => 'nullable|date_format:Y-m-d H:i:s',

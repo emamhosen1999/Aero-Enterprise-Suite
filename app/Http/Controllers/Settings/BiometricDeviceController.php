@@ -44,7 +44,7 @@ class BiometricDeviceController extends Controller
                 return $device;
             });
 
-        $employees = User::select('id', 'name', 'employee_id')
+        $employees = User::select('employee_id as id', 'employee_id', 'name')
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();
@@ -814,7 +814,7 @@ class BiometricDeviceController extends Controller
         $deviceId = $request->input('device_id');
 
         $query = BiometricAttLog::with([
-            'user:id,name,employee_id',
+            'user:employee_id,name',
             'device:id,name,serial_number',
         ])->orderByDesc('punch_time');
 
@@ -1037,7 +1037,7 @@ class BiometricDeviceController extends Controller
         try {
             $session = BiometricDownloadSession::with('command')->findOrFail($id);
 
-            $query = BiometricAttLog::with('user:id,name,employee_id')
+            $query = BiometricAttLog::with('user:employee_id,name')
                 ->where('biometric_device_id', $session->biometric_device_id)
                 ->where('punch_status', 'downloaded');
 
@@ -1692,7 +1692,7 @@ class BiometricDeviceController extends Controller
     {
         $data = $request->validate([
             'pin' => 'required|string|max:191',
-            'user_id' => 'required|integer|exists:users,id',
+            'user_id' => 'required|string|exists:users,employee_id',
         ]);
 
         $pin = trim($data['pin']);

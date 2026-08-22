@@ -123,7 +123,7 @@ class NcrController extends Controller
             'severity'           => ['required', Rule::in(self::SEVERITIES)],
             'status'             => ['required', Rule::in(self::STATUSES)],
             'department_id'      => ['nullable', 'exists:departments,id'],
-            'assigned_to'        => ['nullable', 'exists:users,id'],
+            'assigned_to'        => ['nullable', 'exists:users,employee_id'],
             'detected_date'      => ['required', 'date'],
             'root_cause_analysis'=> ['nullable', 'string'],
             'immediate_action'   => ['nullable', 'string'],

@@ -41,7 +41,7 @@ class RosterController extends Controller
             $data['department_id'] = $user->department_id;
         }
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:employee_id,name', 'user.media'])
             ->whereBetween('date', [$data['from'], $data['to']])
             ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(
                 'user',
@@ -70,7 +70,7 @@ class RosterController extends Controller
             'to' => 'required|date|after_or_equal:from',
         ]);
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:employee_id,name', 'user.media'])
             ->where('user_id', $request->user()->id)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->orderBy('id')
@@ -211,7 +211,7 @@ class RosterController extends Controller
     {
         $data = $request->validate([
             'user_ids' => 'required|array',
-            'user_ids.*' => 'integer|exists:users,id',
+            'user_ids.*' => 'string|exists:users,employee_id',
             'from' => 'required|date',
             'to' => 'required|date|after_or_equal:from',
         ]);
@@ -240,7 +240,7 @@ class RosterController extends Controller
         // for HR review. Keyed by user_id so the caller can attribute them.
         $complianceViolations = [];
         foreach ($data['user_ids'] as $userId) {
-            $userViolations = $this->compliance->evaluate((int) $userId, $data['from'], $data['to']);
+            $userViolations = $this->compliance->evaluate((string) $userId, $data['from'], $data['to']);
             if ($userViolations) {
                 $complianceViolations[$userId] = $userViolations;
             }
@@ -256,7 +256,7 @@ class RosterController extends Controller
     public function updateCell(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'user_id' => 'required|integer|exists:users,id',
+            'user_id' => 'required|string|exists:users,employee_id',
             'date' => 'required|date',
             'shift_id' => 'nullable|integer|exists:shifts,id',
             'shift_ids' => 'nullable|array|max:3',

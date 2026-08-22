@@ -235,7 +235,7 @@ class TaskCrudService
 
         if ($request->has('assigned')) {
             if (! empty($request->assigned)) {
-                $request->validate(['assigned' => 'required|exists:users,id']);
+                $request->validate(['assigned' => 'required|exists:users,employee_id']);
                 $task->assigned = $request->assigned;
                 $messages[] = 'Task assigned to '.User::find($request->assigned)->name;
 
@@ -248,7 +248,7 @@ class TaskCrudService
         }
 
         if ($request->has('incharge')) {
-            $request->validate(['incharge' => 'required|exists:users,id']);
+            $request->validate(['incharge' => 'required|exists:users,employee_id']);
             $task->incharge = $request->incharge;
             $messages[] = 'Task incharge updated to '.User::find($request->incharge)->name;
         }

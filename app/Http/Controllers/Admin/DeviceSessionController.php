@@ -51,7 +51,7 @@ class DeviceSessionController extends Controller
         $status = (string) $request->input('status', 'all');
         $perPage = min(max((int) $request->input('per_page', 15), 5), 100);
 
-        $query = UserDevice::query()->with('user:id,name,email,current_device_id,single_device_login_enabled');
+        $query = UserDevice::query()->with('user:employee_id,name,email,current_device_id,single_device_login_enabled');
 
         if ($search !== '') {
             $query->where(function ($outer) use ($search) {
@@ -185,7 +185,7 @@ class DeviceSessionController extends Controller
 
         $result = DB::transaction(function () use ($userDevice, $user, $deviceId) {
             $tokenIds = $deviceId !== ''
-                ? ($this->tokenIdMapForUsers([(int) $user->id])[$this->mapKey((int) $user->id, $deviceId)] ?? [])
+                ? ($this->tokenIdMapForUsers([(string) $user->id])[$this->mapKey((string) $user->id, $deviceId)] ?? [])
                 : [];
 
             $accessTokensRevoked = 0;
@@ -201,7 +201,7 @@ class DeviceSessionController extends Controller
             // An empty device_id would make revokeChainForUserDevice wipe EVERY refresh
             // token the user owns, so only run it for a genuinely device-bound record.
             $refreshTokensRevoked = $deviceId !== ''
-                ? $this->refreshTokenService->revokeChainForUserDevice((int) $user->id, $deviceId)
+                ? $this->refreshTokenService->revokeChainForUserDevice((string) $user->id, $deviceId)
                 : 0;
 
             $this->deviceAuthService->deactivateDevice($user, (int) $userDevice->id);
@@ -226,7 +226,7 @@ class DeviceSessionController extends Controller
         DeviceSessionRevoked::dispatch(
             $request->user()?->id,
             (int) $userDevice->id,
-            (int) $user->id,
+            (string) $user->id,
             $result['access_tokens_revoked'],
             $result['refresh_tokens_revoked'],
             $result['unbound_current_device'],

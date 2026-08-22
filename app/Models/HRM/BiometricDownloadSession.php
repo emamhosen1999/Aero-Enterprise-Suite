@@ -37,7 +37,7 @@ class BiometricDownloadSession extends Model
         'failed_count' => 'integer',
         'biometric_device_id' => 'integer',
         'command_id' => 'integer',
-        'created_by' => 'integer',
+        'created_by' => 'string',
     ];
 
     public function device()

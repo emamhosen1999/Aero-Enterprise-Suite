@@ -32,13 +32,14 @@ class DailyWorkExportService
 
         // Apply user role filter
         if (! $isAdmin) {
+            $uid = (string) ($user->employee_id ?? $user->getKey());
             if ($userDesignationTitle === 'Supervision Engineer') {
-                $query->where('incharge', $user->id);
+                $query->where('incharge', $uid);
             } elseif (in_array('Employee', $userRoles)) {
                 // Employee can only export works where they are incharge or assigned
-                $query->where(function ($q) use ($user) {
-                    $q->where('incharge', $user->id)
-                        ->orWhere('assigned', $user->id);
+                $query->where(function ($q) use ($uid) {
+                    $q->where('incharge', $uid)
+                        ->orWhere('assigned', $uid);
                 });
             }
         }
@@ -179,7 +180,7 @@ class DailyWorkExportService
         $query = DailyWork::with(['inchargeUser', 'assignedUser'])
             ->with(['objections' => function ($q) {
                 $q->whereIn('status', ['draft', 'submitted', 'under_review'])
-                    ->with('createdBy:id,name')
+                    ->with('createdBy:employee_id,name')
                     ->select('rfi_objections.id', 'title', 'category', 'status', 'chainage_from', 'chainage_to', 'description', 'created_by', 'created_at');
             }])
             ->withCount(['objections as active_objections_count' => function ($q) {

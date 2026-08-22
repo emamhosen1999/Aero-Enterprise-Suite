@@ -215,7 +215,7 @@ class LeaveController extends Controller
                 // 500 as soon as a pending leave had a real employee row. The
                 // avatar comes from the media library via the profile_image_url
                 // accessor instead, so eager-load media to avoid an N+1.
-                'employee:id,name,employee_id',
+                'employee:employee_id,name',
                 'employee.media',
                 'leaveSetting:id,type,symbol',
             ])
@@ -267,7 +267,7 @@ class LeaveController extends Controller
             ->with([
                 // Same eager-load contract as pendingApprovals — never select the
                 // non-existent profile_image column; the avatar comes from media.
-                'employee:id,name,employee_id',
+                'employee:employee_id,name',
                 'employee.media',
                 'leaveSetting:id,type,symbol',
             ])

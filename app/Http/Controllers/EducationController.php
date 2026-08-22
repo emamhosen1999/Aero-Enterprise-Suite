@@ -19,7 +19,7 @@ class EducationController extends Controller
                 'educations.*.starting_date' => 'required|date',
                 'educations.*.complete_date' => 'required|date',
                 'educations.*.grade' => 'required|string|max:255',
-                'educations.*.user_id' => 'required|exists:users,id',
+                'educations.*.user_id' => 'required|exists:users,employee_id',
             ], [
                 'educations.*.id.exists' => 'The specified education ID does not exist.',
                 'educations.*.institution.required' => 'Institution is required.',
@@ -85,7 +85,7 @@ class EducationController extends Controller
         try {
             $validated = $request->validate([
                 'id' => 'required|exists:education,id',
-                'user_id' => 'required|exists:users,id',
+                'user_id' => 'required|exists:users,employee_id',
             ], [
                 'id.required' => 'Education ID is required.',
                 'id.exists' => 'The specified education ID does not exist.',

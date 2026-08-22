@@ -138,7 +138,7 @@ class AuthController extends Controller
         $refresh = $this->refreshTokenService->issueForLogin($user, $deviceId);
 
         if ($user->hasSingleDeviceLoginEnabled()) {
-            $this->refreshTokenService->revokeForOtherDevices((int) $user->id, $deviceId);
+            $this->refreshTokenService->revokeForOtherDevices((string) ($user->employee_id ?? $user->getKey()), $deviceId);
         }
 
         $user->loadMissing([
@@ -250,7 +250,7 @@ class AuthController extends Controller
         // Kill the refresh chain too, so a stored refresh token can't silently
         // resurrect the session after an explicit logout.
         if ($user) {
-            $this->refreshTokenService->revokeChainForUserDevice((int) $user->id, null);
+            $this->refreshTokenService->revokeChainForUserDevice($user->id, null);
         }
 
         return $this->successResponse(null, 'Logged out successfully.');
@@ -279,7 +279,7 @@ class AuthController extends Controller
 
         // Reuse of a rotated/revoked token is a theft signal — burn the chain.
         if ($token->isRevoked()) {
-            $this->refreshTokenService->revokeChainForUserDevice((int) $token->user_id, $token->device_id);
+            $this->refreshTokenService->revokeChainForUserDevice($token->user_id, $token->device_id);
 
             return $this->errorResponse('This session has been revoked. Please sign in again.', 'REFRESH_TOKEN_REUSED', 401);
         }
@@ -301,7 +301,7 @@ class AuthController extends Controller
         $currentDeviceId = trim((string) User::whereKey($user->id)->value('current_device_id'));
 
         if ($currentDeviceId !== '' && $deviceId !== '' && $currentDeviceId !== $deviceId) {
-            $this->refreshTokenService->revokeChainForUserDevice((int) $user->id, $deviceId);
+            $this->refreshTokenService->revokeChainForUserDevice($user->id, $deviceId);
 
             return $this->errorResponse('This account is active on another device. Please sign in again.', 'REFRESH_TOKEN_WRONG_DEVICE', 401);
         }

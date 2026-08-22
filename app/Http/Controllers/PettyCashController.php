@@ -42,7 +42,7 @@ class PettyCashController extends Controller
     // ─── Helper: check loan access (owner OR admin) ───
     private function canAccessLoan(PettyCashLoan $loan, $user): bool
     {
-        return (int) $loan->user_id === (int) $user->id || $this->isAdminOrManager($user);
+        return (string) $loan->user_id === (string) $user->id || $this->isAdminOrManager($user);
     }
 
     // ─── Page Render ───

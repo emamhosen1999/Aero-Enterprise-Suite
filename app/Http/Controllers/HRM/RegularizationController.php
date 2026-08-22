@@ -26,7 +26,7 @@ class RegularizationController extends Controller
             'reason' => 'required|string|max:500',
         ]);
 
-        $req = $this->service->request($request->user()->id, $data);
+        $req = $this->service->request($request->user()->employee_id ?? $request->user()->getKey(), $data);
 
         return response()->json(['message' => 'Regularization submitted.', 'request' => $req], 201);
     }
@@ -34,7 +34,7 @@ class RegularizationController extends Controller
     public function mine(Request $request): JsonResponse
     {
         return response()->json([
-            'requests' => AttendanceRegularization::where('user_id', $request->user()->id)
+            'requests' => AttendanceRegularization::where('user_id', $request->user()->employee_id ?? $request->user()->getKey())
                 ->orderByDesc('created_at')->get(),
         ]);
     }
@@ -47,7 +47,7 @@ class RegularizationController extends Controller
         }
 
         $requests = $this->approvals->forApprover($request->user(), AttendanceRegularization::class, $status)
-            ->load('user:id,name');
+            ->load('user:employee_id,name');
 
         return response()->json(['requests' => $requests->values()]);
     }
