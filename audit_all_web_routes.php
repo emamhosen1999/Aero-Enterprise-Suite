@@ -120,7 +120,7 @@ $session->put('device_verified', true);
 ], [
     'device_name' => 'Audit Browser',
     'device_type' => 'desktop',
-    'is_verified' => true,
+    'device_token' => hash('sha256', 'audit-device-token'),
     'is_active' => true,
     'last_active_at' => now(),
 ]);
