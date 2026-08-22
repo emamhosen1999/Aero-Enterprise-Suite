@@ -121,11 +121,14 @@ $session->put('device_verified', true);
 foreach ($routes as $uri) {
     Auth::login($admin);
     $req = Request::create($uri, 'GET');
+    $version = \Inertia\Inertia::getVersion();
     $req->setLaravelSession($session);
     $req->setUserResolver(fn() => $admin);
     $req->headers->set('Accept', 'application/json, text/plain, */*');
     $req->headers->set('X-Inertia', 'true');
-    $req->headers->set('X-Inertia-Version', '');
+    if ($version) {
+        $req->headers->set('X-Inertia-Version', $version);
+    }
     $req->headers->set('X-Requested-With', 'XMLHttpRequest');
     $req->headers->set('X-Device-Id', $deviceId);
     $req->cookies->set('device_id', $deviceId);
