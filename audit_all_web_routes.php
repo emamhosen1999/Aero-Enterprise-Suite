@@ -106,24 +106,17 @@ $passCount = 0;
 $failCount = 0;
 $serverErrors = [];
 
-$deviceId = 'audit-web-device-001';
+$deviceId = 'a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6';
+$dummyReq = Request::create('/', 'GET');
+$dummyReq->headers->set('User-Agent', 'Audit Browser/1.0');
+$deviceService = $app->make(\App\Services\DeviceAuthService::class);
+$device = $deviceService->registerDevice($admin, $dummyReq, $deviceId, ['platform' => 'desktop'], 'Audit Browser');
+
 $session = $app->make('session.store');
 $session->start();
 $session->put('login_web_59ba36addc2b2f9401580f014c7f58ea4e30989d', $admin->getAuthIdentifier());
 $session->put('device_id', $deviceId);
 $session->put('device_verified', true);
-
-// Ensure user has device record
-\App\Models\UserDevice::updateOrCreate([
-    'user_id' => $admin->id,
-    'device_id' => $deviceId,
-], [
-    'device_name' => 'Audit Browser',
-    'device_type' => 'desktop',
-    'device_token' => hash('sha256', 'audit-device-token'),
-    'is_active' => true,
-    'last_active_at' => now(),
-]);
 
 foreach ($routes as $uri) {
     Auth::login($admin);
