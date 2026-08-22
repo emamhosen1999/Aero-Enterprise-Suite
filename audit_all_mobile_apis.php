@@ -32,6 +32,12 @@ $endpoints = [
     ['GET', '/api/v1/sync/bootstrap'],
     ['GET', '/api/v1/attendance/today'],
     ['GET', '/api/v1/attendance/history'],
+    ['GET', '/api/v1/attendance/my-roster'],
+    ['GET', '/api/v1/attendance/roster'],
+    ['GET', '/api/v1/attendance/shifts'],
+    ['GET', '/api/v1/attendance/regularizations/mine'],
+    ['GET', '/api/v1/attendance/overtime/mine'],
+    ['GET', '/api/v1/attendance/swaps/pending'],
     ['GET', '/api/v1/daily-works'],
     ['GET', '/api/v1/daily-works/selectable-dates'],
     ['GET', '/api/v1/daily-works/objections/metadata'],
@@ -39,11 +45,8 @@ $endpoints = [
     ['GET', '/api/v1/leaves'],
     ['GET', '/api/v1/leaves/summary'],
     ['GET', '/api/v1/leave-types'],
-    ['GET', '/api/v1/notifications'],
-    ['GET', '/api/v1/notifications/unread-count'],
-    ['GET', '/api/v1/shifts'],
-    ['GET', '/api/v1/roster/current-month'],
-    ['GET', '/api/v1/shift-swaps/available-counterparts'],
+    ['GET', '/api/notifications'],
+    ['GET', '/api/notifications/unread-count'],
 ];
 
 $passCount = 0;
