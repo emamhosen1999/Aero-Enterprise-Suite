@@ -106,11 +106,18 @@ $passCount = 0;
 $failCount = 0;
 $serverErrors = [];
 
+$session = $app->make('session.store');
+$session->start();
+$session->put('login_web_59ba36addc2b2f9401580f014c7f58ea4e30989d', $admin->getAuthIdentifier());
+
 foreach ($routes as $uri) {
     Auth::login($admin);
     $req = Request::create($uri, 'GET');
-    $req->headers->set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8');
+    $req->setLaravelSession($session);
+    $req->setUserResolver(fn() => $admin);
+    $req->headers->set('Accept', 'application/json, text/plain, */*');
     $req->headers->set('X-Inertia', 'true');
+    $req->headers->set('X-Inertia-Version', '');
     $req->headers->set('X-Requested-With', 'XMLHttpRequest');
 
     try {
