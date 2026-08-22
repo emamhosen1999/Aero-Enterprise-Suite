@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasColumn('users', 'id')) {
+            return;
+        }
+
         $mappings = [
             1   => '123',
             3   => '120',
