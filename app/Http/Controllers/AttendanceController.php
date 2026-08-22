@@ -158,7 +158,7 @@ class AttendanceController extends Controller
             // toArray() overrides/appended accessors (e.g. Designation appends department_name,
             // which lazy-loads `department` and 500s under preventLazyLoading in dev / N+1s in prod).
             'employees' => User::role('Employee')
-                ->select('id', 'name', 'department_id', 'designation_id')
+                ->select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')
                 ->orderBy('name')
                 ->get()
                 ->map(fn ($u) => [

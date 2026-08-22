@@ -94,9 +94,9 @@ class ObjectionController extends Controller
             ->withQueryString();
 
         // Get filter options
-        $creators = User::whereIn('id', function ($query) {
+        $creators = User::whereIn('employee_id', function ($query) {
             $query->select('created_by')->from('rfi_objections')->distinct();
-        })->select('id', 'name')->get();
+        })->select('employee_id as id', 'employee_id', 'name')->get();
 
         return Inertia::render('Project/Objections/Index', [
             'objections' => $objections,

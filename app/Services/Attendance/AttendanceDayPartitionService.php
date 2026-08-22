@@ -193,11 +193,11 @@ class AttendanceDayPartitionService
         $query = User::query()
             ->whereHas('roles', fn ($role) => $role->where('name', 'Employee'))
             ->with('media')
-            ->select(['id', 'name', 'employee_id', 'department_id', 'designation_id']);
+            ->select(['employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id']);
 
         if ($memberIds !== null) {
             // Empty scope must yield no members, not "all members".
-            $query->whereIn('id', $memberIds === [] ? [-1] : $memberIds);
+            $query->whereIn('employee_id', $memberIds === [] ? ['__NONE__'] : $memberIds);
         }
 
         if ($departmentId !== null) {

@@ -583,7 +583,7 @@ class UserManagementService
             'designations' => Designation::count(),
         ];
 
-        $allManagers = User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')
+        $allManagers = User::select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')
             ->with(['designation', 'department', 'media'])
             ->get()
             ->map(function ($user) {
