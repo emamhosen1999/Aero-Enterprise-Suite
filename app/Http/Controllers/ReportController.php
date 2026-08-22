@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Report;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class ReportController extends Controller
 {
@@ -13,8 +13,13 @@ class ReportController extends Controller
     {
         $user = Auth::user();
         $title = 'Report List';
+        $reports = Report::all();
 
-        return view('qcdoc/reports', compact('user', 'title'));
+        return Inertia::render('Project/DailyWorksUnified', [
+            'user' => $user,
+            'title' => $title,
+            'reports' => $reports,
+        ]);
     }
 
     public function allReports(Request $request)

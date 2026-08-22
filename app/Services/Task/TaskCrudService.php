@@ -2,7 +2,7 @@
 
 namespace App\Services\Task;
 
-use App\Models\Tasks;
+use App\Models\DailyWork as Tasks;
 use App\Models\User;
 use App\Models\WorkLocation;
 use Illuminate\Http\Request;
