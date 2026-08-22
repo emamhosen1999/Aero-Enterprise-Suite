@@ -106,9 +106,24 @@ $passCount = 0;
 $failCount = 0;
 $serverErrors = [];
 
+$deviceId = 'audit-web-device-001';
 $session = $app->make('session.store');
 $session->start();
 $session->put('login_web_59ba36addc2b2f9401580f014c7f58ea4e30989d', $admin->getAuthIdentifier());
+$session->put('device_id', $deviceId);
+$session->put('device_verified', true);
+
+// Ensure user has device record
+\App\Models\UserDevice::updateOrCreate([
+    'user_id' => $admin->id,
+    'device_id' => $deviceId,
+], [
+    'device_name' => 'Audit Browser',
+    'device_type' => 'desktop',
+    'is_verified' => true,
+    'is_active' => true,
+    'last_active_at' => now(),
+]);
 
 foreach ($routes as $uri) {
     Auth::login($admin);
@@ -119,6 +134,8 @@ foreach ($routes as $uri) {
     $req->headers->set('X-Inertia', 'true');
     $req->headers->set('X-Inertia-Version', '');
     $req->headers->set('X-Requested-With', 'XMLHttpRequest');
+    $req->headers->set('X-Device-Id', $deviceId);
+    $req->cookies->set('device_id', $deviceId);
 
     try {
         $response = $app->handle($req);
