@@ -329,14 +329,14 @@ class UserManagementTest extends TestCase
     /** @test */
     public function user_list_can_be_filtered_by_search(): void
     {
-        User::factory()->create(['name' => 'John Smith']);
-        User::factory()->create(['name' => 'Jane Doe']);
+        User::factory()->create(['name' => 'JohnUniqueTestFilter', 'user_name' => 'john_filter']);
+        User::factory()->create(['name' => 'JaneUniqueTestFilter', 'user_name' => 'jane_filter']);
 
-        $response = $this->get(route('users.paginate', ['search' => 'John']));
+        $response = $this->get(route('users.paginate', ['search' => 'JohnUniqueTestFilter']));
 
         $response->assertStatus(200);
-        $response->assertJsonFragment(['name' => 'John Smith']);
-        $response->assertJsonMissing(['name' => 'Jane Doe']);
+        $response->assertJsonFragment(['name' => 'JohnUniqueTestFilter']);
+        $response->assertJsonMissing(['name' => 'JaneUniqueTestFilter']);
     }
 
     /** @test */
