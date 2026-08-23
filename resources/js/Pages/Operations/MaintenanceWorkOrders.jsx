@@ -69,22 +69,22 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
                                     <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
                                         {wo.work_order_number}
                                     </Table.RowHeaderCell>
-                                    <Table.TableCell><Text weight="bold">{wo.title}</Text></Table.TableCell>
-                                    <Table.TableCell>
+                                    <Table.Cell><Text weight="bold">{wo.title}</Text></Table.Cell>
+                                    <Table.Cell>
                                         <Badge color="blue">{wo.category}</Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>{wo.location}</Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>{wo.location}</Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={wo.priority === 'high' ? 'red' : 'orange'}>
                                             {wo.priority}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={wo.status === 'completed' ? 'green' : 'amber'}>
                                             {wo.status}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>{wo.assigned_to}</Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>{wo.assigned_to}</Table.Cell>
                                 </Table.Row>
                             ))}
                         </Table.Body>

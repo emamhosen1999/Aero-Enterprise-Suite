@@ -48,20 +48,20 @@ export default function EquipmentFacilities({ auth, equipment }) {
                                     <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
                                         {eq.equipment_code}
                                     </Table.RowHeaderCell>
-                                    <Table.TableCell><Text weight="bold">{eq.name}</Text></Table.TableCell>
-                                    <Table.TableCell>
+                                    <Table.Cell><Text weight="bold">{eq.name}</Text></Table.Cell>
+                                    <Table.Cell>
                                         <Badge color="indigo">{eq.category.toUpperCase()}</Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>{eq.location}</Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>{eq.location}</Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={eq.status === 'online' ? 'green' : 'red'}>
                                             {eq.status}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Text weight="bold" color="green">{eq.uptime_pct}%</Text>
-                                    </Table.TableCell>
-                                    <Table.TableCell style={{ color: 'var(--gray-10)' }}>{eq.last_ping_at}</Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell style={{ color: 'var(--gray-10)' }}>{eq.last_ping_at}</Table.Cell>
                                 </Table.Row>
                             ))}
                         </Table.Body>

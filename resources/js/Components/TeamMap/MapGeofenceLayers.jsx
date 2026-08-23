@@ -3,6 +3,26 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { THEME_COLORS } from './mapConstants';
 
+// Helper to normalize any coordinate object/array to { lat, lng }
+const normalizeCoord = (pt) => {
+    if (!pt) return null;
+    if (Array.isArray(pt) && pt.length >= 2) {
+        const lat = parseFloat(pt[0]);
+        const lng = parseFloat(pt[1]);
+        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+    if (typeof pt === 'object') {
+        const latVal = pt.lat ?? pt.latitude;
+        const lngVal = pt.lng ?? pt.longitude;
+        if (latVal !== undefined && lngVal !== undefined) {
+            const lat = parseFloat(latVal);
+            const lng = parseFloat(lngVal);
+            if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+        }
+    }
+    return null;
+};
+
 export const MapGeofenceLayers = React.memo(({
     attendanceTypeConfigs = [],
     users = [],
@@ -26,22 +46,28 @@ export const MapGeofenceLayers = React.memo(({
 
         if (!attendanceTypeConfigs || attendanceTypeConfigs.length === 0) return;
 
-        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316'];
 
         attendanceTypeConfigs.forEach((typeConfig, index) => {
-            const { base_slug, config, name } = typeConfig;
+            const { base_slug, slug, config, name } = typeConfig;
             const zoneColor = colors[index % colors.length];
+            if (!config) return;
 
-            // 1. Polygon Geofence Zones
-            if (base_slug === 'geo_polygon' && config && layerVisibility.geofences) {
-                const polygonPoints = config.polygon || [];
-                const polygons = config.polygons || [];
+            // 1. Polygon Geofence Zones (Render if geo_polygon slug OR config contains polygon data)
+            const isPolygonType = base_slug === 'geo_polygon' ||
+                                  slug?.includes('polygon') ||
+                                  slug?.includes('geofence') ||
+                                  Boolean(config.polygon?.length || config.polygons?.length);
+
+            if (isPolygonType && layerVisibility.geofences !== false) {
+                const rawPolygon = config.polygon || [];
+                const rawPolygons = config.polygons || [];
 
                 const processPoly = (pts, zoneTitle) => {
-                    const validPts = pts.filter(p => p && p.lat && p.lng);
+                    const validPts = (pts || []).map(normalizeCoord).filter(Boolean);
                     if (validPts.length < 3) return;
 
-                    const coords = validPts.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+                    const coords = validPts.map(p => [p.lat, p.lng]);
 
                     // Create polygon
                     const polygon = L.polygon(coords, {
@@ -57,12 +83,11 @@ export const MapGeofenceLayers = React.memo(({
                     const bounds = polygon.getBounds();
                     const center = bounds.getCenter();
 
-                    // Calculate how many users are inside or near this polygon
+                    // Calculate active user headcount inside this polygon
                     const insideCount = users.filter(u => {
-                        const loc = u.punchin_location || u.punchout_location || u.location;
-                        if (!loc || !loc.lat || !loc.lng) return false;
-                        const userLatLng = L.latLng(parseFloat(loc.lat), parseFloat(loc.lng));
-                        return bounds.contains(userLatLng);
+                        const loc = normalizeCoord(u.punchin_location || u.punchout_location || u.location);
+                        if (!loc) return false;
+                        return bounds.contains(L.latLng(loc.lat, loc.lng));
                     }).length;
 
                     // Centroid Label Badge
@@ -101,43 +126,65 @@ export const MapGeofenceLayers = React.memo(({
                     layersRef.current.push(labelMarker);
                 };
 
-                if (polygonPoints.length >= 3) {
-                    processPoly(polygonPoints, name);
+                if (rawPolygon.length >= 3) {
+                    processPoly(rawPolygon, name);
                 }
 
-                polygons.forEach((poly, polyIdx) => {
-                    if (poly.points && poly.points.length >= 3) {
-                        processPoly(poly.points, poly.name || `${name} Zone ${polyIdx + 1}`);
+                rawPolygons.forEach((poly, polyIdx) => {
+                    const pts = poly.points || poly.coordinates || poly;
+                    if (Array.isArray(pts) && pts.length >= 3) {
+                        processPoly(pts, poly.name || `${name} Zone ${polyIdx + 1}`);
                     }
                 });
             }
 
-            // 2. Route Waypoints & Corridors
-            if (base_slug === 'route_waypoint' && config && layerVisibility.waypoints) {
+            // 2. Route Waypoints & Corridors (Render if route_waypoint slug OR config contains waypoints / routes)
+            const isRouteType = base_slug === 'route_waypoint' ||
+                                slug?.includes('route') ||
+                                slug?.includes('waypoint') ||
+                                slug?.includes('patrol') ||
+                                Boolean(config.waypoints?.length || config.routes?.length);
+
+            if (isRouteType && layerVisibility.waypoints !== false) {
                 const rawWaypoints = config.waypoints || [];
-                const routes = config.routes || [];
+                const rawRoutes = config.routes || [];
 
-                const processRoute = (wps, routeTitle) => {
-                    const validWaypoints = (wps || []).filter(w => w && w.lat && w.lng);
-                    if (validWaypoints.length < 2) return;
+                const processRoute = (wps, routeTitle, toleranceMeters) => {
+                    const validWaypoints = (wps || []).map(normalizeCoord).filter(Boolean);
+                    if (validWaypoints.length === 0) return;
 
-                    const latLngs = validWaypoints.map(w => [parseFloat(w.lat), parseFloat(w.lng)]);
+                    const latLngs = validWaypoints.map(w => [w.lat, w.lng]);
 
-                    // Draw Corridor Polyline
-                    const routeLine = L.polyline(latLngs, {
-                        color: zoneColor,
-                        weight: 3.5,
-                        opacity: 0.75,
-                        dashArray: '8, 6',
-                    }).addTo(map);
+                    // Draw Corridor Polyline if 2 or more waypoints
+                    if (latLngs.length >= 2) {
+                        const routeLine = L.polyline(latLngs, {
+                            color: zoneColor,
+                            weight: 3.5,
+                            opacity: 0.75,
+                            dashArray: '8, 6',
+                        }).addTo(map);
 
-                    layersRef.current.push(routeLine);
+                        layersRef.current.push(routeLine);
+                    }
 
-                    // Add Waypoint Markers
+                    // Add Waypoint Markers & Tolerance Rings
                     validWaypoints.forEach((wp, wpIdx) => {
                         const isStart = wpIdx === 0;
-                        const isEnd = wpIdx === validWaypoints.length - 1;
+                        const isEnd = wpIdx === validWaypoints.length - 1 && validWaypoints.length > 1;
                         const bgColor = isStart ? '#10b981' : isEnd ? '#ef4444' : zoneColor;
+
+                        // Tolerance Ring
+                        if (toleranceMeters && toleranceMeters > 0) {
+                            const circle = L.circle([wp.lat, wp.lng], {
+                                radius: toleranceMeters,
+                                color: bgColor,
+                                fillColor: bgColor,
+                                fillOpacity: 0.08,
+                                weight: 1.5,
+                                dashArray: '4, 4'
+                            }).addTo(map);
+                            layersRef.current.push(circle);
+                        }
 
                         const markerHtml = `
                             <div style="
@@ -145,7 +192,7 @@ export const MapGeofenceLayers = React.memo(({
                                 height: 26px;
                                 border-radius: 50%;
                                 background: ${bgColor};
-                                border: 2px solid #ffffff;
+                                border: 2px solid var(--color-surface, #ffffff);
                                 box-shadow: 0 3px 8px rgba(0,0,0,0.35);
                                 display: flex;
                                 align-items: center;
@@ -154,11 +201,11 @@ export const MapGeofenceLayers = React.memo(({
                                 font-weight: 800;
                                 font-size: 11px;
                             ">
-                                ${isStart ? 'S' : isEnd ? 'E' : (wpIdx + 1)}
+                                ${validWaypoints.length === 1 ? '📍' : isStart ? 'S' : isEnd ? 'E' : (wpIdx + 1)}
                             </div>
                         `;
 
-                        const wpMarker = L.marker([parseFloat(wp.lat), parseFloat(wp.lng)], {
+                        const wpMarker = L.marker([wp.lat, wp.lng], {
                             icon: L.divIcon({
                                 html: markerHtml,
                                 className: 'waypoint-marker',
@@ -171,8 +218,9 @@ export const MapGeofenceLayers = React.memo(({
                             <div style="font-family: inherit; padding: 4px; color: var(--gray-12, #1e293b);">
                                 <strong style="color: ${zoneColor};">${routeTitle || name}</strong><br>
                                 <span style="font-size: 11px; color: var(--gray-10, #64748b);">
-                                    ${isStart ? '🚀 Route Start Point' : isEnd ? '🏁 Route End Point' : `Waypoint #${wpIdx + 1}`}
+                                    ${validWaypoints.length === 1 ? '🎯 Patrol Checkpoint' : isStart ? '🚀 Route Start Point' : isEnd ? '🏁 Route End Point' : `Waypoint #${wpIdx + 1}`}
                                 </span>
+                                ${toleranceMeters ? `<div style="font-size: 10px; color: var(--gray-9); margin-top: 2px;">Tolerance: ${toleranceMeters}m</div>` : ''}
                             </div>
                         `);
 
@@ -180,13 +228,16 @@ export const MapGeofenceLayers = React.memo(({
                     });
                 };
 
-                if (rawWaypoints.length >= 2) {
-                    processRoute(rawWaypoints, name);
+                const defaultTolerance = config.tolerance || 150;
+
+                if (rawWaypoints.length > 0) {
+                    processRoute(rawWaypoints, name, defaultTolerance);
                 }
 
-                routes.forEach((route, rIdx) => {
-                    if (route.waypoints && route.waypoints.length >= 2) {
-                        processRoute(route.waypoints, route.name || `${name} Route ${rIdx + 1}`);
+                rawRoutes.forEach((route, rIdx) => {
+                    const wps = route.waypoints || route.points || route.coords;
+                    if (Array.isArray(wps) && wps.length > 0) {
+                        processRoute(wps, route.name || `${name} Route ${rIdx + 1}`, route.tolerance || defaultTolerance);
                     }
                 });
             }
