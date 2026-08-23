@@ -248,21 +248,6 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(Leave::class, 'user_id');
     }
 
-    public function devices(): HasMany
-    {
-        return $this->hasMany(UserDevice::class, 'user_id', 'employee_id');
-    }
-
-    public function activeDevices(): HasMany
-    {
-        return $this->hasMany(UserDevice::class, 'user_id', 'employee_id')->where('is_active', true);
-    }
-
-    public function currentDevice(): HasOne
-    {
-        return $this->hasOne(UserDevice::class, 'user_id', 'employee_id')->where('is_active', true)->latestOfMany('last_used_at');
-    }
-
     // In User.php model
     public function attendances()
     {
@@ -445,7 +430,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function devices(): HasMany
     {
-        return $this->hasMany(UserDevice::class, 'user_id');
+        return $this->hasMany(UserDevice::class, 'user_id', 'employee_id');
     }
 
     /**
@@ -453,7 +438,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function activeDevices()
     {
-        return $this->hasMany(UserDevice::class, 'user_id')->active();
+        return $this->hasMany(UserDevice::class, 'user_id', 'employee_id')->active();
     }
 
     /**
@@ -461,7 +446,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function currentDevice()
     {
-        return $this->hasOne(UserDevice::class, 'user_id')->active()->latest('last_used_at');
+        return $this->hasOne(UserDevice::class, 'user_id', 'employee_id')->active()->latest('last_used_at');
     }
 
     /**
