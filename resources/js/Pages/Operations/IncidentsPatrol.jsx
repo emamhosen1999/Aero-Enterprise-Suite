@@ -84,20 +84,20 @@ export default function IncidentsPatrol({ auth, metrics, incidents }) {
                                     <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
                                         {inc.incident_number}
                                     </Table.RowHeaderCell>
-                                    <Table.TableCell><Text weight="bold">{inc.title}</Text></Table.TableCell>
-                                    <Table.TableCell>{inc.chainage} ({inc.direction})</Table.TableCell>
-                                    <Table.TableCell>
+                                    <Table.Cell><Text weight="bold">{inc.title}</Text></Table.Cell>
+                                    <Table.Cell>{inc.chainage} ({inc.direction})</Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={inc.severity === 'critical' ? 'red' : inc.severity === 'major' ? 'amber' : 'blue'}>
                                             {inc.severity}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={inc.status === 'cleared' ? 'green' : 'orange'}>
                                             {inc.status}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>{inc.dispatched_unit}</Table.TableCell>
-                                    <Table.TableCell>{inc.response_time_minutes} mins</Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>{inc.dispatched_unit}</Table.Cell>
+                                    <Table.Cell>{inc.response_time_minutes} mins</Table.Cell>
                                 </Table.Row>
                             ))}
                         </Table.Body>

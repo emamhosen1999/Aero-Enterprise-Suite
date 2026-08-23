@@ -74,17 +74,17 @@ export default function TollOperations({ auth, summary, tollRecords }) {
                             {records.map((rec) => (
                                 <Table.Row key={rec.id}>
                                     <Table.RowHeaderCell>{rec.plaza_name}</Table.RowHeaderCell>
-                                    <Table.TableCell>{rec.lane_id}</Table.TableCell>
-                                    <Table.TableCell>{rec.vehicle_class}</Table.TableCell>
-                                    <Table.TableCell>
+                                    <Table.Cell>{rec.lane_id}</Table.Cell>
+                                    <Table.Cell>{rec.vehicle_class}</Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={rec.payment_method === 'etc' ? 'green' : 'amber'}>
                                             {rec.payment_method.toUpperCase()}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Text weight="bold">৳ {Number(rec.amount).toFixed(2)}</Text>
-                                    </Table.TableCell>
-                                    <Table.TableCell style={{ color: 'var(--gray-10)' }}>{rec.transacted_at}</Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell style={{ color: 'var(--gray-10)' }}>{rec.transacted_at}</Table.Cell>
                                 </Table.Row>
                             ))}
                         </Table.Body>

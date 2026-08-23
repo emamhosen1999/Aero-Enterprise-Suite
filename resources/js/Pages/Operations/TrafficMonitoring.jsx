@@ -110,19 +110,19 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                                     <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
                                         {board.vms_code}
                                     </Table.RowHeaderCell>
-                                    <Table.TableCell>{board.location}</Table.TableCell>
-                                    <Table.TableCell>
+                                    <Table.Cell>{board.location}</Table.Cell>
+                                    <Table.Cell>
                                         <Text weight="bold" color="blue">{board.message_line1}</Text>
-                                    </Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Text color="gray">{board.message_line2 || '—'}</Text>
-                                    </Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={board.type === 'emergency' ? 'red' : board.type === 'warning' ? 'amber' : 'blue'}>
                                             {board.type}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Button size="1" variant="soft" onClick={() => {
                                             setUpdatingVms(board);
                                             setMsg1(board.message_line1);
@@ -131,7 +131,7 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                                         }}>
                                             Edit Broadcast
                                         </Button>
-                                    </Table.TableCell>
+                                    </Table.Cell>
                                 </Table.Row>
                             ))}
                         </Table.Body>

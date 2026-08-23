@@ -690,13 +690,12 @@ class AttendancePunchService
         }
 
         try {
-            $attendanceType = $user->attendanceType;
-            if (! $attendanceType) {
-                return;
-            }
+            $attendanceType = method_exists($user, 'resolvedAttendanceType')
+                ? $user->resolvedAttendanceType()
+                : ($user->attendanceType ?? null);
 
-            $baseSlug = preg_replace('/_\d+$/', '', $attendanceType->slug);
-            if (! in_array($baseSlug, ['geo_polygon', 'route_waypoint'])) {
+            $baseSlug = $attendanceType ? preg_replace('/_\d+$/', '', $attendanceType->slug) : null;
+            if ($baseSlug && ! in_array($baseSlug, ['geo_polygon', 'route_waypoint'])) {
                 return;
             }
 

@@ -359,23 +359,66 @@ class AttendanceQueryService
     {
         $attendances = $this->attendanceRepository->all([
             'date' => $date,
-            'with' => ['user.designation'],
+            'with' => [
+                'user.designation',
+                'user.department',
+                'user.attendanceType',
+                'user.workLocation.attendanceType',
+                'media',
+            ],
         ]);
 
         return $attendances->filter(function ($attendance) {
-            return $attendance->punchin_location_array !== null;
-        })->map(function ($attendance) {
+            return $attendance->punchin_location_array !== null || $attendance->punchout_location_array !== null;
+        })->groupBy('user_id')->map(function ($userPunches) {
+            $user = $userPunches->first()?->user;
+            $attendanceType = method_exists($user, 'resolvedAttendanceType') ? $user->resolvedAttendanceType() : ($user?->attendanceType ?? null);
+            $baseSlug = $attendanceType ? preg_replace('/_\d+$/', '', (string) $attendanceType->slug) : null;
+            $requiresPhoto = in_array($baseSlug, ['geo_polygon', 'route_waypoint'], true);
+
+            $cycles = $userPunches->map(function ($attendance) use ($requiresPhoto) {
+                return [
+                    'attendance_id' => $attendance->id,
+                    'punchin_location' => $attendance->punchin_location_array,
+                    'punchout_location' => $attendance->punchout_location_array,
+                    'punchin_time' => $attendance->punchin ? $attendance->punchin->format('H:i:s') : null,
+                    'punchout_time' => $attendance->punchout ? $attendance->punchout->format('H:i:s') : null,
+                    'punchin_photo_url' => $attendance->punchin_photo_url,
+                    'punchout_photo_url' => $attendance->punchout_photo_url,
+                    'is_complete' => ! is_null($attendance->punchout),
+                    'policy_status' => $attendance->policy_status,
+                ];
+            })->values();
+
+            $lastCycle = $cycles->last();
+            $firstCycle = $cycles->first();
+
             return [
-                'user_id' => $attendance->user_id,
-                'user_name' => $attendance->user->name,
-                'name' => $attendance->user->name,
-                'profile_image_url' => $attendance->user->profile_image_url,
-                'designation' => $attendance->user->designation?->title ?? 'Employee',
-                'location' => $attendance->punchin_location_array,
-                'punchin_location' => $attendance->punchin_location_array,
-                'punchout_location' => $attendance->punchout_location_array,
-                'punchin_time' => $attendance->punchin->format('H:i:s'),
-                'punchout_time' => $attendance->punchout?->format('H:i:s'),
+                'user_id' => (int) ($user?->id ?? 0),
+                'user_name' => $user?->name ?? 'Unknown',
+                'name' => $user?->name ?? 'Unknown',
+                'employee_id' => $user?->employee_id ?? null,
+                'email' => $user?->email ?? null,
+                'phone' => $user?->phone ?? $user?->contact_number ?? null,
+                'profile_image_url' => $user?->profile_image_url,
+                'designation' => $user?->designation?->title ?? 'Employee',
+                'department' => $user?->department?->name ?? 'General',
+                'attendance_type' => $attendanceType ? [
+                    'id' => (int) ($attendanceType->id ?? 0),
+                    'name' => $attendanceType->name,
+                    'slug' => $attendanceType->slug,
+                    'base_slug' => $baseSlug,
+                ] : null,
+                'requires_photo' => $requiresPhoto,
+                'status' => ! empty($lastCycle['punchout_time']) ? 'completed' : 'active',
+                'cycles' => $cycles->toArray(),
+                'location' => $lastCycle['punchin_location'] ?? $lastCycle['punchout_location'] ?? null,
+                'punchin_location' => $lastCycle['punchin_location'] ?? null,
+                'punchout_location' => $lastCycle['punchout_location'] ?? null,
+                'punchin_time' => $lastCycle['punchin_time'] ?? null,
+                'punchout_time' => $lastCycle['punchout_time'] ?? null,
+                'punchin_photo_url' => $lastCycle['punchin_photo_url'] ?? null,
+                'punchout_photo_url' => $lastCycle['punchout_photo_url'] ?? null,
             ];
         })->values()->toArray();
     }

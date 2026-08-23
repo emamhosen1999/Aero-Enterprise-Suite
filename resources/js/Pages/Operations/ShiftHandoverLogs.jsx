@@ -43,19 +43,19 @@ export default function ShiftHandoverLogs({ auth, shiftLogs }) {
                             {logs.map((log) => (
                                 <Table.Row key={log.id}>
                                     <Table.RowHeaderCell>{log.shift_date}</Table.RowHeaderCell>
-                                    <Table.TableCell>
+                                    <Table.Cell>
                                         <Badge color={log.shift_type === 'morning' ? 'amber' : log.shift_type === 'evening' ? 'blue' : 'indigo'}>
                                             {log.shift_type.toUpperCase()}
                                         </Badge>
-                                    </Table.TableCell>
-                                    <Table.TableCell><Text weight="bold">{log.operator?.name || 'Operator'}</Text></Table.TableCell>
-                                    <Table.TableCell>{log.open_incidents_count}</Table.TableCell>
-                                    <Table.TableCell>{log.handover_notes}</Table.TableCell>
-                                    <Table.TableCell>
+                                    </Table.Cell>
+                                    <Table.Cell><Text weight="bold">{log.operator?.name || 'Operator'}</Text></Table.Cell>
+                                    <Table.Cell>{log.open_incidents_count}</Table.Cell>
+                                    <Table.Cell>{log.handover_notes}</Table.Cell>
+                                    <Table.Cell>
                                         <Badge color={log.is_acknowledged ? 'green' : 'amber'}>
                                             {log.is_acknowledged ? 'Acknowledged' : 'Pending'}
                                         </Badge>
-                                    </Table.TableCell>
+                                    </Table.Cell>
                                 </Table.Row>
                             ))}
                         </Table.Body>
