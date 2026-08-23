@@ -13,6 +13,7 @@ import { showToast } from '@/utils/toastUtils';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import PoliciesManager from './Components/PoliciesManager';
 import DateTimePicker from '@/Components/DateTimePicker';
+import { fetchRoadRouteGeometry } from '@/Components/TeamMap/roadRoutingService';
 
 /* ── map imports (Leaflet) ───────────────────── */
 import { MapContainer, TileLayer, Marker, Polyline, Polygon, Circle, useMapEvents, useMap } from 'react-leaflet';
@@ -117,6 +118,7 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
     const primaryRoute = getPrimaryRoute(type?.config || {});
     const [tolerance,  setTolerance]  = useState(primaryRoute?.tolerance || 150);
     const [waypoints,  setWaypoints]  = useState(primaryRoute?.waypoints || []);
+    const [roadCoords, setRoadCoords] = useState([]);
     const [picking,    setPicking]    = useState(false);
     const [isMutating, setisMutating] = useState(false);
 
@@ -128,6 +130,22 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
     }, [type]);
 
     const validWaypoints = waypoints.filter(w => w.lat && w.lng);
+
+    // Fetch live road driving geometry when waypoints change
+    useEffect(() => {
+        if (validWaypoints.length >= 2) {
+            let isCurrent = true;
+            fetchRoadRouteGeometry(validWaypoints).then(res => {
+                if (isCurrent && res && res.latLngs) {
+                    setRoadCoords(res.latLngs);
+                }
+            });
+            return () => { isCurrent = false; };
+        } else {
+            setRoadCoords([]);
+        }
+    }, [validWaypoints]);
+
     const mapCenter = validWaypoints[0]?.lat
         ? [parseFloat(validWaypoints[0].lat), parseFloat(validWaypoints[0].lng)]
         : [23.8103, 90.4125];
@@ -245,11 +263,21 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
                 <Box style={{ height: 320, borderRadius: 'var(--radius-3)', overflow: 'hidden', border: '1px solid var(--gray-a5)', position: 'relative' }}>
                     <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                        {polylineCoords.length >= 2 && (
-                            <Polyline
-                                positions={polylineCoords}
-                                pathOptions={{ color: '#0284c7', weight: 4, opacity: 0.8, dashArray: '6, 6' }}
-                            />
+                        {(roadCoords.length >= 2 ? roadCoords : polylineCoords).length >= 2 && (
+                            <>
+                                <Polyline
+                                    positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
+                                    pathOptions={{ color: '#0284c7', weight: 10, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }}
+                                />
+                                <Polyline
+                                    positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
+                                    pathOptions={{ color: '#0284c7', weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }}
+                                />
+                                <Polyline
+                                    positions={roadCoords.length >= 2 ? roadCoords : polylineCoords}
+                                    pathOptions={{ color: '#ffffff', weight: 2, opacity: 0.9, dashArray: '6, 6', lineCap: 'round', lineJoin: 'round' }}
+                                />
+                            </>
                         )}
                         {validWaypoints.map((w, i) => {
                             const isStart = i === 0;

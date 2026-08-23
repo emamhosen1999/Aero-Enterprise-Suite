@@ -2,26 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { THEME_COLORS } from './mapConstants';
-
-// Helper to normalize any coordinate object/array to { lat, lng }
-const normalizeCoord = (pt) => {
-    if (!pt) return null;
-    if (Array.isArray(pt) && pt.length >= 2) {
-        const lat = parseFloat(pt[0]);
-        const lng = parseFloat(pt[1]);
-        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-    }
-    if (typeof pt === 'object') {
-        const latVal = pt.lat ?? pt.latitude;
-        const lngVal = pt.lng ?? pt.longitude;
-        if (latVal !== undefined && lngVal !== undefined) {
-            const lat = parseFloat(latVal);
-            const lng = parseFloat(lngVal);
-            if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
-        }
-    }
-    return null;
-};
+import { normalizeCoord, fetchRoadRouteGeometry } from './roadRoutingService';
 
 export const MapGeofenceLayers = React.memo(({
     attendanceTypeConfigs = [],
@@ -33,6 +14,8 @@ export const MapGeofenceLayers = React.memo(({
 
     useEffect(() => {
         if (!map) return;
+
+        let isCancelled = false;
 
         // Clean up previous layers
         layersRef.current.forEach(layer => {
@@ -46,7 +29,7 @@ export const MapGeofenceLayers = React.memo(({
 
         if (!attendanceTypeConfigs || attendanceTypeConfigs.length === 0) return;
 
-        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316'];
+        const colors = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#f97316'];
 
         attendanceTypeConfigs.forEach((typeConfig, index) => {
             const { base_slug, slug, config, name } = typeConfig;
@@ -153,18 +136,64 @@ export const MapGeofenceLayers = React.memo(({
                     const validWaypoints = (wps || []).map(normalizeCoord).filter(Boolean);
                     if (validWaypoints.length === 0) return;
 
-                    const latLngs = validWaypoints.map(w => [w.lat, w.lng]);
+                    const initialLatLngs = validWaypoints.map(w => [w.lat, w.lng]);
 
-                    // Draw Corridor Polyline if 2 or more waypoints
-                    if (latLngs.length >= 2) {
-                        const routeLine = L.polyline(latLngs, {
+                    let routeLineGlow = null;
+                    let routeLineMain = null;
+                    let routeLineAnim = null;
+
+                    // If 2 or more waypoints, create polyline group and snap to actual road network
+                    if (initialLatLngs.length >= 2) {
+                        // 1. Outer Glow Corridor (Corridor envelope)
+                        routeLineGlow = L.polyline(initialLatLngs, {
                             color: zoneColor,
-                            weight: 3.5,
-                            opacity: 0.75,
-                            dashArray: '8, 6',
+                            weight: 12,
+                            opacity: 0.2,
+                            lineCap: 'round',
+                            lineJoin: 'round'
                         }).addTo(map);
 
-                        layersRef.current.push(routeLine);
+                        // 2. Main Highway Solid Track
+                        routeLineMain = L.polyline(initialLatLngs, {
+                            color: zoneColor,
+                            weight: 4.5,
+                            opacity: 0.85,
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                        }).addTo(map);
+
+                        // 3. Inner White Animated Patrol Flow
+                        routeLineAnim = L.polyline(initialLatLngs, {
+                            color: '#ffffff',
+                            weight: 2,
+                            opacity: 0.9,
+                            dashArray: '8, 8',
+                            className: 'patrol-trajectory-path',
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                        }).addTo(map);
+
+                        layersRef.current.push(routeLineGlow);
+                        layersRef.current.push(routeLineMain);
+                        layersRef.current.push(routeLineAnim);
+
+                        // Asynchronously fetch exact road highway geometry from OSRM
+                        fetchRoadRouteGeometry(validWaypoints).then(roadResult => {
+                            if (isCancelled || !roadResult || !roadResult.latLngs) return;
+                            const roadCoords = roadResult.latLngs;
+
+                            if (routeLineGlow && map.hasLayer(routeLineGlow)) {
+                                routeLineGlow.setLatLngs(roadCoords);
+                            }
+                            if (routeLineMain && map.hasLayer(routeLineMain)) {
+                                routeLineMain.setLatLngs(roadCoords);
+                            }
+                            if (routeLineAnim && map.hasLayer(routeLineAnim)) {
+                                routeLineAnim.setLatLngs(roadCoords);
+                            }
+                        }).catch(err => {
+                            console.warn('Road snapping fallback active:', err);
+                        });
                     }
 
                     // Add Waypoint Markers & Tolerance Rings
@@ -188,12 +217,12 @@ export const MapGeofenceLayers = React.memo(({
 
                         const markerHtml = `
                             <div style="
-                                width: 26px;
-                                height: 26px;
+                                width: 28px;
+                                height: 28px;
                                 border-radius: 50%;
                                 background: ${bgColor};
-                                border: 2px solid var(--color-surface, #ffffff);
-                                box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+                                border: 2.5px solid var(--color-surface, #ffffff);
+                                box-shadow: 0 4px 10px rgba(0,0,0,0.4);
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
@@ -209,8 +238,8 @@ export const MapGeofenceLayers = React.memo(({
                             icon: L.divIcon({
                                 html: markerHtml,
                                 className: 'waypoint-marker',
-                                iconSize: [26, 26],
-                                iconAnchor: [13, 13]
+                                iconSize: [28, 28],
+                                iconAnchor: [14, 14]
                             })
                         }).addTo(map);
 
@@ -218,9 +247,9 @@ export const MapGeofenceLayers = React.memo(({
                             <div style="font-family: inherit; padding: 4px; color: var(--gray-12, #1e293b);">
                                 <strong style="color: ${zoneColor};">${routeTitle || name}</strong><br>
                                 <span style="font-size: 11px; color: var(--gray-10, #64748b);">
-                                    ${validWaypoints.length === 1 ? '🎯 Patrol Checkpoint' : isStart ? '🚀 Route Start Point' : isEnd ? '🏁 Route End Point' : `Waypoint #${wpIdx + 1}`}
+                                    ${validWaypoints.length === 1 ? '🎯 Patrol Checkpoint' : isStart ? '🚀 Expressway Route Start' : isEnd ? '🏁 Expressway Route End' : `Waypoint #${wpIdx + 1}`}
                                 </span>
-                                ${toleranceMeters ? `<div style="font-size: 10px; color: var(--gray-9); margin-top: 2px;">Tolerance: ${toleranceMeters}m</div>` : ''}
+                                ${toleranceMeters ? `<div style="font-size: 10px; color: var(--gray-9); margin-top: 2px;">Highway Attendance Tolerance: ${toleranceMeters}m</div>` : ''}
                             </div>
                         `);
 
@@ -244,6 +273,7 @@ export const MapGeofenceLayers = React.memo(({
         });
 
         return () => {
+            isCancelled = true;
             layersRef.current.forEach(layer => {
                 try {
                     map.removeLayer(layer);
