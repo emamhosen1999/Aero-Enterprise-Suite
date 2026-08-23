@@ -455,12 +455,12 @@ class ClientErrorLog extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id', 'employee_id');
     }
 
     public function resolver(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'resolved_by');
+        return $this->belongsTo(User::class, 'resolved_by', 'employee_id');
     }
 
     /* ─────────────────────────────── scopes ─────────────────────────────── */
@@ -503,15 +503,5 @@ class ClientErrorLog extends Model
     public function affectedUserCount(): int
     {
         return count($this->affected_users ?? []);
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'user_id', 'employee_id');
-    }
-
-    public function resolver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'resolved_by', 'employee_id');
     }
 }
