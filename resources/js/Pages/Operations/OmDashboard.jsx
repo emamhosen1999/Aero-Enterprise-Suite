@@ -152,15 +152,15 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
                                             <Text weight="bold">{inc.incident_number}</Text>
                                             <Text size="1" color="gray" as="div">{inc.title}</Text>
                                         </Table.RowHeaderCell>
-                                        <Table.TableCell>{inc.chainage}</Table.TableCell>
-                                        <Table.TableCell>
+                                        <Table.Cell>{inc.chainage}</Table.Cell>
+                                        <Table.Cell>
                                             <Badge color={inc.severity === 'critical' ? 'red' : inc.severity === 'major' ? 'amber' : 'blue'}>
                                                 {inc.severity}
                                             </Badge>
-                                        </Table.TableCell>
-                                        <Table.TableCell>
+                                        </Table.Cell>
+                                        <Table.Cell>
                                             <Text size="2">{inc.dispatched_unit}</Text>
-                                        </Table.TableCell>
+                                        </Table.Cell>
                                     </Table.Row>
                                 ))}
                             </Table.Body>
@@ -193,18 +193,18 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
                                         <Table.RowHeaderCell>
                                             <Text weight="bold">{wo.work_order_number}</Text>
                                         </Table.RowHeaderCell>
-                                        <Table.TableCell>
+                                        <Table.Cell>
                                             <Text size="2">{wo.title}</Text>
                                             <Text size="1" color="gray" as="div">{wo.location}</Text>
-                                        </Table.TableCell>
-                                        <Table.TableCell>
+                                        </Table.Cell>
+                                        <Table.Cell>
                                             <Badge color={wo.priority === 'high' ? 'red' : 'orange'}>
                                                 {wo.priority}
                                             </Badge>
-                                        </Table.TableCell>
-                                        <Table.TableCell>
+                                        </Table.Cell>
+                                        <Table.Cell>
                                             <Text size="2">{wo.assigned_to}</Text>
-                                        </Table.TableCell>
+                                        </Table.Cell>
                                     </Table.Row>
                                 ))}
                             </Table.Body>

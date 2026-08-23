@@ -1,12 +1,12 @@
 /**
  * Team Locations GIS Map Constants & Styling Utilities
- * DBEDC Guardian 100/100 GIS Command Center
+ * DBEDC Guardian 100/100 GIS Command Center (Radix Theme-Aware)
  */
 
 export const TILE_LAYERS = {
     voyager: {
         id: 'voyager',
-        name: 'Voyager (Crisp)',
+        name: 'Voyager (Crisp Light)',
         icon: 'Compass',
         url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
         subdomains: 'abcd',
@@ -24,7 +24,7 @@ export const TILE_LAYERS = {
     },
     positron: {
         id: 'positron',
-        name: 'Positron (Minimal)',
+        name: 'Positron (Minimal Light)',
         icon: 'Sun',
         url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         subdomains: 'abcd',
@@ -42,7 +42,7 @@ export const TILE_LAYERS = {
     },
     osm: {
         id: 'osm',
-        name: 'OpenStreetMap',
+        name: 'OpenStreetMap Standard',
         icon: 'Map',
         url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         subdomains: 'abc',
@@ -65,13 +65,10 @@ export const THEME_COLORS = {
     geofence: '#8b5cf6',    // Purple / Indigo
     route: '#06b6d4',       // Cyan
     flagged: '#f59e0b',     // Amber
-    darkBg: '#0f172a',      // Slate 900
-    cardGlass: 'rgba(15, 23, 42, 0.82)',
-    lightGlass: 'rgba(255, 255, 255, 0.88)'
 };
 
 /**
- * Injected CSS for animated radar pulses, living markers, and glassmorphism styling
+ * Injected CSS for animated radar pulses, living markers, and Radix theme-aware styling
  */
 export const MAP_INJECTED_STYLES = `
 /* Living Radar Pulse Keyframes */
@@ -135,13 +132,13 @@ export const MAP_INJECTED_STYLES = `
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    border: 2.5px solid #ffffff;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    border: 2.5px solid var(--color-surface, #ffffff);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: linear-gradient(135deg, #1e293b, #0f172a);
+    background: linear-gradient(135deg, var(--blue-9, #2563eb), var(--blue-11, #1e40af));
     color: #ffffff;
     font-weight: 700;
     font-size: 13px;
@@ -150,19 +147,23 @@ export const MAP_INJECTED_STYLES = `
 
 .living-marker-core.is-active {
     border-color: #10b981;
+    background: linear-gradient(135deg, #10b981, #047857);
     animation: beaconGlow 2.5s ease-in-out infinite;
 }
 
 .living-marker-core.is-completed {
-    border-color: #64748b;
+    border-color: var(--gray-8, #94a3b8);
+    background: linear-gradient(135deg, var(--gray-9, #64748b), var(--gray-11, #334155));
 }
 
 .living-marker-core.is-punchin {
     border-color: #10b981;
+    background: linear-gradient(135deg, #10b981, #059669);
 }
 
 .living-marker-core.is-punchout {
     border-color: #ef4444;
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
 }
 
 .living-marker-badge {
@@ -172,7 +173,7 @@ export const MAP_INJECTED_STYLES = `
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 2px solid #ffffff;
+    border: 2px solid var(--color-surface, #ffffff);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -181,12 +182,12 @@ export const MAP_INJECTED_STYLES = `
     z-index: 3;
 }
 
-/* Glassmorphism Leaflet Popup */
+/* Radix Theme-Aware Leaflet Popup */
 .leaflet-popup-content-wrapper {
     background: transparent !important;
     box-shadow: none !important;
     padding: 0 !important;
-    border-radius: 12px !important;
+    border-radius: var(--radius-4, 12px) !important;
 }
 
 .leaflet-popup-content {
@@ -195,23 +196,23 @@ export const MAP_INJECTED_STYLES = `
 }
 
 .leaflet-popup-tip {
-    background: var(--color-panel-solid, #1e293b) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+    background: var(--color-panel-solid, var(--color-surface, #ffffff)) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Centroid Labels for Polygons */
 .geofence-centroid-badge {
-    background: rgba(15, 23, 42, 0.85);
+    background: var(--color-panel-solid, var(--color-surface, #ffffff));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--gray-a6);
     border-radius: 20px;
     padding: 3px 10px;
-    color: #ffffff;
+    color: var(--gray-12, #1e293b);
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
     display: flex;
     align-items: center;
     gap: 5px;

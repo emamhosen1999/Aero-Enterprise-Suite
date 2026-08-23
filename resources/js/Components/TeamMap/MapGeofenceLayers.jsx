@@ -67,7 +67,7 @@ export const MapGeofenceLayers = React.memo(({
 
                     // Centroid Label Badge
                     const labelHtml = `
-                        <div class="geofence-centroid-badge" style="border-color: ${zoneColor}66;">
+                        <div class="geofence-centroid-badge" style="border-color: ${zoneColor}88;">
                             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${zoneColor};"></span>
                             <span>${zoneTitle || name}</span>
                             ${insideCount > 0 ? `<span style="background:${zoneColor}; color:white; border-radius:10px; padding:0 6px; font-size:10px;">${insideCount} Officers</span>` : ''}
@@ -86,11 +86,11 @@ export const MapGeofenceLayers = React.memo(({
 
                     // Popup
                     polygon.bindPopup(`
-                        <div style="font-family: inherit; padding: 6px; min-width: 140px; color: #1e293b;">
+                        <div style="font-family: inherit; padding: 6px; min-width: 140px; color: var(--gray-12, #1e293b);">
                             <div style="font-weight: 700; color: ${zoneColor}; font-size: 13px; margin-bottom: 2px;">
                                 🛡️ ${zoneTitle || name}
                             </div>
-                            <div style="font-size: 11px; color: #64748b;">Geofence Zone Perimeter</div>
+                            <div style="font-size: 11px; color: var(--gray-10, #64748b);">Geofence Zone Perimeter</div>
                             <div style="font-size: 11px; margin-top: 4px; font-weight: 600;">
                                 Verified Officers: <span style="color:${zoneColor};">${insideCount}</span>
                             </div>
@@ -114,10 +114,13 @@ export const MapGeofenceLayers = React.memo(({
 
             // 2. Route Waypoints & Corridors
             if (base_slug === 'route_waypoint' && config && layerVisibility.waypoints) {
-                const waypoints = config.waypoints || [];
-                const validWaypoints = waypoints.filter(w => w && w.lat && w.lng);
+                const rawWaypoints = config.waypoints || [];
+                const routes = config.routes || [];
 
-                if (validWaypoints.length >= 2) {
+                const processRoute = (wps, routeTitle) => {
+                    const validWaypoints = (wps || []).filter(w => w && w.lat && w.lng);
+                    if (validWaypoints.length < 2) return;
+
                     const latLngs = validWaypoints.map(w => [parseFloat(w.lat), parseFloat(w.lng)]);
 
                     // Draw Corridor Polyline
@@ -165,9 +168,9 @@ export const MapGeofenceLayers = React.memo(({
                         }).addTo(map);
 
                         wpMarker.bindPopup(`
-                            <div style="font-family: inherit; padding: 4px; color: #1e293b;">
-                                <strong style="color: ${zoneColor};">${name}</strong><br>
-                                <span style="font-size: 11px; color: #64748b;">
+                            <div style="font-family: inherit; padding: 4px; color: var(--gray-12, #1e293b);">
+                                <strong style="color: ${zoneColor};">${routeTitle || name}</strong><br>
+                                <span style="font-size: 11px; color: var(--gray-10, #64748b);">
                                     ${isStart ? '🚀 Route Start Point' : isEnd ? '🏁 Route End Point' : `Waypoint #${wpIdx + 1}`}
                                 </span>
                             </div>
@@ -175,7 +178,17 @@ export const MapGeofenceLayers = React.memo(({
 
                         layersRef.current.push(wpMarker);
                     });
+                };
+
+                if (rawWaypoints.length >= 2) {
+                    processRoute(rawWaypoints, name);
                 }
+
+                routes.forEach((route, rIdx) => {
+                    if (route.waypoints && route.waypoints.length >= 2) {
+                        processRoute(route.waypoints, route.name || `${name} Route ${rIdx + 1}`);
+                    }
+                });
             }
         });
 

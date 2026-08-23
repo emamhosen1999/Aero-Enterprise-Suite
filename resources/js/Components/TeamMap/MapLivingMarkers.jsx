@@ -100,16 +100,16 @@ export const MapLivingMarkers = React.memo(({
 
         return `
             <div style="
-                min-width: 200px;
-                max-width: 240px;
-                background: rgba(15, 23, 42, 0.92);
+                min-width: 210px;
+                max-width: 250px;
+                background: var(--color-panel-solid, var(--color-surface, #ffffff));
                 backdrop-filter: blur(16px);
                 -webkit-backdrop-filter: blur(16px);
-                border: 1px solid rgba(255, 255, 255, 0.2);
+                border: 1px solid var(--gray-a6, #cbd5e1);
                 border-radius: 12px;
                 padding: 12px;
-                color: #ffffff;
-                box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+                color: var(--gray-12, #1e293b);
+                box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
                 font-family: inherit;
             ">
                 <!-- Header -->
@@ -119,9 +119,9 @@ export const MapLivingMarkers = React.memo(({
                         height: 32px;
                         border-radius: 50%;
                         overflow: hidden;
-                        border: 2px solid ${isActive ? THEME_COLORS.active : '#64748b'};
-                        background: #1e293b;
-                        color: white;
+                        border: 2px solid ${isActive ? THEME_COLORS.active : 'var(--gray-8, #94a3b8)'};
+                        background: var(--gray-a4, #e2e8f0);
+                        color: var(--gray-12, #1e293b);
                         display: flex;
                         align-items: center;
                         justify-content: center;
@@ -135,10 +135,10 @@ export const MapLivingMarkers = React.memo(({
                         }
                     </div>
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 700; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ffffff;">
+                        <div style="font-weight: 700; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gray-12, #0f172a);">
                             ${user.name}
                         </div>
-                        <div style="font-size: 10px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <div style="font-size: 10px; color: var(--gray-10, #64748b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${user.designation || 'Officer'}
                         </div>
                     </div>
@@ -147,24 +147,24 @@ export const MapLivingMarkers = React.memo(({
                         font-weight: 600;
                         padding: 2px 6px;
                         border-radius: 10px;
-                        background: ${isActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)'};
-                        color: ${isActive ? '#34d399' : '#60a5fa'};
-                        border: 1px solid ${isActive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(59, 130, 246, 0.4)'};
+                        background: ${isActive ? 'var(--green-a3, rgba(16, 185, 129, 0.15))' : 'var(--blue-a3, rgba(59, 130, 246, 0.15))'};
+                        color: ${isActive ? 'var(--green-11, #059669)' : 'var(--blue-11, #2563eb)'};
+                        border: 1px solid ${isActive ? 'var(--green-a5, rgba(16, 185, 129, 0.4))' : 'var(--blue-a5, rgba(59, 130, 246, 0.4))'};
                     ">
                         ${isActive ? '🟢 ACTIVE' : '✅ DONE'}
                     </div>
                 </div>
 
                 <!-- Timestamps -->
-                <div style="background: rgba(255, 255, 255, 0.06); border-radius: 6px; padding: 6px; margin-bottom: 6px; font-size: 11px;">
+                <div style="background: var(--gray-a3, rgba(0, 0, 0, 0.04)); border-radius: 6px; padding: 6px; margin-bottom: 6px; font-size: 11px; border: 1px solid var(--gray-a4);">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;">
-                        <span style="color: #94a3b8;">Check In:</span>
-                        <span style="font-weight: 600; color: #34d399;">${inTime}</span>
+                        <span style="color: var(--gray-10, #64748b);">Check In:</span>
+                        <span style="font-weight: 600; color: var(--green-11, #059669);">${inTime}</span>
                     </div>
                     ${outTime ? `
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="color: #94a3b8;">Check Out:</span>
-                        <span style="font-weight: 600; color: #f87171;">${outTime}</span>
+                        <span style="color: var(--gray-10, #64748b);">Check Out:</span>
+                        <span style="font-weight: 600; color: var(--red-11, #dc2626);">${outTime}</span>
                     </div>` : ''}
                 </div>
 

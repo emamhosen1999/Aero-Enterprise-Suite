@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Box, Flex, Text, TextField, Badge, Button, IconButton, DropdownMenu } from '@radix-ui/themes';
 import {
     MagnifyingGlassIcon,
@@ -60,37 +60,33 @@ export const MapHudControls = React.memo(({
                     wrap="wrap"
                     p="2"
                     style={{
-                        background: 'rgba(15, 23, 42, 0.85)',
+                        background: 'var(--color-surface)',
                         backdropFilter: 'blur(16px)',
                         WebkitBackdropFilter: 'blur(16px)',
                         borderRadius: 'var(--radius-4)',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                        border: '1px solid var(--gray-a5)',
+                        boxShadow: 'var(--shadow-4, 0 8px 30px rgba(0, 0, 0, 0.12))',
                     }}
                 >
                     {/* Search Field */}
-                    <Box style={{ width: 200 }}>
+                    <Box style={{ width: 190 }}>
                         <TextField.Root
                             size="1"
-                            placeholder="Search officer or ID..."
+                            variant="surface"
+                            placeholder="Search officer / ID..."
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            style={{
-                                background: 'rgba(255, 255, 255, 0.1)',
-                                color: '#ffffff',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                borderRadius: 'var(--radius-2)',
-                            }}
                         >
                             <TextField.Slot>
-                                <MagnifyingGlassIcon style={{ color: '#94a3b8' }} />
+                                <MagnifyingGlassIcon style={{ color: 'var(--gray-9)' }} />
                             </TextField.Slot>
                             {searchQuery && (
                                 <TextField.Slot>
                                     <IconButton
                                         size="1"
                                         variant="ghost"
-                                        style={{ color: '#cbd5e1', cursor: 'pointer' }}
+                                        color="gray"
+                                        style={{ cursor: 'pointer' }}
                                         onClick={() => onSearchChange('')}
                                     >
                                         <Cross2Icon />
@@ -105,106 +101,65 @@ export const MapHudControls = React.memo(({
                         <Button
                             size="1"
                             variant={statusFilter === 'all' ? 'solid' : 'soft'}
-                            color={statusFilter === 'all' ? 'blue' : 'gray'}
-                            style={{
-                                cursor: 'pointer',
-                                borderRadius: 'var(--radius-2)',
-                                fontSize: 11
-                            }}
+                            color="gray"
                             onClick={() => onStatusFilterChange('all')}
+                            style={{ cursor: 'pointer', fontWeight: 600 }}
                         >
-                            All ({stats?.total || 0})
+                            All ({stats.total})
                         </Button>
-
                         <Button
                             size="1"
                             variant={statusFilter === 'active' ? 'solid' : 'soft'}
-                            color={statusFilter === 'active' ? 'green' : 'gray'}
-                            style={{
-                                cursor: 'pointer',
-                                borderRadius: 'var(--radius-2)',
-                                fontSize: 11
-                            }}
+                            color="green"
                             onClick={() => onStatusFilterChange('active')}
+                            style={{ cursor: 'pointer', fontWeight: 600 }}
                         >
-                            🟢 Active ({stats?.checkedIn ?? stats?.active ?? 0})
+                            🟢 Active ({stats.active})
                         </Button>
-
                         <Button
                             size="1"
                             variant={statusFilter === 'completed' ? 'solid' : 'soft'}
-                            color={statusFilter === 'completed' ? 'blue' : 'gray'}
-                            style={{
-                                cursor: 'pointer',
-                                borderRadius: 'var(--radius-2)',
-                                fontSize: 11
-                            }}
+                            color="blue"
                             onClick={() => onStatusFilterChange('completed')}
+                            style={{ cursor: 'pointer', fontWeight: 600 }}
                         >
-                            ✅ Done ({stats?.completed || 0})
+                            ✅ Done ({stats.completed})
                         </Button>
                     </Flex>
                 </Flex>
 
-                {/* Right Controls: Tile Switcher, Layer Toggles, Fit Bounds, Roster, Fullscreen */}
+                {/* Right Controls: Tile Switcher, Layer Menu, Fit Bounds & Drawer Toggle */}
                 <Flex
                     align="center"
                     gap="2"
                     p="2"
                     style={{
-                        background: 'rgba(15, 23, 42, 0.85)',
+                        background: 'var(--color-surface)',
                         backdropFilter: 'blur(16px)',
                         WebkitBackdropFilter: 'blur(16px)',
                         borderRadius: 'var(--radius-4)',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                        border: '1px solid var(--gray-a5)',
+                        boxShadow: 'var(--shadow-4, 0 8px 30px rgba(0, 0, 0, 0.12))',
                     }}
                 >
-                    {/* Tile Layer Selector */}
+                    {/* Multi-Tile Base Map Selector */}
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger>
-                            <Button
-                                size="1"
-                                variant="soft"
-                                color="gray"
-                                style={{
-                                    color: '#ffffff',
-                                    background: 'rgba(255, 255, 255, 0.12)',
-                                    cursor: 'pointer'
-                                }}
-                            >
+                            <Button size="1" variant="soft" color="gray" style={{ cursor: 'pointer', fontWeight: 600 }}>
                                 <GlobeIcon />
-                                <Text size="1" style={{ fontSize: 11 }}>
-                                    {TILE_LAYERS[currentTileId]?.name || 'Base Map'}
-                                </Text>
+                                {TILE_LAYERS[currentTileId]?.name || 'Basemap'}
                             </Button>
                         </DropdownMenu.Trigger>
-                        <DropdownMenu.Content
-                            style={{
-                                background: 'rgba(15, 23, 42, 0.95)',
-                                backdropFilter: 'blur(12px)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                color: '#ffffff',
-                                zIndex: 9999
-                            }}
-                        >
-                            <DropdownMenu.Label style={{ color: '#94a3b8', fontSize: 10 }}>
-                                MAP TILE THEME
-                            </DropdownMenu.Label>
-                            {Object.values(TILE_LAYERS).map((layer) => (
+                        <DropdownMenu.Content variant="solid" size="1">
+                            <DropdownMenu.Label>Select Map Tile</DropdownMenu.Label>
+                            {Object.values(TILE_LAYERS).map((tile) => (
                                 <DropdownMenu.Item
-                                    key={layer.id}
-                                    style={{
-                                        cursor: 'pointer',
-                                        color: currentTileId === layer.id ? '#38bdf8' : '#e2e8f0',
-                                        fontWeight: currentTileId === layer.id ? 700 : 400
-                                    }}
-                                    onClick={() => onTileChange(layer.id)}
+                                    key={tile.id}
+                                    onClick={() => onTileChange(tile.id)}
+                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'between' }}
                                 >
-                                    <Flex align="center" justify="between" style={{ width: '100%' }}>
-                                        <Text size="1">{layer.name}</Text>
-                                        {currentTileId === layer.id && <CheckIcon style={{ width: 14, height: 14 }} />}
-                                    </Flex>
+                                    <span>{tile.name}</span>
+                                    {currentTileId === tile.id && <CheckIcon style={{ marginLeft: 8 }} />}
                                 </DropdownMenu.Item>
                             ))}
                         </DropdownMenu.Content>
@@ -213,125 +168,89 @@ export const MapHudControls = React.memo(({
                     {/* Layer Visibility Menu */}
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger>
-                            <Button
-                                size="1"
-                                variant="soft"
-                                color="gray"
-                                style={{
-                                    color: '#ffffff',
-                                    background: 'rgba(255, 255, 255, 0.12)',
-                                    cursor: 'pointer'
-                                }}
-                            >
+                            <Button size="1" variant="soft" color="gray" style={{ cursor: 'pointer', fontWeight: 600 }}>
                                 <LayersIcon />
-                                <Text size="1" style={{ fontSize: 11 }}>Layers</Text>
+                                Layers
                             </Button>
                         </DropdownMenu.Trigger>
-                        <DropdownMenu.Content
-                            style={{
-                                background: 'rgba(15, 23, 42, 0.95)',
-                                backdropFilter: 'blur(12px)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                color: '#ffffff',
-                                zIndex: 9999
-                            }}
-                        >
-                            <DropdownMenu.Label style={{ color: '#94a3b8', fontSize: 10 }}>
-                                TOGGLE MAP OVERLAYS
-                            </DropdownMenu.Label>
-
+                        <DropdownMenu.Content variant="solid" size="1">
+                            <DropdownMenu.Label>Toggle Overlays</DropdownMenu.Label>
                             <DropdownMenu.Item
-                                style={{ cursor: 'pointer', color: '#e2e8f0' }}
                                 onClick={() => onToggleLayer('geofences')}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <Flex align="center" justify="between" style={{ width: '100%' }}>
-                                    <Text size="1">Geofence Zones</Text>
-                                    {layerVisibility.geofences ? <EyeOpenIcon style={{ color: '#34d399' }} /> : <EyeClosedIcon style={{ color: '#94a3b8' }} />}
+                                <Flex align="center" gap="2">
+                                    {layerVisibility.geofences ? <EyeOpenIcon style={{ color: 'var(--purple-9)' }} /> : <EyeClosedIcon />}
+                                    <span>Geofence Zones</span>
                                 </Flex>
                             </DropdownMenu.Item>
-
                             <DropdownMenu.Item
-                                style={{ cursor: 'pointer', color: '#e2e8f0' }}
                                 onClick={() => onToggleLayer('waypoints')}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <Flex align="center" justify="between" style={{ width: '100%' }}>
-                                    <Text size="1">Route Waypoints</Text>
-                                    {layerVisibility.waypoints ? <EyeOpenIcon style={{ color: '#34d399' }} /> : <EyeClosedIcon style={{ color: '#94a3b8' }} />}
+                                <Flex align="center" gap="2">
+                                    {layerVisibility.waypoints ? <EyeOpenIcon style={{ color: 'var(--cyan-9)' }} /> : <EyeClosedIcon />}
+                                    <span>Route Waypoints</span>
                                 </Flex>
                             </DropdownMenu.Item>
-
                             <DropdownMenu.Item
-                                style={{ cursor: 'pointer', color: '#e2e8f0' }}
                                 onClick={() => onToggleLayer('trajectories')}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <Flex align="center" justify="between" style={{ width: '100%' }}>
-                                    <Text size="1">Patrol Trajectories</Text>
-                                    {layerVisibility.trajectories ? <EyeOpenIcon style={{ color: '#34d399' }} /> : <EyeClosedIcon style={{ color: '#94a3b8' }} />}
+                                <Flex align="center" gap="2">
+                                    {layerVisibility.trajectories ? <EyeOpenIcon style={{ color: 'var(--blue-9)' }} /> : <EyeClosedIcon />}
+                                    <span>Patrol Trajectories</span>
                                 </Flex>
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>
                     </DropdownMenu.Root>
 
-                    {/* Fit All Bounds Button */}
-                    <IconButton
+                    {/* Fit Bounds 1-Click */}
+                    <Button
                         size="1"
                         variant="soft"
                         color="gray"
-                        style={{
-                            color: '#ffffff',
-                            background: 'rgba(255, 255, 255, 0.12)',
-                            cursor: 'pointer'
-                        }}
-                        title="Fit all markers in view"
                         onClick={onFitBounds}
+                        style={{ cursor: 'pointer' }}
+                        title="Fit all markers in view"
                     >
                         <SewingPinFilledIcon />
-                    </IconButton>
+                        Fit All
+                    </Button>
 
                     {/* Refresh Button */}
                     <IconButton
                         size="1"
                         variant="soft"
-                        color="gray"
-                        style={{
-                            color: '#ffffff',
-                            background: 'rgba(255, 255, 255, 0.12)',
-                            cursor: 'pointer'
-                        }}
-                        title="Refresh live locations"
+                        color="blue"
                         onClick={onRefresh}
                         disabled={isRefreshing}
+                        style={{ cursor: 'pointer' }}
+                        title="Refresh live coordinates"
                     >
                         <ReloadIcon className={isRefreshing ? 'animate-spin' : ''} />
                     </IconButton>
 
-                    {/* Toggle Team Roster Drawer */}
+                    {/* Toggle Slide-over Team Roster */}
                     <Button
                         size="1"
                         variant={isDrawerOpen ? 'solid' : 'soft'}
                         color={isDrawerOpen ? 'blue' : 'gray'}
-                        style={{
-                            color: '#ffffff',
-                            cursor: 'pointer'
-                        }}
                         onClick={onToggleDrawer}
+                        style={{ cursor: 'pointer', fontWeight: 600 }}
                     >
                         <PersonIcon />
-                        <Text size="1" style={{ fontSize: 11 }}>Team ({stats?.total || 0})</Text>
+                        Roster ({stats.total})
                     </Button>
 
-                    {/* Fullscreen Button */}
+                    {/* Fullscreen Toggle */}
                     <IconButton
                         size="1"
                         variant="soft"
                         color="gray"
-                        style={{
-                            color: '#ffffff',
-                            background: 'rgba(255, 255, 255, 0.12)',
-                            cursor: 'pointer'
-                        }}
-                        title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                         onClick={onToggleFullscreen}
+                        style={{ cursor: 'pointer' }}
+                        title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
                     >
                         {isFullscreen ? <ExitFullScreenIcon /> : <EnterFullScreenIcon />}
                     </IconButton>
@@ -342,4 +261,3 @@ export const MapHudControls = React.memo(({
 });
 
 MapHudControls.displayName = 'MapHudControls';
-export default MapHudControls;

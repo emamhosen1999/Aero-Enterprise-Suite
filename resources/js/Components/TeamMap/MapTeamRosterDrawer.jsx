@@ -46,12 +46,12 @@ export const MapTeamRosterDrawer = React.memo(({
                 bottom: 14,
                 width: 320,
                 maxWidth: 'calc(100vw - 28px)',
-                background: 'rgba(15, 23, 42, 0.92)',
+                background: 'var(--color-panel-solid, var(--color-surface, #ffffff))',
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
                 borderRadius: 'var(--radius-4)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+                border: '1px solid var(--gray-a5)',
+                boxShadow: 'var(--shadow-5, 0 20px 40px rgba(0, 0, 0, 0.25))',
                 zIndex: 1000,
                 display: 'flex',
                 flexDirection: 'column',
@@ -63,14 +63,14 @@ export const MapTeamRosterDrawer = React.memo(({
             <Box
                 p="3"
                 style={{
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                    background: 'rgba(0, 0, 0, 0.25)'
+                    borderBottom: '1px solid var(--gray-a4)',
+                    background: 'var(--gray-a2)'
                 }}
             >
                 <Flex justify="between" align="center" mb="2">
                     <Flex align="center" gap="2">
-                        <PersonIcon style={{ color: '#38bdf8', width: 16, height: 16 }} />
-                        <Text size="2" weight="bold" style={{ color: '#ffffff' }}>
+                        <PersonIcon style={{ color: 'var(--blue-9)', width: 16, height: 16 }} />
+                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>
                             On-Duty Team Roster
                         </Text>
                         <Badge size="1" color="blue" variant="solid" radius="full">
@@ -80,7 +80,8 @@ export const MapTeamRosterDrawer = React.memo(({
                     <IconButton
                         size="1"
                         variant="ghost"
-                        style={{ color: '#94a3b8', cursor: 'pointer' }}
+                        color="gray"
+                        style={{ cursor: 'pointer' }}
                         onClick={onClose}
                     >
                         <Cross2Icon />
@@ -90,24 +91,20 @@ export const MapTeamRosterDrawer = React.memo(({
                 {/* Filter Input */}
                 <TextField.Root
                     size="1"
+                    variant="surface"
                     placeholder="Filter roster..."
                     value={filterQuery}
                     onChange={(e) => setFilterQuery(e.target.value)}
-                    style={{
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        color: '#ffffff',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                    }}
                 >
                     <TextField.Slot>
-                        <MagnifyingGlassIcon style={{ color: '#94a3b8' }} />
+                        <MagnifyingGlassIcon style={{ color: 'var(--gray-9)' }} />
                     </TextField.Slot>
                     {filterQuery && (
                         <TextField.Slot>
                             <IconButton
                                 size="1"
                                 variant="ghost"
-                                style={{ color: '#cbd5e1', cursor: 'pointer' }}
+                                color="gray"
                                 onClick={() => setFilterQuery('')}
                             >
                                 <Cross2Icon />
@@ -117,7 +114,7 @@ export const MapTeamRosterDrawer = React.memo(({
                 </TextField.Root>
             </Box>
 
-            {/* Officer Cards List */}
+            {/* Officer List Area */}
             <Box
                 p="2"
                 style={{
@@ -125,56 +122,53 @@ export const MapTeamRosterDrawer = React.memo(({
                     overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 8
+                    gap: 6
                 }}
             >
-                {filteredUsers.length > 0 ? (
+                {filteredUsers.length === 0 ? (
+                    <Flex align="center" justify="center" direction="column" gap="2" p="4" style={{ height: '100%' }}>
+                        <PersonIcon style={{ color: 'var(--gray-8)', width: 28, height: 28 }} />
+                        <Text size="1" color="gray">No matching officers found</Text>
+                    </Flex>
+                ) : (
                     filteredUsers.map((user) => {
                         const isSelected = selectedUserId === user.user_id;
                         const isActive = user.status === 'active';
-                        const lastPhoto = user.punchout_photo_url || user.punchin_photo_url;
+                        const inTime = user.punchin_time || '--';
+                        const outTime = user.punchout_time;
+                        const photoUrl = user.punchin_photo_url || user.profile_image_url;
 
                         return (
                             <Box
                                 key={user.user_id}
                                 p="2"
                                 style={{
-                                    background: isSelected
-                                        ? 'rgba(56, 189, 248, 0.18)'
-                                        : 'rgba(255, 255, 255, 0.05)',
                                     borderRadius: 'var(--radius-3)',
-                                    border: isSelected
-                                        ? '1px solid rgba(56, 189, 248, 0.5)'
-                                        : '1px solid rgba(255, 255, 255, 0.08)',
-                                    cursor: 'pointer',
+                                    background: isSelected ? 'var(--blue-a3)' : 'var(--gray-a2)',
+                                    border: isSelected ? '1px solid var(--blue-a7)' : '1px solid var(--gray-a4)',
                                     transition: 'all 0.15s ease',
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!isSelected) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (!isSelected) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                    cursor: 'pointer'
                                 }}
                                 onClick={() => onSelectOfficer(user)}
                             >
                                 <Flex justify="between" align="start" gap="2">
-                                    <Flex align="start" gap="2" style={{ flex: 1, minWidth: 0 }}>
-                                        {/* Avatar with Status Ring */}
+                                    {/* Avatar & Officer Info */}
+                                    <Flex align="center" gap="2" style={{ minWidth: 0, flex: 1 }}>
                                         <Box
                                             style={{
                                                 position: 'relative',
-                                                width: 36,
-                                                height: 36,
+                                                width: 34,
+                                                height: 34,
                                                 borderRadius: '50%',
                                                 overflow: 'hidden',
-                                                border: `2px solid ${isActive ? THEME_COLORS.active : '#64748b'}`,
-                                                background: '#1e293b',
-                                                color: 'white',
+                                                border: `2px solid ${isActive ? THEME_COLORS.active : 'var(--gray-7)'}`,
+                                                background: 'var(--gray-a4)',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                fontSize: 12,
+                                                color: 'white',
                                                 fontWeight: 'bold',
+                                                fontSize: 12,
                                                 flexShrink: 0
                                             }}
                                         >
@@ -187,97 +181,122 @@ export const MapTeamRosterDrawer = React.memo(({
                                             ) : (
                                                 user.name?.charAt(0)?.toUpperCase() || '?'
                                             )}
+
+                                            {/* Status Dot */}
+                                            <span
+                                                style={{
+                                                    position: 'absolute',
+                                                    bottom: 0,
+                                                    right: 0,
+                                                    width: 8,
+                                                    height: 8,
+                                                    borderRadius: '50%',
+                                                    background: isActive ? THEME_COLORS.active : THEME_COLORS.completed,
+                                                    border: '1px solid var(--color-surface)'
+                                                }}
+                                            />
                                         </Box>
 
-                                        {/* Info */}
-                                        <Box style={{ flex: 1, minWidth: 0 }}>
-                                            <Flex align="center" gap="1">
-                                                <Text
-                                                    size="2"
-                                                    weight="bold"
-                                                    style={{
-                                                        color: '#ffffff',
-                                                        whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis'
-                                                    }}
-                                                >
-                                                    {user.name}
-                                                </Text>
-                                            </Flex>
-
+                                        <Box style={{ minWidth: 0, flex: 1 }}>
                                             <Text
-                                                size="1"
+                                                size="2"
+                                                weight="bold"
                                                 style={{
-                                                    color: '#94a3b8',
-                                                    fontSize: 11,
+                                                    color: 'var(--gray-12)',
                                                     whiteSpace: 'nowrap',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     display: 'block'
                                                 }}
                                             >
-                                                {user.designation || 'Officer'}
+                                                {user.name}
                                             </Text>
-
-                                            {/* Punch Info */}
-                                            <Flex align="center" gap="2" mt="1" wrap="wrap">
-                                                {user.punchin_time && (
-                                                    <Flex align="center" gap="1">
-                                                        <ClockIcon style={{ color: '#34d399', width: 10, height: 10 }} />
-                                                        <Text size="1" style={{ color: '#cbd5e1', fontSize: 10 }}>
-                                                            In: {user.punchin_time}
-                                                        </Text>
-                                                    </Flex>
-                                                )}
-                                                {user.punchout_time && (
-                                                    <Flex align="center" gap="1">
-                                                        <CheckCircledIcon style={{ color: '#f87171', width: 10, height: 10 }} />
-                                                        <Text size="1" style={{ color: '#cbd5e1', fontSize: 10 }}>
-                                                            Out: {user.punchout_time}
-                                                        </Text>
-                                                    </Flex>
-                                                )}
-                                            </Flex>
+                                            <Text
+                                                size="1"
+                                                color="gray"
+                                                style={{
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    display: 'block'
+                                                }}
+                                            >
+                                                {user.designation || 'Staff'} {user.employee_id ? `• ${user.employee_id}` : ''}
+                                            </Text>
                                         </Box>
                                     </Flex>
 
-                                    {/* Action column */}
-                                    <Flex direction="column" align="end" gap="1">
-                                        <Badge
-                                            size="1"
-                                            color={isActive ? 'green' : 'blue'}
-                                            variant="solid"
-                                            radius="full"
-                                            style={{ fontSize: 9 }}
-                                        >
-                                            {isActive ? 'Live' : 'Done'}
-                                        </Badge>
+                                    {/* Action Focus Pill */}
+                                    <IconButton
+                                        size="1"
+                                        variant="soft"
+                                        color={isSelected ? 'blue' : 'gray'}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelectOfficer(user);
+                                        }}
+                                        title="Fly to marker on map"
+                                    >
+                                        <SewingPinFilledIcon />
+                                    </IconButton>
+                                </Flex>
 
-                                        <IconButton
+                                {/* Timestamps & Photo Badges */}
+                                <Flex justify="between" align="center" mt="2" pt="2" style={{ borderTop: '1px solid var(--gray-a4)' }}>
+                                    <Flex align="center" gap="1">
+                                        <ClockIcon style={{ color: 'var(--green-9)', width: 12, height: 12 }} />
+                                        <Text size="1" weight="medium" style={{ color: 'var(--green-11)' }}>
+                                            In: {inTime}
+                                        </Text>
+                                        {outTime && (
+                                            <Text size="1" color="gray" ml="1">
+                                                • Out: {outTime}
+                                            </Text>
+                                        )}
+                                    </Flex>
+
+                                    <Flex align="center" gap="1">
+                                        {user.punchin_photo_url && (
+                                            <IconButton
+                                                size="1"
+                                                variant="ghost"
+                                                color="blue"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onOpenPhoto({
+                                                        url: user.punchin_photo_url,
+                                                        title: `Check-In Verification: ${user.name}`,
+                                                        timestamp: inTime,
+                                                        officerName: user.name,
+                                                        employeeId: user.employee_id,
+                                                        designation: user.designation,
+                                                        location: user.punchin_location
+                                                    });
+                                                }}
+                                                title="View Check-In Selfie"
+                                            >
+                                                <CameraIcon />
+                                            </IconButton>
+                                        )}
+
+                                        <Button
                                             size="1"
-                                            variant="ghost"
-                                            style={{ color: '#38bdf8', cursor: 'pointer', height: 20, width: 20 }}
-                                            title="Inspect full telemetry"
+                                            variant="surface"
+                                            color="gray"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onOpenTelemetry(user);
                                             }}
+                                            style={{ cursor: 'pointer', height: 22, fontSize: 10, padding: '0 6px' }}
                                         >
+                                            Telemetry
                                             <ChevronRightIcon />
-                                        </IconButton>
+                                        </Button>
                                     </Flex>
                                 </Flex>
                             </Box>
                         );
                     })
-                ) : (
-                    <Flex direction="column" align="center" justify="center" p="4" gap="2">
-                        <PersonIcon style={{ color: '#64748b', width: 28, height: 28 }} />
-                        <Text size="1" style={{ color: '#94a3b8' }}>
-                            {filterQuery ? 'No matching officers found' : 'No officers tracked'}
-                        </Text>
-                    </Flex>
                 )}
             </Box>
         </Box>
@@ -285,4 +304,3 @@ export const MapTeamRosterDrawer = React.memo(({
 });
 
 MapTeamRosterDrawer.displayName = 'MapTeamRosterDrawer';
-export default MapTeamRosterDrawer;
