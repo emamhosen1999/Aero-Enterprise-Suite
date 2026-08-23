@@ -81,7 +81,6 @@ class DeepE2ECrudAudit extends Command
                     'email' => $testEmail,
                     'password' => Hash::make('password123'),
                     'joining_date' => now()->toDateString(),
-                    'blood_group' => 'A+',
                     'contact_number' => '+8801700000000',
                 ]);
                 if (! $user || $user->employee_id !== $testEmpId) {
@@ -101,7 +100,7 @@ class DeepE2ECrudAudit extends Command
 
             $this->runTest('User: Update Employee Profile', function () use ($newUser) {
                 $newUser->name = 'Audit Test User (Updated)';
-                $newUser->blood_group = 'B+';
+                $newUser->contact_number = '+8801711111111';
                 $newUser->save();
                 $newUser->refresh();
                 if ($newUser->name !== 'Audit Test User (Updated)') {
@@ -172,9 +171,12 @@ class DeepE2ECrudAudit extends Command
                 ]);
 
                 $report = Report::firstOrCreate([
-                    'title' => 'Daily Inspection Report',
+                    'ref_no' => 'REP-AUDIT-' . rand(1000, 9999),
                 ], [
-                    'description' => 'Daily inspection details',
+                    'report_type' => 'Daily Inspection',
+                    'issue_date' => now()->toDateString(),
+                    'details' => 'Daily inspection details',
+                    'status' => 'submitted',
                 ]);
 
                 $dw->reports()->syncWithoutDetaching([$report->id]);
@@ -260,9 +262,9 @@ class DeepE2ECrudAudit extends Command
                 $leave = Leave::create([
                     'user_id' => $admin->employee_id,
                     'leave_type' => 'Casual Leave',
-                    'start_date' => now()->addDays(10)->toDateString(),
-                    'end_date' => now()->addDays(12)->toDateString(),
-                    'total_days' => 3,
+                    'from_date' => now()->addDays(10)->toDateString(),
+                    'to_date' => now()->addDays(12)->toDateString(),
+                    'no_of_days' => 3,
                     'reason' => 'Automated E2E Audit Leave Request',
                     'status' => 'Pending',
                 ]);
@@ -284,13 +286,13 @@ class DeepE2ECrudAudit extends Command
                 $eq = OmEquipment::create([
                     'equipment_code' => 'WIM-' . rand(1000, 9999),
                     'name' => 'Weigh-in-Motion Sensor #' . rand(100, 999),
-                    'category' => 'Toll Equipment',
+                    'category' => 'wim',
                     'location' => 'Plaza Lane 2',
-                    'status' => 'Operational',
+                    'status' => 'online',
                 ]);
-                $eq->update(['status' => 'Under Maintenance']);
+                $eq->update(['status' => 'offline']);
                 $found = OmEquipment::find($eq->id);
-                if (! $found || $found->status !== 'Under Maintenance') {
+                if (! $found || $found->status !== 'offline') {
                     throw new \Exception('OmEquipment CRUD failed');
                 }
             });
@@ -300,12 +302,13 @@ class DeepE2ECrudAudit extends Command
                     'incident_number' => 'INC-' . rand(1000, 9999),
                     'title' => 'Vehicle Stall at Chainage K15+200',
                     'chainage' => 'K15+200',
-                    'severity' => 'Low',
-                    'status' => 'Open',
+                    'severity' => 'minor',
+                    'status' => 'detected',
+                    'reported_at' => now(),
                 ]);
-                $inc->update(['status' => 'Resolved']);
+                $inc->update(['status' => 'cleared']);
                 $found = OmIncident::find($inc->id);
-                if (! $found || $found->status !== 'Resolved') {
+                if (! $found || $found->status !== 'cleared') {
                     throw new \Exception('OmIncident CRUD failed');
                 }
             });
@@ -313,7 +316,7 @@ class DeepE2ECrudAudit extends Command
             $this->runTest('O&M Shift Log: Create & Validate', function () use ($admin) {
                 $log = OmShiftLog::create([
                     'shift_date' => now()->toDateString(),
-                    'shift_type' => 'Night Shift',
+                    'shift_type' => 'night',
                     'operator_id' => $admin->employee_id,
                     'handover_notes' => 'Smooth operations with zero downtime.',
                 ]);

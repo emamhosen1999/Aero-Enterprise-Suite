@@ -82,8 +82,8 @@ class DailyWorkController extends Controller
                 $query->where('type', $type);
             })
             ->with([
-                'inchargeUser:id,name',
-                'assignedUser:id,name',
+                'inchargeUser:employee_id,name',
+                'assignedUser:employee_id,name',
             ])
             ->withCount(['activeObjections'])
             ->orderByDesc('date')
@@ -290,8 +290,8 @@ class DailyWorkController extends Controller
     {
         $dailyWork = DailyWork::query()
             ->with([
-                'inchargeUser:id,name',
-                'assignedUser:id,name',
+                'inchargeUser:employee_id,name',
+                'assignedUser:employee_id,name',
             ])
             ->withCount(['activeObjections'])
             ->find($dailyWorkId);
@@ -329,8 +329,8 @@ class DailyWorkController extends Controller
         );
 
         $dailyWork->load([
-            'inchargeUser:id,name',
-            'assignedUser:id,name',
+            'inchargeUser:employee_id,name',
+            'assignedUser:employee_id,name',
         ])->loadCount(['activeObjections']);
 
         return $this->successResponse(
@@ -354,8 +354,8 @@ class DailyWorkController extends Controller
         $this->dailyWorkService->updateIncharge($dailyWork, $request->input('incharge'));
 
         $dailyWork->load([
-            'inchargeUser:id,name',
-            'assignedUser:id,name',
+            'inchargeUser:employee_id,name',
+            'assignedUser:employee_id,name',
         ])->loadCount(['activeObjections']);
 
         return $this->successResponse(
@@ -379,8 +379,8 @@ class DailyWorkController extends Controller
         $this->dailyWorkService->updateAssigned($dailyWork, $request->input('assigned'));
 
         $dailyWork->load([
-            'inchargeUser:id,name',
-            'assignedUser:id,name',
+            'inchargeUser:employee_id,name',
+            'assignedUser:employee_id,name',
         ])->loadCount(['activeObjections']);
 
         return $this->successResponse(

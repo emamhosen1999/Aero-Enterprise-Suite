@@ -357,7 +357,7 @@ class ObjectionController extends Controller
             if (! empty($search)) {
                 $query = DailyWork::query()
                     ->select('id', 'number', 'location', 'description', 'type', 'date', 'side', 'qty_layer', 'incharge', 'status')
-                    ->with('inchargeUser:id,name')
+                    ->with('inchargeUser:employee_id,name')
                     ->where(function ($q) use ($search) {
                         $q->where('number', 'like', "%{$search}%")
                             ->orWhere('location', 'like', "%{$search}%")
@@ -455,7 +455,7 @@ class ObjectionController extends Controller
             // Build query to pre-filter RFIs by location prefix
             $query = DailyWork::query()
                 ->select('id', 'number', 'location', 'description', 'type', 'date', 'side', 'qty_layer', 'incharge', 'status')
-                ->with('inchargeUser:id,name')
+                ->with('inchargeUser:employee_id,name')
                 ->whereNotNull('location')
                 ->where('location', '!=', '');
 
@@ -712,7 +712,7 @@ class ObjectionController extends Controller
      */
     protected function notifyRfiIncharges(RfiObjection $objection, array $rfiIds, string $eventType): void
     {
-        $rfis = DailyWork::whereIn('id', $rfiIds)->with('inchargeUser:id,name,email')->get();
+        $rfis = DailyWork::whereIn('id', $rfiIds)->with('inchargeUser:employee_id,name,email')->get();
 
         foreach ($rfis as $rfi) {
             if ($rfi->inchargeUser) {

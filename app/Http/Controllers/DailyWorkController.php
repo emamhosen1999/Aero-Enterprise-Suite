@@ -96,7 +96,7 @@ class DailyWorkController extends Controller
 
         return Inertia::render('Project/DailyWorks', [
             'allData' => $allData,
-            'jurisdictions' => Jurisdiction::with('inchargeUser:id,name,employee_id')->get(),
+            'jurisdictions' => Jurisdiction::with('inchargeUser:employee_id,name')->get(),
             'users' => $users,
             'title' => 'Daily Works',
             'reports' => $reports,
@@ -187,7 +187,7 @@ class DailyWorkController extends Controller
 
         return Inertia::render('Project/DailyWorksUnified', [
             'allData' => $allData,
-            'jurisdictions' => Jurisdiction::with('inchargeUser:id,name,employee_id')->get(),
+            'jurisdictions' => Jurisdiction::with('inchargeUser:employee_id,name')->get(),
             'users' => $users,
             'title' => 'Daily Works Unified',
             'reports' => $reports,
