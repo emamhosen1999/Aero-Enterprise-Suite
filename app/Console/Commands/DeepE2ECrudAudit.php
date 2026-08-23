@@ -209,7 +209,8 @@ class DeepE2ECrudAudit extends Command
                     'created_by' => $admin->employee_id,
                 ]);
 
-                $found = RfiObjection::with(['dailyWork', 'creator'])->find($obj->id);
+                $obj->dailyWorks()->syncWithoutDetaching([$testDw->id]);
+                $found = RfiObjection::with(['dailyWorks', 'createdBy'])->find($obj->id);
                 if (! $found || (string)$found->created_by !== (string)$admin->employee_id) {
                     throw new \Exception('RFI Objection create or user relation failed');
                 }
