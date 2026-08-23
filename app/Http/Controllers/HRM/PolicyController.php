@@ -182,7 +182,7 @@ class PolicyController extends Controller
         ]);
 
         $userIds = $request->input('user_ids')
-            ?? User::role('Employee')->pluck('id')->all();
+            ?? User::role('Employee')->pluck('employee_id')->all();
 
         $from = $request->input('from');
         $to   = $request->input('to');

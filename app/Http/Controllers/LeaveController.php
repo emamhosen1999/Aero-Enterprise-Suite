@@ -227,13 +227,15 @@ class LeaveController extends Controller
                 'departments' => Department::all('id', 'name'),
             ], 201);
         } catch (\Throwable $e) {
-            report($e);
-
-            $status = ($e->getCode() >= 400 && $e->getCode() < 500) ? $e->getCode() : 500;
+            $status = ($e->getCode() >= 400 && $e->getCode() < 500) ? (int) $e->getCode() : 500;
+            if ($status === 500) {
+                report($e);
+            }
 
             return response()->json([
                 'success' => false,
-                'error' => $status === 422 ? $e->getMessage() : 'An error occurred while submitting the leave data.',
+                'error' => $e->getMessage() ?: 'An error occurred while creating leave request.',
+                'message' => $e->getMessage() ?: 'An error occurred while creating leave request.',
                 'details' => $this->safeExceptionMessage($e, 'Internal server error'),
             ], $status);
         }

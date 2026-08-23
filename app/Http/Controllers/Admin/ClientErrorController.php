@@ -90,11 +90,11 @@ class ClientErrorController extends Controller
         $group = ClientErrorLog::with(['user:employee_id,name,email', 'resolver:employee_id,name'])->findOrFail($error);
 
         $affectedUsers = User::query()
-            ->select('id', 'name', 'email')
-            ->whereIn('id', array_slice($group->affected_users ?? [], 0, 100))
+            ->select('employee_id', 'name', 'email')
+            ->whereIn('employee_id', array_slice($group->affected_users ?? [], 0, 100))
             ->get()
             ->map(fn (User $user) => [
-                'id' => $user->id,
+                'id' => $user->employee_id,
                 'name' => $user->name,
                 'email' => $user->email,
             ])
@@ -114,7 +114,7 @@ class ClientErrorController extends Controller
                 'affected_device_ids' => array_slice($group->affected_devices ?? [], 0, 100),
                 'affected_user_list' => $affectedUsers,
                 'latest_user' => $group->user ? [
-                    'id' => $group->user->id,
+                    'id' => $group->user->employee_id,
                     'name' => $group->user->name,
                     'email' => $group->user->email,
                 ] : null,

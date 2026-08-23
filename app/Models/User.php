@@ -248,6 +248,21 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(Leave::class, 'user_id');
     }
 
+    public function devices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class, 'user_id', 'employee_id');
+    }
+
+    public function activeDevices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class, 'user_id', 'employee_id')->where('is_active', true);
+    }
+
+    public function currentDevice(): HasOne
+    {
+        return $this->hasOne(UserDevice::class, 'user_id', 'employee_id')->where('is_active', true)->latestOfMany('last_used_at');
+    }
+
     // In User.php model
     public function attendances()
     {

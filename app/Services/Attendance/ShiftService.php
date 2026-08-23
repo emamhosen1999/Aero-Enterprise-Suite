@@ -147,9 +147,9 @@ class ShiftService
     {
         return match ($assignment->scope_type) {
             'user' => $assignment->scope_id ? [(int) $assignment->scope_id] : [],
-            'department' => User::where('department_id', $assignment->scope_id)->pluck('id')->map(fn ($id) => (int) $id)->all(),
-            'designation' => User::where('designation_id', $assignment->scope_id)->pluck('id')->map(fn ($id) => (int) $id)->all(),
-            'org' => User::pluck('id')->map(fn ($id) => (int) $id)->all(),
+            'department' => User::where('department_id', $assignment->scope_id)->pluck('employee_id')->map(fn ($id) => (int) $id)->all(),
+            'designation' => User::where('designation_id', $assignment->scope_id)->pluck('employee_id')->map(fn ($id) => (int) $id)->all(),
+            'org' => User::pluck('employee_id')->map(fn ($id) => (int) $id)->all(),
             default => [],
         };
     }

@@ -450,14 +450,14 @@ class ShiftController extends Controller
             $query->where(function ($q) use ($userDeptId, $user) {
                 $q->where(function ($sub) use ($userDeptId) {
                     $sub->where('scope_type', 'user')
-                        ->whereIn('scope_id', User::where('department_id', $userDeptId)->pluck('id'));
+                        ->whereIn('scope_id', User::where('department_id', $userDeptId)->pluck('employee_id'));
                 })->orWhere(function ($sub) use ($userDeptId) {
                     $sub->where('scope_type', 'department')
                         ->where('scope_id', $userDeptId);
                 })->orWhere(function ($sub) use ($userDeptId) {
                     $sub->where('scope_type', 'designation')
                         ->whereIn('scope_id', Designation::where('department_id', $userDeptId)->pluck('id'));
-                })->orWhere('assigned_by', $user->id);
+                })->orWhere('assigned_by', $user->employee_id ?? $user->getKey());
             });
         }
 

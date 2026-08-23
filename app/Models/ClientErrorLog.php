@@ -504,4 +504,14 @@ class ClientErrorLog extends Model
     {
         return count($this->affected_users ?? []);
     }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id', 'employee_id');
+    }
+
+    public function resolver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolved_by', 'employee_id');
+    }
 }
