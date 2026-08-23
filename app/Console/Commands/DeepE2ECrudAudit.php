@@ -381,6 +381,10 @@ class DeepE2ECrudAudit extends Command
             // ─────────────────────────────────────────────────────────────
             $this->section('7. Mobile API v1 Route Verification');
 
+            $admin->attendanceTypes()->syncWithoutDetaching([$testPunchType->id]);
+            $admin->update(['attendance_type_id' => $testPunchType->id]);
+            $admin->refresh();
+
             $token = $admin->createToken('E2E Audit Token')->plainTextToken;
 
             $apiRoutes = [
