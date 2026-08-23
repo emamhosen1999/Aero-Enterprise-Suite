@@ -316,7 +316,7 @@ class ShiftController extends Controller
         }
 
         if ($scopeType === 'user') {
-            $invalidCount = User::whereIn('id', $scopeIds)
+            $invalidCount = User::whereIn('employee_id', $scopeIds)
                 ->where('department_id', '!=', $userDeptId)
                 ->count();
             if ($invalidCount > 0) {

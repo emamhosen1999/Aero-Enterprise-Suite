@@ -45,7 +45,7 @@ class JobInterview extends Model
      */
     public function scheduler()
     {
-        return $this->belongsTo(User::class, 'scheduled_by');
+        return $this->belongsTo(User::class, 'scheduled_by', 'employee_id');
     }
 
     /**
@@ -53,7 +53,7 @@ class JobInterview extends Model
      */
     public function interviewers()
     {
-        return User::whereIn('id', $this->interviewer_ids ?? [])->get();
+        return User::whereIn('employee_id', $this->interviewer_ids ?? [])->get();
     }
 
     /**

@@ -21,8 +21,11 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $resolvedAt = $this->resolvedAttendanceType();
+        $resolvedTypes = $this->resolvedAttendanceTypes();
+
         return [
-            'id' => $this->id,
+            'id' => (string) ($this->employee_id ?? $this->getKey()),
             'name' => $this->name,
             'is_manager' => $this->isManagerUser($this->resource),
             'email' => $this->email,
@@ -39,10 +42,11 @@ class UserResource extends JsonResource
 
             // Work Information
             'date_of_joining' => $this->date_of_joining,
+            'work_location_id' => $this->work_location_id,
             'report_to' => $this->report_to,
             'reports_to' => $this->when($this->relationLoaded('reportsTo') && $this->reportsTo, function () {
                 return [
-                    'id' => $this->reportsTo->id,
+                    'id' => (string) ($this->reportsTo->employee_id ?? $this->reportsTo->getKey()),
                     'name' => $this->reportsTo->name,
                     'profile_image_url' => $this->reportsTo->profile_image_url,
                 ];
@@ -67,15 +71,16 @@ class UserResource extends JsonResource
                 'id' => $this->designation_id,
                 'title' => null,
             ],
-            'attendance_type' => $this->relationLoaded('attendanceType') ? [
-                'id' => $this->attendance_type_id,
-                'name' => $this->attendanceType?->name,
-                'slug' => $this->attendanceType?->slug,
-            ] : [
-                'id' => $this->attendance_type_id,
-                'name' => null,
-                'slug' => null,
-            ],
+            'attendance_type' => $resolvedAt ? [
+                'id' => $resolvedAt->id,
+                'name' => $resolvedAt->name,
+                'slug' => $resolvedAt->slug,
+            ] : null,
+            'attendance_types' => $resolvedTypes->map(fn ($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'slug' => $t->slug,
+            ])->values(),
             'roles' => $this->relationLoaded('roles') ? $this->roles->pluck('name')->toArray() : [],
 
             // Device information

@@ -616,7 +616,7 @@ class LeaveApprovalService
         }
 
         try {
-            $approvers = User::whereIn('id', $approverIds)->get();
+            $approvers = User::whereIn('employee_id', $approverIds)->get();
 
             foreach ($approvers as $approver) {
                 $approver->notify(new LeaveOverrideNoticeNotification($leave, $actor, $action));

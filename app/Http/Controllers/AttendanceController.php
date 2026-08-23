@@ -416,7 +416,7 @@ class AttendanceController extends Controller
     public function getCurrentUserPunch(): JsonResponse
     {
         try {
-            $userId = (int) Auth::id();
+            $userId = Auth::user()?->employee_id ?? Auth::id();
             $data = $this->attendanceQueryService->getTodayAttendance($userId);
 
             return response()->json($data);

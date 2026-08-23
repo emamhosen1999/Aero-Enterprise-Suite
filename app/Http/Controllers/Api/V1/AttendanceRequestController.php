@@ -580,18 +580,18 @@ class AttendanceRequestController extends Controller
             return $this->successResponse(['shifts' => []]);
         }
 
-        $names = $teammates->pluck('name', 'id');
+        $names = $teammates->pluck('name', 'employee_id');
         $fmt = static fn ($t) => $t ? Carbon::parse($t)->format('H:i') : null;
 
         // Memoize the requester-free check per date (many counterparties can work
         // the same date; the invariant is one query per unique date).
         $requesterFree = [];
         $isRequesterFree = function (string $date) use (&$requesterFree, $user): bool {
-            return $requesterFree[$date] ??= ($this->roster->effectiveShiftId($user->id, $date) === null);
+            return $requesterFree[$date] ??= ($this->roster->effectiveShiftId($user->employee_id ?? $user->getKey(), $date) === null);
         };
 
         $shifts = RosterDay::with('shift:id,code,name,start_time,end_time')
-            ->whereIn('user_id', $teammates->pluck('id'))
+            ->whereIn('user_id', $teammates->pluck('employee_id'))
             ->whereNotNull('shift_id')
             ->whereBetween('date', [$fromStr, $toStr])
             ->orderBy('date')

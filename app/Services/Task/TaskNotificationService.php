@@ -84,7 +84,7 @@ class TaskNotificationService
      */
     public function sendBulkNotification(array $userIds, array $notificationData): void
     {
-        $users = User::whereIn('id', $userIds)->get();
+        $users = User::whereIn('employee_id', $userIds)->get();
 
         if ($users->isEmpty()) {
             return;

@@ -51,7 +51,7 @@ class AttendanceController extends Controller
         $currentUser = $request->user();
 
         try {
-            $todayData = $this->attendanceQueryService->getTodayAttendance($currentUser->id);
+            $todayData = $this->attendanceQueryService->getTodayAttendance($currentUser->employee_id ?? $currentUser->getKey());
 
             return $this->successResponse($todayData);
         } catch (\Throwable $exception) {
@@ -74,7 +74,7 @@ class AttendanceController extends Controller
         try {
             $teamMemberIds = $isTeamScope ? $this->resolveTeamMemberIds($currentUser) : [];
             $filters = [
-                'user_id' => $isTeamScope ? null : $currentUser->id,
+                'user_id' => $isTeamScope ? null : ($currentUser->employee_id ?? $currentUser->getKey()),
                 'team_member_ids' => $isTeamScope ? $teamMemberIds : null,
                 'currentMonth' => (int) $request->input('currentMonth', now()->month),
                 'currentYear' => (int) $request->input('currentYear', now()->year),
@@ -85,7 +85,7 @@ class AttendanceController extends Controller
             ];
 
             $historyData = $this->attendanceQueryService->getAttendanceHistory(
-                $currentUser->id,
+                $currentUser->employee_id ?? $currentUser->getKey(),
                 $filters
             );
 
@@ -124,7 +124,7 @@ class AttendanceController extends Controller
             $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
 
             $usersWithAttendanceQuery = User::query()
-                ->whereIn('id', $teamMemberIds)
+                ->whereIn('employee_id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -142,7 +142,7 @@ class AttendanceController extends Controller
 
             $usersWithAttendance = $usersWithAttendanceQuery->get();
             $paginatedUsers = $usersWithAttendance->forPage($page, $perPage)->values();
-            $userIds = $paginatedUsers->pluck('id')->all();
+            $userIds = $paginatedUsers->pluck('employee_id')->all();
 
             $attendanceRecords = Attendance::query()
                 ->with(['user.designation'])
@@ -235,13 +235,13 @@ class AttendanceController extends Controller
                     $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                         ->whereDate('date', $selectedDate);
                 })
-                ->pluck('id');
+                ->pluck('employee_id');
 
             $absentUsers = $allEmployeeUsers->filter(function (User $user) use ($presentUserIds) {
-                return ! $presentUserIds->contains($user->id);
+                return ! $presentUserIds->contains($user->employee_id ?? $user->getKey());
             })->values();
 
-            $absentUserIds = $absentUsers->pluck('id')->all();
+            $absentUserIds = $absentUsers->pluck('employee_id')->all();
             $leaveUserColumn = $this->resolveLeavesUserColumn();
             $leaves = collect();
 
@@ -345,7 +345,7 @@ class AttendanceController extends Controller
             $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
 
             $usersWithAttendanceQuery = User::query()
-                ->whereIn('id', $teamMemberIds)
+                ->whereIn('employee_id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -363,7 +363,7 @@ class AttendanceController extends Controller
 
             $usersWithAttendance = $usersWithAttendanceQuery->get();
             $paginatedUsers = $usersWithAttendance->forPage($page, $perPage);
-            $userIds = $paginatedUsers->pluck('id')->all();
+            $userIds = $paginatedUsers->pluck('employee_id')->all();
 
             $attendanceRecords = Attendance::query()
                 ->with('user')
@@ -489,7 +489,7 @@ class AttendanceController extends Controller
             $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
 
             $allUsersQuery = User::query()
-                ->whereIn('id', $teamMemberIds)
+                ->whereIn('employee_id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 });
@@ -504,7 +504,7 @@ class AttendanceController extends Controller
             $allUsers = $allUsersQuery->get();
 
             $presentUserIds = User::query()
-                ->whereIn('id', $teamMemberIds)
+                ->whereIn('employee_id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -512,10 +512,10 @@ class AttendanceController extends Controller
                     $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                         ->whereDate('date', $selectedDate);
                 })
-                ->pluck('id');
+                ->pluck('employee_id');
 
             $absentUsers = $allUsers->filter(function (User $user) use ($presentUserIds) {
-                return ! $presentUserIds->contains($user->id);
+                return ! $presentUserIds->contains($user->employee_id ?? $user->getKey());
             })->values();
 
             // Kept before partition() reassigns $absentUsers below: the today-based
@@ -550,7 +550,7 @@ class AttendanceController extends Controller
                     ->select('leaves.*', 'leave_settings.type as leave_type')
                     ->whereDate('leaves.from_date', '<=', $selectedDate)
                     ->whereDate('leaves.to_date', '>=', $selectedDate)
-                    ->whereIn("leaves.{$leaveUserColumn}", $absentUsers->pluck('id')->all())
+                    ->whereIn("leaves.{$leaveUserColumn}", $absentUsers->pluck('employee_id')->all())
                     ->get()
                     ->map(function ($leave) use ($leaveUserColumn) {
                         return [
@@ -568,7 +568,7 @@ class AttendanceController extends Controller
 
             $serializedAbsentUsers = $absentUsers->map(function (User $user) {
                 return [
-                    'id' => (string) $user->id,
+                    'id' => (string) ($user->employee_id ?? $user->getKey()),
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -585,7 +585,7 @@ class AttendanceController extends Controller
 
             $serializedOffUsers = $offUsers->map(function (User $user) {
                 return [
-                    'id' => (string) $user->id,
+                    'id' => (string) ($user->employee_id ?? $user->getKey()),
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -597,7 +597,7 @@ class AttendanceController extends Controller
 
             $serializedUpcomingUsers = $upcomingUsers->map(function (User $user) {
                 return [
-                    'id' => (string) $user->id,
+                    'id' => (string) ($user->employee_id ?? $user->getKey()),
                     'name' => $user->name,
                     'employee_id' => $user->employee_id,
                     'email' => $user->email,
@@ -829,7 +829,7 @@ class AttendanceController extends Controller
                 $lastCycle = $cycles->last();
 
                 return [
-                    'user_id' => (int) ($user?->id ?? 0),
+                    'user_id' => (string) ($user?->employee_id ?? $user?->getKey() ?? ''),
                     'name' => $user?->name ?? 'Unknown',
                     'profile_image_url' => $user?->profile_image_url,
                     'designation' => $user?->designation?->title ?? 'N/A',
@@ -1008,7 +1008,7 @@ class AttendanceController extends Controller
             if (Schema::hasTable('leaves') && $leavesUserColumn) {
                 $approvedLeaves = DB::table('leaves')
                     ->select('from_date', 'to_date')
-                    ->where($leavesUserColumn, $currentUser->id)
+                    ->where($leavesUserColumn, $currentUser->employee_id ?? $currentUser->getKey())
                     ->whereRaw('LOWER(status) = ?', ['approved'])
                     ->whereDate('from_date', '<=', $analysisEnd->toDateString())
                     ->whereDate('to_date', '>=', $rangeStart->toDateString())
@@ -1102,7 +1102,7 @@ class AttendanceController extends Controller
         }
 
         // Realtime: notify the live attendance dashboard that today's presence changed.
-        app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', now()->format('Y-m-d'), $user->id, 'punch');
+        app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', now()->format('Y-m-d'), $user->employee_id ?? $user->getKey(), 'punch');
 
         return response()->json(array_merge(['success' => true], $result));
     }
@@ -1194,7 +1194,7 @@ class AttendanceController extends Controller
      */
     private function sharedSummaryCounts(string $date, $scopedUsers): array
     {
-        $memberIds = $scopedUsers->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $memberIds = $scopedUsers->pluck('employee_id')->all();
 
         $counts = app(AttendanceDayPartitionService::class)
             ->partition($date, null, $memberIds)['counts'];
@@ -1224,7 +1224,7 @@ class AttendanceController extends Controller
         }
 
         return [
-            'id' => (string) $user->id,
+            'id' => (string) ($user->employee_id ?? $user->getKey()),
             'name' => $user->name,
             'employee_id' => $user->employee_id,
             'email' => $user->email,

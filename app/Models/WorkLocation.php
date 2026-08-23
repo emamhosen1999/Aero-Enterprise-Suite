@@ -98,7 +98,7 @@ class WorkLocation extends Model
                 // employees without an existing row still receive the inherited rule.
                 $userIds = User::where('work_location_id', $workLocation->id)
                     ->whereNull('attendance_type_id')
-                    ->pluck('id');
+                    ->pluck('employee_id');
 
                 foreach ($userIds as $userId) {
                     EmployeeAttendanceType::updateOrCreate(

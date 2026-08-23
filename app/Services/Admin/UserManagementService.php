@@ -208,7 +208,7 @@ class UserManagementService
      */
     public function bulkAssignRole(array $userIds, string $role): int
     {
-        $users = User::whereIn('id', $userIds)->get();
+        $users = User::whereIn('employee_id', $userIds)->get();
         $count = 0;
 
         foreach ($users as $user) {
@@ -251,7 +251,7 @@ class UserManagementService
     public function bulkDelete(array $userIds): int
     {
         return DB::transaction(function () use ($userIds) {
-            return User::whereIn('id', $userIds)->delete();
+            return User::whereIn('employee_id', $userIds)->delete();
         });
     }
 

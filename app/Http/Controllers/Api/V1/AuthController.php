@@ -250,7 +250,7 @@ class AuthController extends Controller
         // Kill the refresh chain too, so a stored refresh token can't silently
         // resurrect the session after an explicit logout.
         if ($user) {
-            $this->refreshTokenService->revokeChainForUserDevice($user->id, null);
+            $this->refreshTokenService->revokeChainForUserDevice($user->employee_id ?? $user->getKey(), null);
         }
 
         return $this->successResponse(null, 'Logged out successfully.');

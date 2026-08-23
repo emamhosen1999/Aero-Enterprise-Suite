@@ -218,7 +218,7 @@ class RosterController extends Controller
 
         $user = $request->user();
         if ($user && ! $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
-            $invalidCount = User::whereIn('id', $data['user_ids'])
+            $invalidCount = User::whereIn('employee_id', $data['user_ids'])
                 ->where('department_id', '!=', $user->department_id)
                 ->count();
             if ($invalidCount > 0) {
@@ -231,7 +231,7 @@ class RosterController extends Controller
         $cursor = Carbon::parse($data['from'])->startOfMonth();
         $end = Carbon::parse($data['to'])->startOfMonth();
         while ($cursor->lessThanOrEqualTo($end)) {
-            $this->signals->touch('roster', $cursor->format('Y-m'), $request->user()?->id);
+            $this->signals->touch('roster', $cursor->format('Y-m'), $request->user()?->employee_id ?? $request->user()?->getKey());
             $cursor->addMonth();
         }
 

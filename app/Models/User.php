@@ -299,7 +299,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function attendanceTypes(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\HRM\AttendanceType::class, 'user_attendance_type', 'user_id', 'attendance_type_id');
+        return $this->belongsToMany(\App\Models\HRM\AttendanceType::class, 'user_attendance_type', 'user_id', 'attendance_type_id', 'employee_id', 'id');
     }
 
     /**
@@ -308,7 +308,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function biometricDevices(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\HRM\BiometricDevice::class, 'user_biometric_device', 'user_id', 'biometric_device_id');
+        return $this->belongsToMany(\App\Models\HRM\BiometricDevice::class, 'user_biometric_device', 'user_id', 'biometric_device_id', 'employee_id', 'id');
     }
 
     /**
@@ -389,7 +389,7 @@ class User extends Authenticatable implements HasMedia
 
     public function employeeAttendanceType(): HasOne
     {
-        return $this->hasOne(EmployeeAttendanceType::class, 'user_id');
+        return $this->hasOne(EmployeeAttendanceType::class, 'user_id', 'employee_id');
     }
 
     public function offboarding(): HasOne
