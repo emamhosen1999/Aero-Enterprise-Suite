@@ -37,14 +37,19 @@ class AuditSystemDeep extends Command
         $failedTests = 0;
         $failures = [];
 
-        // 1. Authenticate / Setup Test User & Register Device
+        // 1. Authenticate / Setup Test Users & Register Devices
         $user = User::whereNotNull('email')->first();
         if (!$user) {
             $this->error('No users found in database to run audit.');
             return 1;
         }
 
+        $adminUser = User::whereHas('roles', function ($q) {
+            $q->whereIn('name', ['Super Administrator', 'Administrator']);
+        })->first() ?? $user;
+
         $this->info("Target Test User: {$user->name} ({$user->employee_id} / {$user->email})");
+        $this->info("Admin User for Web Audit: {$adminUser->name} ({$adminUser->employee_id} / {$adminUser->email})");
 
         $app = app();
         $deviceId = 'a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6';
@@ -52,6 +57,7 @@ class AuditSystemDeep extends Command
         $dummyReq->headers->set('User-Agent', 'Audit System Deep Browser');
         $deviceService = $app->make(DeviceAuthService::class);
         $deviceService->registerDevice($user, $dummyReq, $deviceId, ['platform' => 'desktop'], 'Audit Device');
+        $deviceService->registerDevice($adminUser, $dummyReq, $deviceId, ['platform' => 'desktop'], 'Audit Admin Device');
 
         // 2. Test Mobile API Authentication & Token Creation
         $this->newLine();
@@ -149,6 +155,10 @@ class AuditSystemDeep extends Command
                 ],
             ]);
 
+            $user->attendanceTypes()->syncWithoutDetaching([$punchType->id]);
+            $user->update(['attendance_type_id' => $punchType->id]);
+            $user->refresh();
+
             $punchReq = Request::create('/api/v1/attendance/punch', 'POST', [
                 'lat' => 23.8103,
                 'lng' => 90.4125,
@@ -183,7 +193,7 @@ class AuditSystemDeep extends Command
 
         $session = $app->make('session.store');
         $session->start();
-        $session->put('login_web_59ba36addc2b2f9401580f014c7f58ea4e30989d', $user->getAuthIdentifier());
+        $session->put('login_web_59ba36addc2b2f9401580f014c7f58ea4e30989d', $adminUser->getAuthIdentifier());
         $session->put('device_id', $deviceId);
         $session->put('device_verified', true);
 
@@ -230,16 +240,11 @@ class AuditSystemDeep extends Command
         foreach ($webRoutes as $uri) {
             $totalTests++;
             try {
-                Auth::guard('web')->setUser($user);
+                Auth::guard('web')->setUser($adminUser);
                 $req = Request::create($uri, 'GET');
-                $version = \Inertia\Inertia::getVersion();
                 $req->setLaravelSession($session);
-                $req->setUserResolver(fn() => $user);
-                $req->headers->set('Accept', 'application/json, text/plain, */*');
-                $req->headers->set('X-Inertia', 'true');
-                if ($version) {
-                    $req->headers->set('X-Inertia-Version', $version);
-                }
+                $req->setUserResolver(fn() => $adminUser);
+                $req->headers->set('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8');
                 $req->headers->set('X-Requested-With', 'XMLHttpRequest');
                 $req->headers->set('X-Device-Id', $deviceId);
                 $req->cookies->set('device_id', $deviceId);
