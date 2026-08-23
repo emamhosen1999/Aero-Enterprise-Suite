@@ -37,7 +37,7 @@ class AuditSystemDeep extends Command
         $failedTests = 0;
         $failures = [];
 
-        // 1. Authenticate / Setup Test User
+        // 1. Authenticate / Setup Test User & Register Device
         $user = User::whereNotNull('email')->first();
         if (!$user) {
             $this->error('No users found in database to run audit.');
@@ -45,6 +45,13 @@ class AuditSystemDeep extends Command
         }
 
         $this->info("Target Test User: {$user->name} ({$user->employee_id} / {$user->email})");
+
+        $app = app();
+        $deviceId = 'a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6';
+        $dummyReq = Request::create('/', 'GET');
+        $dummyReq->headers->set('User-Agent', 'Audit System Deep Browser');
+        $deviceService = $app->make(DeviceAuthService::class);
+        $deviceService->registerDevice($user, $dummyReq, $deviceId, ['platform' => 'desktop'], 'Audit Device');
 
         // 2. Test Mobile API Authentication & Token Creation
         $this->newLine();
@@ -91,15 +98,13 @@ class AuditSystemDeep extends Command
             ['GET', '/api/notifications/unread-count', []],
         ];
 
-        $app = app();
-
         foreach ($apiEndpoints as [$method, $uri, $params]) {
             $totalTests++;
             try {
                 $req = Request::create($uri, $method, $params);
                 $req->headers->set('Authorization', 'Bearer ' . $token);
                 $req->headers->set('Accept', 'application/json');
-                $req->headers->set('X-Device-Id', 'audit-device-deep-001');
+                $req->headers->set('X-Device-Id', $deviceId);
 
                 $resp = $app->handle($req);
                 $status = $resp->getStatusCode();
@@ -152,7 +157,7 @@ class AuditSystemDeep extends Command
             ]);
             $punchReq->headers->set('Authorization', 'Bearer ' . $token);
             $punchReq->headers->set('Accept', 'application/json');
-            $punchReq->headers->set('X-Device-Id', 'audit-device-deep-001');
+            $punchReq->headers->set('X-Device-Id', $deviceId);
 
             $punchResp = $app->handle($punchReq);
             $pStatus = $punchResp->getStatusCode();
@@ -172,15 +177,9 @@ class AuditSystemDeep extends Command
             $failures[] = ['category' => 'Punch', 'test' => 'POST /api/v1/attendance/punch', 'error' => $e->getMessage()];
         }
 
-        // 5. Test Web Routes & Controller Handlers
+        // 5. Test Web Routes & Controllers
         $this->newLine();
         $this->info('--- 4. Testing Web Routes & Controllers ---');
-
-        $deviceId = 'a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6';
-        $dummyReq = Request::create('/', 'GET');
-        $dummyReq->headers->set('User-Agent', 'Audit System Deep Browser');
-        $deviceService = $app->make(DeviceAuthService::class);
-        $deviceService->registerDevice($user, $dummyReq, $deviceId, ['platform' => 'desktop'], 'Audit Browser');
 
         $session = $app->make('session.store');
         $session->start();
@@ -231,7 +230,7 @@ class AuditSystemDeep extends Command
         foreach ($webRoutes as $uri) {
             $totalTests++;
             try {
-                Auth::login($user);
+                Auth::guard('web')->setUser($user);
                 $req = Request::create($uri, 'GET');
                 $version = \Inertia\Inertia::getVersion();
                 $req->setLaravelSession($session);
