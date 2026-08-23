@@ -157,7 +157,7 @@ class AttendanceController extends Controller
             // Map to plain arrays so Inertia serialization does not invoke the models'
             // toArray() overrides/appended accessors (e.g. Designation appends department_name,
             // which lazy-loads `department` and 500s under preventLazyLoading in dev / N+1s in prod).
-            'employees' => User::role('Employee')
+            'employees' => User::role('Employee', 'web')
                 ->select('employee_id as id', 'employee_id', 'name', 'department_id', 'designation_id')
                 ->orderBy('name')
                 ->get()

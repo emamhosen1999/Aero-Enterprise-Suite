@@ -32,7 +32,7 @@ class DesignationController extends Controller
             $q->where('name', 'like', '%Manager%')
                 ->orWhere('name', 'like', '%Director%')
                 ->orWhere('name', 'like', '%Head%');
-        })->get(['id', 'name']);
+        })->get(['employee_id as id', 'employee_id', 'name']);
 
         $parentDesignations = Designation::whereNull('parent_id')
             ->orWhere('parent_id', 0)

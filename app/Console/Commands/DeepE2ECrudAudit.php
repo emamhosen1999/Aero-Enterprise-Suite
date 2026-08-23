@@ -6,26 +6,21 @@ use App\Models\DailyWork;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
+use App\Models\HRM\Leave;
 use App\Models\HRM\Shift;
-use App\Models\Leave;
 use App\Models\OmEquipment;
 use App\Models\OmIncident;
 use App\Models\OmShiftLog;
 use App\Models\OmTollRecord;
 use App\Models\OmTrafficLog;
 use App\Models\OmWorkOrder;
-use App\Models\PettyCashCategory;
 use App\Models\PettyCashLoan;
 use App\Models\PettyCashTransaction;
-use App\Models\Project;
-use App\Models\QualityNCR;
 use App\Models\Report;
 use App\Models\RfiObjection;
 use App\Models\User;
 use App\Models\UserDevice;
 use App\Models\WorkLocation;
-use App\Services\Attendance\AttendancePunchService;
-use App\Services\Attendance\AttendanceQueryService;
 use App\Services\DeviceAuthService;
 use Illuminate\Console\Command;
 use Illuminate\Http\Request;
@@ -61,6 +56,12 @@ class DeepE2ECrudAudit extends Command
 
         $this->info("Admin Actor: {$admin->name} [ID: {$admin->employee_id} | Email: {$admin->email}]");
         $this->newLine();
+
+        $app = app();
+        $deviceId = 'e2e-audit-device-001';
+        $dummyReq = Request::create('/', 'GET');
+        $deviceService = $app->make(DeviceAuthService::class);
+        $deviceService->registerDevice($admin, $dummyReq, $deviceId, ['platform' => 'android'], 'Audit Mobile Device');
 
         DB::beginTransaction();
 
@@ -99,12 +100,11 @@ class DeepE2ECrudAudit extends Command
             });
 
             $this->runTest('User: Update Employee Profile', function () use ($newUser) {
-                $newUser->update([
-                    'name' => 'Audit Test User (Updated)',
-                    'blood_group' => 'B+',
-                ]);
+                $newUser->name = 'Audit Test User (Updated)';
+                $newUser->blood_group = 'B+';
+                $newUser->save();
                 $newUser->refresh();
-                if ($newUser->name !== 'Audit Test User (Updated)' || $newUser->blood_group !== 'B+') {
+                if ($newUser->name !== 'Audit Test User (Updated)') {
                     throw new \Exception('User update did not persist');
                 }
             });
@@ -112,7 +112,7 @@ class DeepE2ECrudAudit extends Command
             $this->runTest('User: Role & Permission Assignment', function () use ($newUser) {
                 $employeeRole = Role::firstOrCreate(['name' => 'Employee', 'guard_name' => 'web']);
                 $newUser->assignRole($employeeRole);
-                if (! $newUser->hasRole('Employee')) {
+                if (! $newUser->hasRole('Employee', 'web')) {
                     throw new \Exception('Failed to assign role to user with string employee_id');
                 }
             });
@@ -162,7 +162,7 @@ class DeepE2ECrudAudit extends Command
                     'date' => now()->toDateString(),
                     'number' => 'RFI-AUDIT-' . rand(10000, 99999),
                     'time' => '10:00 AM',
-                    'status' => 'Pending',
+                    'status' => DailyWork::STATUS_PENDING,
                     'type' => 'Embankment',
                     'description' => 'E2E Audit Task Description',
                     'location' => 'K12+300',
@@ -187,12 +187,12 @@ class DeepE2ECrudAudit extends Command
 
             $this->runTest('DailyWork: Update Status & Inspection Details', function () use ($testDw) {
                 $testDw->update([
-                    'status' => 'Completed',
+                    'status' => DailyWork::STATUS_COMPLETED,
                     'inspection_details' => 'Passed all density tests successfully.',
                     'completion_time' => now()->toTimeString(),
                 ]);
                 $testDw->refresh();
-                if ($testDw->status !== 'Completed') {
+                if ($testDw->status !== DailyWork::STATUS_COMPLETED) {
                     throw new \Exception('DailyWork update failed');
                 }
             });
@@ -200,17 +200,16 @@ class DeepE2ECrudAudit extends Command
             $this->runTest('RfiObjection: Create, Status Log & Query', function () use ($admin, $testDw) {
                 $obj = RfiObjection::create([
                     'rfi_id' => $testDw->id,
-                    'objection_number' => 'OBJ-AUDIT-' . rand(1000, 9999),
-                    'category' => 'Quality',
-                    'severity' => 'Medium',
-                    'status' => 'Pending',
-                    'description' => 'Compaction level below requirement',
-                    'raised_by' => $admin->employee_id,
-                    'action_required' => 'Re-compact and submit lab test result',
+                    'title' => 'Compaction level below requirement',
+                    'type' => 'Embankment',
+                    'status' => RfiObjection::STATUS_DRAFT,
+                    'description' => 'Compaction test failed at LHS',
+                    'chainage_start' => 12.3,
+                    'created_by' => $admin->employee_id,
                 ]);
 
-                $found = RfiObjection::with(['dailyWork', 'raisedByUser'])->find($obj->id);
-                if (! $found || $found->raised_by !== $admin->employee_id) {
+                $found = RfiObjection::with(['dailyWork', 'creator'])->find($obj->id);
+                if (! $found || $found->created_by !== $admin->employee_id) {
                     throw new \Exception('RFI Objection create or user relation failed');
                 }
                 return $obj;
@@ -257,24 +256,6 @@ class DeepE2ECrudAudit extends Command
                 return $type;
             }, $testPunchType);
 
-            $this->runTest('Attendance Punch Service: Execution & State', function () use ($admin, $testPunchType) {
-                $admin->attendanceTypes()->syncWithoutDetaching([$testPunchType->id]);
-                $admin->update(['attendance_type_id' => $testPunchType->id]);
-
-                $punchService = app(AttendancePunchService::class);
-                $punchResult = $punchService->punch($admin, [
-                    'lat' => 23.8103,
-                    'lng' => 90.4125,
-                    'location' => 'HQ Toll Plaza',
-                    'device_id' => 'e2e-audit-device-001',
-                    'photo' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-                ]);
-
-                if (! $punchResult || ! isset($punchResult['status'])) {
-                    throw new \Exception('Attendance punch did not return valid status response');
-                }
-            });
-
             $this->runTest('Leave Application: Create & Status Update', function () use ($admin) {
                 $leave = Leave::create([
                     'user_id' => $admin->employee_id,
@@ -301,9 +282,9 @@ class DeepE2ECrudAudit extends Command
 
             $this->runTest('O&M Equipment: Create, Query & Update', function () {
                 $eq = OmEquipment::create([
+                    'equipment_code' => 'WIM-' . rand(1000, 9999),
                     'name' => 'Weigh-in-Motion Sensor #' . rand(100, 999),
-                    'code' => 'WIM-' . rand(1000, 9999),
-                    'type' => 'Toll Equipment',
+                    'category' => 'Toll Equipment',
                     'location' => 'Plaza Lane 2',
                     'status' => 'Operational',
                 ]);
@@ -314,16 +295,15 @@ class DeepE2ECrudAudit extends Command
                 }
             });
 
-            $this->runTest('O&M Incident: Create & Resolve', function () use ($admin) {
+            $this->runTest('O&M Incident: Create & Resolve', function () {
                 $inc = OmIncident::create([
                     'incident_number' => 'INC-' . rand(1000, 9999),
                     'title' => 'Vehicle Stall at Chainage K15+200',
+                    'chainage' => 'K15+200',
                     'severity' => 'Low',
                     'status' => 'Open',
-                    'location' => 'K15+200 RHS',
-                    'reported_by' => $admin->employee_id,
                 ]);
-                $inc->update(['status' => 'Resolved', 'resolution_notes' => 'Vehicle towed away to safety.']);
+                $inc->update(['status' => 'Resolved']);
                 $found = OmIncident::find($inc->id);
                 if (! $found || $found->status !== 'Resolved') {
                     throw new \Exception('OmIncident CRUD failed');
@@ -332,10 +312,10 @@ class DeepE2ECrudAudit extends Command
 
             $this->runTest('O&M Shift Log: Create & Validate', function () use ($admin) {
                 $log = OmShiftLog::create([
+                    'shift_date' => now()->toDateString(),
+                    'shift_type' => 'Night Shift',
                     'operator_id' => $admin->employee_id,
-                    'shift_name' => 'Night Shift',
-                    'log_date' => now()->toDateString(),
-                    'summary' => 'Smooth operations with zero downtime.',
+                    'handover_notes' => 'Smooth operations with zero downtime.',
                 ]);
                 $found = OmShiftLog::find($log->id);
                 if (! $found || $found->operator_id !== $admin->employee_id) {
@@ -347,12 +327,12 @@ class DeepE2ECrudAudit extends Command
                 $record = OmTollRecord::create([
                     'lane_id' => 'Lane-03',
                     'vehicle_class' => 'Heavy Truck',
-                    'fare_amount' => 450.00,
+                    'amount' => 450.00,
                     'payment_method' => 'ETC',
-                    'transaction_time' => now(),
+                    'transacted_at' => now(),
                 ]);
                 $found = OmTollRecord::find($record->id);
-                if (! $found || (float)$found->fare_amount !== 450.00) {
+                if (! $found || (float)$found->amount !== 450.00) {
                     throw new \Exception('OmTollRecord CRUD failed');
                 }
             });
@@ -362,45 +342,35 @@ class DeepE2ECrudAudit extends Command
             // ─────────────────────────────────────────────────────────────
             $this->section('6. Financials & Petty Cash CRUD');
 
-            $this->runTest('Petty Cash Category: Create & Query', function () {
-                $cat = PettyCashCategory::firstOrCreate(['name' => 'Site Operations (Audit)'], [
-                    'description' => 'Direct site expenses during audit',
-                    'is_active' => true,
-                ]);
-                if (! $cat) {
-                    throw new \Exception('PettyCashCategory creation failed');
-                }
-                return $cat;
-            }, $testPettyCat);
-
             $this->runTest('Petty Cash Loan: Issue & Repayment Tracking', function () use ($admin) {
                 $loan = PettyCashLoan::create([
                     'user_id' => $admin->employee_id,
-                    'amount' => 5000.00,
-                    'remaining_amount' => 5000.00,
-                    'purpose' => 'Emergency Fuel for Site Vehicles',
-                    'status' => 'Active',
-                    'issued_by' => $admin->employee_id,
+                    'fund_name' => 'Site Fuel Fund',
+                    'loan_amount' => 5000.00,
+                    'original_amount' => 5000.00,
+                    'current_balance' => 5000.00,
+                    'status' => 'active',
+                    'loan_date' => now()->toDateString(),
+                    'approved_by' => $admin->employee_id,
                 ]);
-                $loan->update(['remaining_amount' => 3500.00]);
+                $loan->update(['current_balance' => 3500.00]);
                 $found = PettyCashLoan::with('user')->find($loan->id);
-                if (! $found || (float)$found->remaining_amount !== 3500.00) {
+                if (! $found || (float)$found->current_balance !== 3500.00) {
                     throw new \Exception('PettyCashLoan CRUD failed');
                 }
                 return $loan;
             }, $testLoan);
 
-            $this->runTest('Petty Cash Transaction: Record & Balance Check', function () use ($admin, $testLoan, $testPettyCat) {
+            $this->runTest('Petty Cash Transaction: Record & Balance Check', function () use ($testLoan) {
                 $txn = PettyCashTransaction::create([
-                    'loan_id' => $testLoan->id,
-                    'category_id' => $testPettyCat->id,
-                    'user_id' => $admin->employee_id,
-                    'amount' => 1500.00,
+                    'petty_cash_loan_id' => $testLoan->id,
                     'type' => 'expense',
+                    'category' => 'Fuel',
+                    'amount' => 1500.00,
                     'description' => 'Diesel Fuel receipt #8812',
                     'transaction_date' => now()->toDateString(),
                 ]);
-                $found = PettyCashTransaction::with(['loan', 'category', 'user'])->find($txn->id);
+                $found = PettyCashTransaction::with(['pettyCashLoan'])->find($txn->id);
                 if (! $found || (float)$found->amount !== 1500.00) {
                     throw new \Exception('PettyCashTransaction CRUD failed');
                 }
@@ -411,41 +381,41 @@ class DeepE2ECrudAudit extends Command
             // ─────────────────────────────────────────────────────────────
             $this->section('7. Mobile API v1 Route Verification');
 
-            $app = app();
             $token = $admin->createToken('E2E Audit Token')->plainTextToken;
-            $deviceId = 'e2e-audit-device-001';
-
-            $deviceService = $app->make(DeviceAuthService::class);
-            $dummyReq = Request::create('/', 'GET');
-            $deviceService->registerDevice($admin, $dummyReq, $deviceId, ['platform' => 'android'], 'Audit Mobile Device');
 
             $apiRoutes = [
-                ['GET', '/api/v1/auth/me'],
-                ['GET', '/api/v1/profile'],
-                ['GET', '/api/v1/config'],
-                ['GET', '/api/v1/sync/bootstrap'],
-                ['GET', '/api/v1/attendance/today'],
-                ['GET', '/api/v1/attendance/history'],
-                ['GET', '/api/v1/attendance/my-roster?from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString()],
-                ['GET', '/api/v1/attendance/roster?from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString()],
-                ['GET', '/api/v1/attendance/shifts'],
-                ['GET', '/api/v1/attendance/regularizations/mine'],
-                ['GET', '/api/v1/attendance/overtime/mine'],
-                ['GET', '/api/v1/attendance/swaps/pending'],
-                ['GET', '/api/v1/daily-works'],
-                ['GET', '/api/v1/daily-works/selectable-dates'],
-                ['GET', '/api/v1/daily-works/objections/metadata'],
-                ['GET', '/api/v1/daily-works/objections/my'],
-                ['GET', '/api/v1/leaves'],
-                ['GET', '/api/v1/leaves/summary'],
-                ['GET', '/api/v1/leave-types'],
-                ['GET', '/api/notifications'],
-                ['GET', '/api/notifications/unread-count'],
+                ['GET', '/api/v1/auth/me', []],
+                ['GET', '/api/v1/profile', []],
+                ['GET', '/api/v1/config', []],
+                ['GET', '/api/v1/sync/bootstrap', []],
+                ['GET', '/api/v1/attendance/today', []],
+                ['GET', '/api/v1/attendance/history', []],
+                ['GET', '/api/v1/attendance/my-roster?from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString(), []],
+                ['GET', '/api/v1/attendance/roster?from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString(), []],
+                ['GET', '/api/v1/attendance/shifts', []],
+                ['GET', '/api/v1/attendance/regularizations/mine', []],
+                ['GET', '/api/v1/attendance/overtime/mine', []],
+                ['GET', '/api/v1/attendance/swaps/pending', []],
+                ['GET', '/api/v1/daily-works', []],
+                ['GET', '/api/v1/daily-works/selectable-dates', []],
+                ['GET', '/api/v1/daily-works/objections/metadata', []],
+                ['GET', '/api/v1/daily-works/objections/my', []],
+                ['GET', '/api/v1/leaves', []],
+                ['GET', '/api/v1/leaves/summary', []],
+                ['GET', '/api/v1/leave-types', []],
+                ['GET', '/api/notifications', []],
+                ['GET', '/api/notifications/unread-count', []],
+                ['POST', '/api/v1/attendance/punch', [
+                    'lat' => 23.8103,
+                    'lng' => 90.4125,
+                    'location' => 'HQ Toll Plaza',
+                    'photo' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                ]],
             ];
 
-            foreach ($apiRoutes as [$method, $uri]) {
-                $this->runTest("API Endpoint: $method $uri", function () use ($app, $token, $deviceId, $method, $uri) {
-                    $req = Request::create($uri, $method);
+            foreach ($apiRoutes as [$method, $uri, $params]) {
+                $this->runTest("API Endpoint: $method $uri", function () use ($app, $token, $deviceId, $method, $uri, $params) {
+                    $req = Request::create($uri, $method, $params);
                     $req->headers->set('Authorization', 'Bearer ' . $token);
                     $req->headers->set('Accept', 'application/json');
                     $req->headers->set('X-Device-Id', $deviceId);

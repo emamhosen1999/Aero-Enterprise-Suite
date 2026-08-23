@@ -132,7 +132,7 @@ Route::middleware($middlewareStack)->group(function () {
 
     // Security Dashboard route - available to authenticated users
     Route::get('/security/dashboard', function () {
-        return inertia('Security/Dashboard');
+        return redirect()->route('admin.device-sessions');
     })->name('security.dashboard');
 
     // Updates route - require updates permission

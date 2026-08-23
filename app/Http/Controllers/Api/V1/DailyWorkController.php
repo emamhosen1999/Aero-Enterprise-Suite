@@ -259,13 +259,13 @@ class DailyWorkController extends Controller
             ->appends($request->query());
 
         $creatorOptions = User::query()
-            ->whereIn('id', RfiObjection::query()->select('created_by')->whereNotNull('created_by')->distinct())
-            ->select('id', 'name')
+            ->whereIn('employee_id', RfiObjection::query()->select('created_by')->whereNotNull('created_by')->distinct())
+            ->select('employee_id as id', 'employee_id', 'name')
             ->orderBy('name')
             ->get()
             ->map(function (User $creator): array {
                 return [
-                    'id' => (int) $creator->id,
+                    'id' => (string) $creator->id,
                     'name' => $creator->name,
                 ];
             })

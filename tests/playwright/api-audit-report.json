@@ -1,0 +1,307 @@
+[
+  {
+    "endpoint": "/api/v1/auth/me",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/auth/me\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2m    - "
+  },
+  {
+    "endpoint": "/api/v1/profile",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/profile\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2m    - "
+  },
+  {
+    "endpoint": "/api/v1/config",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/config\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2m    - a"
+  },
+  {
+    "endpoint": "/api/v1/sync/bootstrap",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/sync/bootstrap\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2"
+  },
+  {
+    "endpoint": "/api/v1/daily-works",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/daily-works\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2m  "
+  },
+  {
+    "endpoint": "/api/v1/daily-works/selectable-dates",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/daily-works/selectable-dates\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application"
+  },
+  {
+    "endpoint": "/api/v1/daily-works/objections/metadata",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/daily-works/objections/metadata\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: applicat"
+  },
+  {
+    "endpoint": "/api/v1/daily-works/objections/my",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/daily-works/objections/my\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/js"
+  },
+  {
+    "endpoint": "/api/v1/daily-works/objections/queue",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/daily-works/objections/queue\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application"
+  },
+  {
+    "endpoint": "/api/v1/leaves",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/leaves\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2m    - a"
+  },
+  {
+    "endpoint": "/api/v1/leaves/summary",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/leaves/summary\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2"
+  },
+  {
+    "endpoint": "/api/v1/leaves/analytics",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/leaves/analytics\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b"
+  },
+  {
+    "endpoint": "/api/v1/leaves/calendar",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/leaves/calendar\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b["
+  },
+  {
+    "endpoint": "/api/v1/leaves/pending-approvals",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/leaves/pending-approvals\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/jso"
+  },
+  {
+    "endpoint": "/api/v1/leaves/decided-approvals",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/leaves/decided-approvals\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/jso"
+  },
+  {
+    "endpoint": "/api/v1/leave-types",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/leave-types\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b[2m  "
+  },
+  {
+    "endpoint": "/api/v1/attendance/today",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/attendance/today\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m\n\u001b"
+  },
+  {
+    "endpoint": "/api/v1/attendance/history",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/attendance/history\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[22m"
+  },
+  {
+    "endpoint": "/api/v1/attendance/monthly-summary",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/attendance/monthly-summary\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/j"
+  },
+  {
+    "endpoint": "/api/v1/attendance/daily-timesheet",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/attendance/daily-timesheet\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/j"
+  },
+  {
+    "endpoint": "/api/v1/attendance/my-roster",
+    "status": 0,
+    "error": "apiRequestContext.get: read ECONNRESET\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/attendance/my-roster\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/json\u001b[2"
+  },
+  {
+    "endpoint": "/api/v1/attendance/roster",
+    "status": 0,
+    "error": "apiRequestContext.get: Request context disposed.\nCall log:\n\u001b[2m  - → GET https://erp.dhakabypass.com/api/v1/attendance/roster\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: application/"
+  },
+  {
+    "endpoint": "/api/v1/attendance/shifts",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/present-users",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/absent-users",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/team-day",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/team-locations",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/locations-today",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/comp-off/mine",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/overtime/mine",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/overtime/pending",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/overtime/decided",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/regularizations/mine",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/regularizations/pending",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/regularizations/decided",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/swaps/mine",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/swaps/pending",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/swaps/awaiting-me",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/swaps/eligible",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/swaps/pickup",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/attendance/swaps/team-decided",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/manager/dashboard-summary",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/manager/team-members",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/account/devices",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/om/dashboard",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/om/equipment",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/om/incidents",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/om/shift-logs",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/om/toll-operations",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/om/traffic-monitoring",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/v1/om/work-orders",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/departments",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/departments/list",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/designations/list",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/roles",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/permissions",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/permissions/grouped/modules",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/users/managers/list",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/notifications",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/notifications/unread-count",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  },
+  {
+    "endpoint": "/api/version",
+    "status": 0,
+    "error": "apiRequestContext.get: Target page, context or browser has been closed"
+  }
+]

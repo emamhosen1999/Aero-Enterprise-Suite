@@ -88,7 +88,7 @@ class DailyWorkSummaryController extends Controller
             ? User::whereHas('designation', fn ($q) => $q->where('title', 'Supervision Engineer'))->get()
             : collect();
 
-        return Inertia::render('Project/DailyWorkSummary', [
+        return Inertia::render('Project/DailyWorksUnified', [
             'summary' => $summaries,
             'jurisdictions' => Jurisdiction::all(),
             'inCharges' => $inCharges,

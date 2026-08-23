@@ -45,7 +45,7 @@ class DepartmentController extends Controller
         $departments = $query->paginate($request->get('per_page', 20));
 
         // Get all employees for manager dropdown
-        $managers = User::orderBy('name')->get(['id', 'name']);
+        $managers = User::orderBy('name')->get(['employee_id as id', 'employee_id', 'name']);
 
         // Get parent departments for dropdown
         $parentDepartments = Department::whereNull('parent_id')

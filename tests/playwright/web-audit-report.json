@@ -1,0 +1,516 @@
+{
+  "failures": [
+    {
+      "page": "/dashboard",
+      "status": 0,
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/dashboard\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/employees",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/employees\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/employees\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/users",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/users\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/users\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/users/paginate",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/users/paginate\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/users/paginate\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/users/stats",
+      "status": 0,
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/users/stats\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/departments",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/departments\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/departments\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/designations",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/designations\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/designations\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/roles",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/roles\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/roles\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/roles-permissions",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/roles-permissions\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/roles-permissions\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/organization",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/organization\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/organization\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/holidays",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/holidays\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/holidays\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves-employee",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves-employee\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves-employee\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves-paginate",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves-paginate\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves-paginate\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves-stats",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves-stats\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves-stats\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves/analytics",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves/analytics\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves/analytics\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves/pending-approvals",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves/pending-approvals\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves/pending-approvals\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves/bulk/calendar-data",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves/bulk/calendar-data\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves/bulk/calendar-data\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leaves/bulk/leave-types",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leaves/bulk/leave-types\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leaves/bulk/leave-types\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/leave-summary",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/leave-summary\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/leave-summary\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance",
+      "status": 0,
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance-employee",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance-employee\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance-employee\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/dashboard",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance/admin/dashboard\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/dashboard\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/records",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance/admin/records\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/records\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/settings",
+      "status": 0,
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/settings\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/shifts",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance/admin/shifts\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/shifts\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/roster",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance/admin/roster\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/roster\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/shift-swaps",
+      "status": 0,
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/shift-swaps\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/regularizations",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance/admin/regularizations\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/regularizations\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/overtime",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance/admin/overtime\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/overtime\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/admin/comp-off",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/attendance/admin/comp-off\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/admin/comp-off\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/attendance/daily-timesheet",
+      "status": 0,
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/attendance/daily-timesheet\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/timesheet",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/timesheet\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/timesheet\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/daily-works",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/daily-works\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/daily-works\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/daily-works-json",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/daily-works-json\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/daily-works-json\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/daily-works-se",
+      "status": 0,
+      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/daily-works-se\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/daily-works-se-json",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/daily-works-se-json\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/daily-works-se-json\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/daily-works-summary",
+      "status": 0,
+      "error": "page.goto: net::ERR_CONNECTION_RESET at https://erp.dhakabypass.com/daily-works-summary\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/daily-works-summary\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/reports",
+      "status": 0,
+      "error": "page.goto: net::ERR_ABORTED at https://erp.dhakabypass.com/reports\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/reports\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/reports-json",
+      "status": 0,
+      "error": "page.goto: Test ended.\nCall log:\n\u001b[2m  - navigating to \"https://erp.dhakabypass.com/reports-json\", waiting until \"load\"\u001b[22m\n",
+      "networkErrors": null
+    },
+    {
+      "page": "/stats",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/tasks-all",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/tasks-all-se",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/tasks/daily-summary-json",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/tasks/daily-summary-se",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/tasks/se",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/work-location",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/work-location_json",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/profiles/search",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/quality/ncr",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/petty-cash",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/petty-cash/transactions",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/petty-cash/history",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/petty-cash/categories",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/petty-cash/analytics",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/petty-cash/admin/overview",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/petty-cash/audit-log",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/my-devices",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/letters",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/letters-paginate",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/notifications",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/notifications/list",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/notifications/unread-count",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/workspace/objections",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices/active",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices/attlogs",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices/download-history",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices/health",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices/logs",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices/operlogs",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/biometric-devices/templates",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/notifications",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/notifications/list",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/request-logs",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/settings/request-logs/list",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/security/dashboard",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/om/dashboard",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/om/equipment",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/om/incidents",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/om/shift-logs",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/om/toll-operations",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/om/traffic-monitoring",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/om/work-orders",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    },
+    {
+      "page": "/updates",
+      "status": 0,
+      "error": "page.goto: Target page, context or browser has been closed",
+      "networkErrors": null
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": []
+}
