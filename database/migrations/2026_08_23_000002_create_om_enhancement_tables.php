@@ -74,8 +74,8 @@ return new class extends Migration
                 $table->unsignedBigInteger('uploaded_by')->nullable();
                 $table->timestamps();
 
-                $table->foreign('incident_id')->references('id')->on('om_incidents')->cascadeOnDelete();
-                $table->foreign('uploaded_by')->references('id')->on('users')->nullOnDelete();
+                $table->index('incident_id');
+                $table->index('uploaded_by');
             });
         }
 
@@ -88,8 +88,8 @@ return new class extends Migration
                 $table->unsignedBigInteger('uploaded_by')->nullable();
                 $table->timestamps();
 
-                $table->foreign('work_order_id')->references('id')->on('om_work_orders')->cascadeOnDelete();
-                $table->foreign('uploaded_by')->references('id')->on('users')->nullOnDelete();
+                $table->index('work_order_id');
+                $table->index('uploaded_by');
             });
         }
 
@@ -104,8 +104,8 @@ return new class extends Migration
                 $table->timestamp('escalated_at');
                 $table->timestamps();
 
-                $table->foreign('incident_id')->references('id')->on('om_incidents')->cascadeOnDelete();
-                $table->foreign('escalated_by')->references('id')->on('users')->nullOnDelete();
+                $table->index('incident_id');
+                $table->index('escalated_by');
             });
         }
 
@@ -122,7 +122,7 @@ return new class extends Migration
                 $table->timestamps();
 
                 $table->index(['entity_type', 'entity_id']);
-                $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
+                $table->index('user_id');
             });
         }
     }
