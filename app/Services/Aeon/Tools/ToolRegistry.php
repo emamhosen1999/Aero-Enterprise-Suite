@@ -22,7 +22,9 @@ class ToolRegistry
         ExpresswayIntelligenceTool $expresswayTool,
         QualityAssuranceTool $qaTool,
         HumanResourcesTool $hrmTool,
-        PettyCashTool $pettyCashTool
+        PettyCashTool $pettyCashTool,
+        ExecutiveBriefingTool $executiveBriefingTool,
+        AssetMaintenanceTool $assetMaintenanceTool
     ) {
         $this->register($queryTool);
         $this->register($prepareOperationTool);
@@ -31,6 +33,8 @@ class ToolRegistry
         $this->register($qaTool);
         $this->register($hrmTool);
         $this->register($pettyCashTool);
+        $this->register($executiveBriefingTool);
+        $this->register($assetMaintenanceTool);
     }
 
     public function register(AeonToolContract $tool): void
