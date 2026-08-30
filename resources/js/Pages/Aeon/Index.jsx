@@ -14,29 +14,41 @@ export default function AeonConsole() {
     <App>
       <Head title="Aeon Copilot - DBEDC Guardian" />
 
-      <div className="relative h-[calc(100vh-100px)] max-w-5xl mx-auto my-2 rounded-2xl overflow-hidden border border-[var(--gray-5,rgba(255,255,255,0.08))] bg-[var(--color-background,#090d16)] shadow-2xl flex flex-col">
+      <div
+        style={{
+          position: 'relative',
+          height: 'calc(100vh - 120px)',
+          maxWidth: '1000px',
+          margin: '12px auto',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          border: '1px solid var(--gray-4, rgba(255,255,255,0.08))',
+          background: 'var(--color-background, #090d16)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <AeonAura />
 
         {/* Header */}
-        <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--gray-4,rgba(255,255,255,0.08))] bg-[var(--gray-1,rgba(0,0,0,0.2))]">
-          <div className="flex items-center gap-3">
-            <AeonCore state={aeon.sending ? 'thinking' : 'listening'} size={40} />
+        <header className="aeon-header">
+          <div className="aeon-header-brand">
+            <AeonCore state={aeon.sending ? 'thinking' : 'listening'} size={38} />
             <div>
-              <div className="flex items-center gap-2 font-bold text-base text-[var(--gray-12)]">
+              <div className="aeon-header-title">
                 <span>Aeon Copilot</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider bg-[var(--accent-3,rgba(34,227,255,0.15))] text-[var(--accent-11,#22e3ff)] border border-[var(--accent-6)]">
-                  Enterprise AI
-                </span>
+                <span className="aeon-header-badge">Enterprise AI</span>
               </div>
-              <span className="text-xs text-[var(--gray-10)]">
+              <div style={{ fontSize: '11px', color: 'var(--gray-10, #94a3b8)', marginTop: '2px' }}>
                 Dhaka Bypass Expressway Operations & Quality Intelligence
-              </span>
+              </div>
             </div>
           </div>
         </header>
 
         {/* Conversation Body */}
-        <div className="relative z-10 flex-1 min-h-0">
+        <div style={{ position: 'relative', zIndex: 10, flex: 1, minHeight: 0 }}>
           <AeonConversation
             messages={aeon.messages}
             sending={aeon.sending}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Flex, Box, Text, Avatar, IconButton } from '@radix-ui/themes';
+import { Flex, Box, Text, Avatar } from '@radix-ui/themes';
 import { Send, ThumbsUp, ThumbsDown } from 'lucide-react';
 import AeonCore from './AeonCore.jsx';
 import BlockRenderer from './BlockRenderer.jsx';
@@ -19,13 +19,13 @@ function UserAvatar({ user }) {
       src={user?.avatar_url || user?.profile_photo_url}
       size="1"
       radius="full"
-      color="indigo"
+      color="cyan"
     />
   );
 }
 
 export default function AeonConversation({
-  messages,
+  messages = [],
   sending,
   stage,
   usage,
@@ -38,10 +38,10 @@ export default function AeonConversation({
   inputRef,
 }) {
   const [draft, setDraft] = useState('');
-  const streamRef = useRef(null);
+  const scrollRef = useRef(null);
 
   useEffect(() => {
-    const el = streamRef.current;
+    const el = scrollRef.current;
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
@@ -54,32 +54,38 @@ export default function AeonConversation({
     setDraft('');
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit(e);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Stream Area */}
-      <div ref={streamRef} className="flex-1 overflow-y-auto p-4 space-y-4 aeon-scrollbar">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Messages Scroll Area */}
+      <div ref={scrollRef} className="aeon-messages-scroll">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center py-8 space-y-4">
-            <AeonCore state="idle" size={64} />
-            <div>
-              <Text size="3" weight="bold" className="block text-[var(--gray-12)]">
-                Welcome to Aeon Copilot
-              </Text>
-              <Text size="2" color="gray" className="max-w-xs mt-1 block leading-relaxed">
-                Your intelligent operations & QC assistant across DBEDC Guardian.
-              </Text>
+          <div className="aeon-welcome-card">
+            <AeonCore state="idle" size={56} />
+            <div className="aeon-welcome-title">Welcome to Aeon Copilot</div>
+            <div className="aeon-welcome-subtitle">
+              Your intelligent operations, quality control, and HR copilot across DBEDC Guardian.
             </div>
 
-            <div className="w-full max-w-sm space-y-2 pt-2 text-left">
+            <div className="aeon-quick-prompts">
               {SUGGESTIONS.map((s) => (
                 <button
                   type="button"
                   key={s.text}
                   onClick={() => onSend(s.text)}
-                  className="w-full p-2.5 rounded-xl text-xs flex items-center gap-2.5 bg-[var(--gray-2,rgba(255,255,255,0.03))] hover:bg-[var(--accent-3,rgba(34,227,255,0.08))] border border-[var(--gray-4,rgba(255,255,255,0.08))] hover:border-[var(--accent-6)] transition-all cursor-pointer text-[var(--gray-12)] text-left"
+                  className="aeon-prompt-chip"
                 >
-                  <span className="text-base shrink-0">{s.icon}</span>
-                  <span className="truncate">{s.text}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '15px' }}>{s.icon}</span>
+                    <span>{s.text}</span>
+                  </span>
+                  <span style={{ opacity: 0.5 }}>→</span>
                 </button>
               ))}
             </div>
@@ -87,58 +93,95 @@ export default function AeonConversation({
         ) : (
           messages.map((m, i) => {
             const key = m.id ?? i;
-            const animate = m.role !== 'user' && i === messages.length - 1 && !(hasAnimated ? hasAnimated(key) : false);
+            const animate =
+              m.role !== 'user' &&
+              i === messages.length - 1 &&
+              !(hasAnimated ? hasAnimated(key) : false);
 
             return (
               <div
                 key={key}
-                className={`flex gap-3 text-sm ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`aeon-message ${m.role === 'user' ? 'is-user' : 'is-assistant'}`}
               >
-                {m.role !== 'user' && (
-                  <div className="w-7 h-7 rounded-full bg-[var(--accent-3,rgba(34,227,255,0.15))] text-[var(--accent-11,#22e3ff)] flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border border-[var(--accent-6)]">
-                    ✦
-                  </div>
-                )}
-
-                <div
-                  className={`max-w-[85%] rounded-2xl p-3.5 ${
-                    m.role === 'user'
-                      ? 'bg-[var(--accent-9,#22e3ff)] text-[var(--accent-contrast,#000)] rounded-br-xs font-medium'
-                      : 'bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] text-[var(--gray-12)] rounded-bl-xs shadow-sm'
-                  }`}
-                >
-                  <BlockRenderer
-                    blocks={m.blocks}
-                    onAction={onAction}
-                    animate={animate}
-                    onAnimated={() => markAnimated?.(key)}
-                  />
-
-                  {m.role !== 'user' && m.dbId && onFeedback && (
-                    <Flex gap="2" className="mt-2.5 pt-2 border-t border-[var(--gray-4,rgba(255,255,255,0.06))] text-xs text-[var(--gray-10)]">
-                      <button
-                        type="button"
-                        onClick={() => onFeedback(m.id, 1)}
-                        className={`p-1 rounded hover:bg-[var(--gray-4)] transition-colors cursor-pointer flex items-center gap-1 ${m.feedback === 1 ? 'text-[var(--accent-11)] font-semibold' : ''}`}
-                        title="Helpful"
-                      >
-                        <ThumbsUp size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onFeedback(m.id, -1)}
-                        className={`p-1 rounded hover:bg-[var(--gray-4)] transition-colors cursor-pointer flex items-center gap-1 ${m.feedback === -1 ? 'text-red-400 font-semibold' : ''}`}
-                        title="Not helpful"
-                      >
-                        <ThumbsDown size={13} />
-                      </button>
-                    </Flex>
-                  )}
-                </div>
-
-                {m.role === 'user' && (
-                  <div className="shrink-0 mt-0.5">
+                {m.role === 'user' ? (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', justifyContent: 'flex-end' }}>
+                    <div className="aeon-user-bubble">
+                      <BlockRenderer
+                        blocks={m.blocks}
+                        onAction={onAction}
+                        animate={false}
+                      />
+                    </div>
                     <UserAvatar user={user} />
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <div
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '50%',
+                        background: 'var(--accent-3, rgba(34,227,255,0.15))',
+                        color: 'var(--accent-11, #22e3ff)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        flexShrink: 0,
+                        marginTop: '2px',
+                        border: '1px solid var(--accent-6, rgba(34,227,255,0.3))',
+                      }}
+                    >
+                      ✦
+                    </div>
+                    <div className="aeon-assistant-bubble">
+                      <BlockRenderer
+                        blocks={m.blocks}
+                        onAction={onAction}
+                        animate={animate}
+                        onAnimated={() => markAnimated?.(key)}
+                      />
+
+                      {m.dbId && onFeedback && (
+                        <div
+                          style={{
+                            marginTop: '10px',
+                            paddingTop: '8px',
+                            borderTop: '1px solid var(--gray-4, rgba(255,255,255,0.06))',
+                            display: 'flex',
+                            gap: '8px',
+                            fontSize: '11px',
+                            color: 'var(--gray-9, #94a3b8)',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => onFeedback(m.id, 1)}
+                            className="aeon-icon-btn"
+                            style={{
+                              padding: '2px 6px',
+                              color: m.feedback === 1 ? 'var(--accent-11, #22e3ff)' : 'inherit',
+                            }}
+                            title="Helpful"
+                          >
+                            <ThumbsUp size={12} style={{ marginRight: '4px' }} /> Helpful
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onFeedback(m.id, -1)}
+                            className="aeon-icon-btn"
+                            style={{
+                              padding: '2px 6px',
+                              color: m.feedback === -1 ? '#f87171' : 'inherit',
+                            }}
+                            title="Not helpful"
+                          >
+                            <ThumbsDown size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -147,51 +190,65 @@ export default function AeonConversation({
         )}
 
         {sending && (
-          <div className="flex gap-3 text-sm justify-start">
-            <div className="w-7 h-7 rounded-full bg-[var(--accent-3,rgba(34,227,255,0.15))] text-[var(--accent-11,#22e3ff)] flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 border border-[var(--accent-6)] animate-pulse">
-              ✦
-            </div>
-            <div className="bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] text-[var(--gray-11)] rounded-2xl rounded-bl-xs p-3 flex items-center gap-2 text-xs">
-              <span className="flex space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-9)] animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-9)] animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-9)] animate-bounce" style={{ animationDelay: '300ms' }} />
-              </span>
-              <span>{stage || 'Aeon is reasoning…'}</span>
+          <div className="aeon-message is-assistant">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-3, rgba(34,227,255,0.15))',
+                  color: 'var(--accent-11, #22e3ff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  flexShrink: 0,
+                  border: '1px solid var(--accent-6, rgba(34,227,255,0.3))',
+                }}
+              >
+                ✦
+              </div>
+              <div className="aeon-stage-banner">
+                <span className="aeon-status-dot is-thinking" />
+                <span>{stage || 'Aeon is reasoning…'}</span>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Composer Area */}
-      <form onSubmit={submit} className="p-3 border-t border-[var(--gray-4,rgba(255,255,255,0.08))] bg-[var(--gray-1,rgba(0,0,0,0.15))]">
-        <div className="flex items-center gap-2 bg-[var(--gray-3,rgba(255,255,255,0.04))] border border-[var(--gray-5,rgba(255,255,255,0.12))] rounded-xl px-3 py-1.5 focus-within:border-[var(--accent-9)] transition-colors">
+      {/* Input Box Area */}
+      <form onSubmit={submit} className="aeon-input-container">
+        <div className="aeon-input-box">
           <input
             ref={inputRef}
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Ask Aeon anything… (e.g. NCR count, leave request)"
+            onKeyDown={handleKeyDown}
+            placeholder="Ask Aeon anything… (e.g. NCRs, daily attendance, objections)"
             disabled={sending}
-            className="flex-1 bg-transparent border-none text-xs text-[var(--gray-12)] focus:outline-none placeholder:text-[var(--gray-9)]"
+            className="aeon-textarea"
           />
           <button
             type="submit"
             disabled={sending || !draft.trim()}
-            className="w-7 h-7 rounded-lg bg-[var(--accent-9,#22e3ff)] text-[var(--accent-contrast,#000)] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity cursor-pointer shrink-0"
+            className="aeon-send-btn"
+            title="Send message"
+            aria-label="Send"
           >
-            <Send size={14} />
+            <Send size={15} />
           </button>
         </div>
 
-        <Flex justify="between" align="center" className="mt-2 px-1 text-[11px] text-[var(--gray-9)]">
+        <div className="aeon-input-footer">
           <span>Enterprise Guarded Copilot</span>
-          {usage && (
-            <span>
-              {usage.remaining !== undefined && `${Math.max(0, usage.remaining)} tokens left today`}
-            </span>
+          {usage && usage.remaining !== undefined && (
+            <span>{Math.max(0, usage.remaining)} tokens left today</span>
           )}
-        </Flex>
+        </div>
       </form>
     </div>
   );
