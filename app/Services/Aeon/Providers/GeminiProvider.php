@@ -194,7 +194,6 @@ class GeminiProvider implements AiProvider
 
         $cfg = config('aeon.providers.gemini');
         $embedModel = (string) ($cfg['embed_model'] ?? 'text-embedding-004');
-        $dims = (int) ($cfg['embed_dims'] ?? 768);
         $out = [];
 
         foreach ($texts as $text) {
@@ -202,12 +201,15 @@ class GeminiProvider implements AiProvider
                 $res = Http::withHeaders(['x-goog-api-key' => $this->key])
                     ->timeout($this->timeout)
                     ->post("{$this->endpoint}/models/{$embedModel}:embedContent?key={$this->key}", [
-                        'model' => "models/{$embedModel}",
-                        'content' => ['parts' => [['text' => $text]]],
-                        'outputDimensionality' => $dims,
+                        'content' => [
+                            'parts' => [
+                                ['text' => (string) $text],
+                            ],
+                        ],
                     ]);
 
-                $out[] = (array) data_get($res->json(), 'embedding.values', []);
+                $values = (array) data_get($res->json(), 'embedding.values', []);
+                $out[] = $values;
             } catch (\Throwable $e) {
                 Log::error('Aeon Gemini embed failed', ['error' => $e->getMessage()]);
                 $out[] = [];
