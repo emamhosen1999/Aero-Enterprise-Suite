@@ -9,6 +9,48 @@ function xsrf() {
 }
 
 /**
+ * Fetch past conversations for the authenticated user.
+ */
+export async function fetchAeonConversations() {
+  const res = await fetch('/aeon/conversations', {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-XSRF-TOKEN': xsrf(),
+    },
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  return res.json();
+}
+
+/**
+ * Fetch a single conversation transcript with messages.
+ */
+export async function fetchAeonConversation(id) {
+  const res = await fetch(`/aeon/conversations/${id}`, {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-XSRF-TOKEN': xsrf(),
+    },
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return res.json();
+}
+
+/**
  * Send a plain JSON chat message turn.
  */
 export async function sendAeonMessage({ message, conversationId }) {

@@ -1,17 +1,70 @@
 /* ==========================================================================
-   Aeon AI Copilot — DBEDC Guardian Radix UI Theme Integration
+   Aeon AI Copilot — DBEDC Guardian 100/100 Elite Radix UI Theme
    ========================================================================== */
 
-/* Drawer Overlay & Shell */
+/* Root Variables & Animations */
+:root {
+  --aeon-glow-cyan: rgba(34, 227, 255, 0.45);
+  --aeon-glow-purple: rgba(140, 107, 255, 0.45);
+  --aeon-border-glass: rgba(255, 255, 255, 0.09);
+  --aeon-bg-glass: rgba(11, 15, 25, 0.94);
+}
+
+/* Floating Launcher Button */
+.aeon-fab-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+}
+
+.aeon-fab {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-9, #22e3ff) 0%, #8c6bff 50%, #4338ca 100%);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 28px var(--aeon-glow-cyan), 0 2px 8px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aeon-fab:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 12px 36px var(--aeon-glow-cyan), 0 0 20px var(--aeon-glow-purple);
+}
+
+.aeon-fab:active {
+  transform: scale(0.95);
+}
+
+.aeon-fab-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid var(--color-background, #090d16);
+  box-shadow: 0 0 8px #22c55e;
+}
+
+/* Drawer Overlay & Panel */
 .aeon-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 99998;
   opacity: 0;
-  animation: aeonFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: aeonFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .aeon-drawer-panel {
@@ -20,12 +73,12 @@
   right: 0;
   bottom: 0;
   width: 100%;
-  max-width: 450px;
-  background: var(--color-background, #090d16);
+  max-width: 460px;
+  background: var(--aeon-bg-glass);
   color: var(--gray-12, #f8fafc);
   z-index: 99999;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.45);
-  border-left: 1px solid var(--gray-4, rgba(255, 255, 255, 0.08));
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.6);
+  border-left: 1px solid var(--aeon-border-glass);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
@@ -34,7 +87,7 @@
 }
 
 .aeon-drawer-panel.is-expanded {
-  max-width: 780px;
+  max-width: 840px;
 }
 
 @keyframes aeonFadeIn {
@@ -53,8 +106,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  background: var(--gray-1, rgba(15, 23, 42, 0.6));
-  border-bottom: 1px solid var(--gray-4, rgba(255, 255, 255, 0.08));
+  background: rgba(15, 23, 42, 0.75);
+  border-bottom: 1px solid var(--aeon-border-glass);
+  backdrop-filter: blur(12px);
 }
 
 .aeon-header-brand {
@@ -70,18 +124,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: -0.01em;
 }
 
 .aeon-header-badge {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 7px;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
   border-radius: 9999px;
-  background: var(--accent-3, rgba(34, 227, 255, 0.12));
+  background: var(--accent-3, rgba(34, 227, 255, 0.14));
   color: var(--accent-11, #22e3ff);
-  border: 1px solid var(--accent-6, rgba(34, 227, 255, 0.3));
+  border: 1px solid var(--accent-6, rgba(34, 227, 255, 0.35));
 }
 
 .aeon-header-status {
@@ -94,38 +149,77 @@
 }
 
 .aeon-status-dot {
-  width: 6px;
-  height: 6px;
+  width: 6.5px;
+  height: 6.5px;
   border-radius: 50%;
   background: #22c55e;
 }
 
 .aeon-status-dot.is-thinking {
   background: #f59e0b;
-  animation: aeonPulse 1.5s infinite;
+  animation: aeonPulse 1.2s infinite;
 }
 
 @keyframes aeonPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(1.3); }
+  50% { opacity: 0.4; transform: scale(1.35); }
 }
 
 .aeon-icon-btn {
   background: transparent;
   border: none;
   color: var(--gray-10, #94a3b8);
-  padding: 6px;
-  border-radius: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+  font-size: 11px;
 }
 
 .aeon-icon-btn:hover {
   background: var(--gray-4, rgba(255, 255, 255, 0.08));
   color: var(--gray-12, #ffffff);
+}
+
+/* History Sidebar */
+.aeon-history-sidebar {
+  position: absolute;
+  top: 61px;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  background: rgba(10, 14, 23, 0.98);
+  border-right: 1px solid var(--aeon-border-glass);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  animation: aeonSlideRight 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes aeonSlideRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.aeon-history-item {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--gray-11, #cbd5e1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.aeon-history-item:hover, .aeon-history-item.is-active {
+  background: var(--accent-3, rgba(34, 227, 255, 0.08));
+  color: var(--accent-11, #22e3ff);
 }
 
 /* Conversation Body */
@@ -134,14 +228,14 @@
   z-index: 10;
   display: flex;
   flex-direction: column;
-  height: calc(100% - 65px);
+  height: calc(100% - 62px);
   min-height: 0;
 }
 
 .aeon-messages-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 18px 16px;
+  padding: 16px 14px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -158,10 +252,47 @@
   border-radius: 9999px;
 }
 
+/* Domain Tabs */
+.aeon-domain-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0 8px 0;
+  width: 100%;
+}
+.aeon-domain-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.aeon-tab-pill {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--gray-3, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--gray-4, rgba(255, 255, 255, 0.08));
+  color: var(--gray-10, #94a3b8);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.aeon-tab-pill:hover {
+  background: var(--gray-4, rgba(255, 255, 255, 0.1));
+  color: var(--gray-12, #ffffff);
+}
+
+.aeon-tab-pill.is-active {
+  background: var(--accent-3, rgba(34, 227, 255, 0.14));
+  border-color: var(--accent-7, rgba(34, 227, 255, 0.4));
+  color: var(--accent-11, #22e3ff);
+  font-weight: 600;
+}
+
 /* Welcome Empty State */
 .aeon-welcome-card {
   text-align: center;
-  padding: 24px 16px;
+  padding: 20px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -177,22 +308,22 @@
 .aeon-welcome-subtitle {
   font-size: 12px;
   color: var(--gray-10, #94a3b8);
-  max-width: 320px;
-  line-height: 1.45;
+  max-width: 340px;
+  line-height: 1.5;
 }
 
 .aeon-quick-prompts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .aeon-prompt-chip {
   text-align: left;
   background: var(--gray-2, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--gray-4, rgba(255, 255, 255, 0.07));
+  border: 1px solid var(--gray-4, rgba(255, 255, 255, 0.08));
   color: var(--gray-11, #cbd5e1);
   padding: 10px 14px;
   border-radius: 10px;
@@ -208,15 +339,15 @@
   background: var(--accent-3, rgba(34, 227, 255, 0.08));
   border-color: var(--accent-7, rgba(34, 227, 255, 0.35));
   color: var(--accent-11, #22e3ff);
-  transform: translateX(2px);
+  transform: translateX(3px);
 }
 
 /* Messages */
 .aeon-message {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-width: 90%;
+  gap: 4px;
+  max-width: 92%;
   animation: aeonMsgFade 0.2s ease forwards;
 }
 
@@ -231,7 +362,7 @@
 
 .aeon-message.is-assistant {
   align-self: flex-start;
-  max-width: 94%;
+  max-width: 95%;
 }
 
 .aeon-user-bubble {
@@ -241,19 +372,19 @@
   border-radius: 14px 14px 2px 14px;
   font-size: 13px;
   line-height: 1.45;
-  box-shadow: 0 4px 14px rgba(34, 227, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(34, 227, 255, 0.25);
   word-break: break-word;
 }
 
 .aeon-assistant-bubble {
   background: var(--gray-2, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--gray-4, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--gray-4, rgba(255, 255, 255, 0.09));
   color: var(--gray-12, #f1f5f9);
   padding: 12px 14px;
   border-radius: 14px 14px 14px 2px;
   font-size: 13px;
   line-height: 1.55;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 /* Stage Reasoning Box */
@@ -262,30 +393,30 @@
   align-items: center;
   gap: 8px;
   background: var(--accent-2, rgba(34, 227, 255, 0.06));
-  border: 1px solid var(--accent-5, rgba(34, 227, 255, 0.2));
+  border: 1px solid var(--accent-5, rgba(34, 227, 255, 0.22));
   color: var(--accent-11, #22e3ff);
-  padding: 8px 12px;
+  padding: 7px 12px;
   border-radius: 8px;
   font-size: 11px;
   font-weight: 500;
-  margin-bottom: 6px;
   animation: aeonPulse 2s infinite ease-in-out;
 }
 
 /* Input Bar */
 .aeon-input-container {
-  padding: 12px 14px 16px;
-  background: var(--gray-1, rgba(15, 23, 42, 0.8));
-  border-top: 1px solid var(--gray-4, rgba(255, 255, 255, 0.08));
+  padding: 12px 14px 14px;
+  background: rgba(13, 18, 30, 0.95);
+  border-top: 1px solid var(--aeon-border-glass);
   display: flex;
   flex-direction: column;
   gap: 8px;
+  backdrop-filter: blur(12px);
 }
 
 .aeon-input-box {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   background: var(--gray-2, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--gray-5, rgba(255, 255, 255, 0.12));
   border-radius: 12px;
@@ -295,7 +426,7 @@
 
 .aeon-input-box:focus-within {
   border-color: var(--accent-8, #22e3ff);
-  box-shadow: 0 0 0 1px var(--accent-8, #22e3ff), 0 0 16px rgba(34, 227, 255, 0.15);
+  box-shadow: 0 0 0 1px var(--accent-8, #22e3ff), 0 0 16px rgba(34, 227, 255, 0.2);
 }
 
 .aeon-textarea {
@@ -305,16 +436,38 @@
   color: var(--gray-12, #ffffff);
   font-size: 13px;
   line-height: 1.45;
-  resize: none;
   outline: none;
-  max-height: 120px;
-  min-height: 24px;
   padding: 4px 0;
   font-family: inherit;
 }
 
 .aeon-textarea::placeholder {
   color: var(--gray-8, #64748b);
+}
+
+.aeon-mic-btn {
+  background: transparent;
+  border: none;
+  color: var(--gray-10, #94a3b8);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.aeon-mic-btn:hover {
+  background: var(--gray-4, rgba(255, 255, 255, 0.08));
+  color: var(--gray-12, #ffffff);
+}
+
+.aeon-mic-btn.is-recording {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  animation: aeonPulse 1s infinite;
 }
 
 .aeon-send-btn {
@@ -349,6 +502,50 @@
   font-size: 10px;
   color: var(--gray-8, #64748b);
   padding: 0 4px;
+}
+
+/* Markdown Code Blocks */
+.aeon-code-block {
+  margin: 8px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--aeon-border-glass);
+  background: #0d1117;
+}
+
+.aeon-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: #161b22;
+  font-size: 11px;
+  color: #8b949e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.aeon-code-header button {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 10.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.aeon-code-header button:hover {
+  color: #c9d1d9;
+}
+
+.aeon-code-content {
+  padding: 10px 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-x: auto;
+  color: #e6edf3;
 }
 
 /* Typing cursor */

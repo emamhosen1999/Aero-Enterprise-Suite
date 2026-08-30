@@ -18,11 +18,19 @@ class ToolRegistry
     public function __construct(
         QueryTool $queryTool,
         PrepareOperationTool $prepareOperationTool,
-        NavigateTool $navigateTool
+        NavigateTool $navigateTool,
+        ExpresswayIntelligenceTool $expresswayTool,
+        QualityAssuranceTool $qaTool,
+        HumanResourcesTool $hrmTool,
+        PettyCashTool $pettyCashTool
     ) {
         $this->register($queryTool);
         $this->register($prepareOperationTool);
         $this->register($navigateTool);
+        $this->register($expresswayTool);
+        $this->register($qaTool);
+        $this->register($hrmTool);
+        $this->register($pettyCashTool);
     }
 
     public function register(AeonToolContract $tool): void

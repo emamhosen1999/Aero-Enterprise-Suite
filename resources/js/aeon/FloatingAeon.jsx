@@ -44,6 +44,9 @@ export default function FloatingAeon() {
         onFeedback={aeon.feedback}
         hasAnimated={aeon.hasAnimated}
         markAnimated={aeon.markAnimated}
+        onNewChat={aeon.newChat}
+        onSelectConversation={aeon.selectConversation}
+        conversationId={aeon.conversationId}
       />
     </>
   );

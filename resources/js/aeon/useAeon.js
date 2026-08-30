@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { sendAeonMessage, sendAeonMessageStream, sendAeonFeedback } from './aeonClient.js';
+import { sendAeonMessage, sendAeonMessageStream, sendAeonFeedback, fetchAeonConversation } from './aeonClient.js';
 
 function readInitialUsage() {
   try {
@@ -25,8 +25,34 @@ export function useAeon() {
 
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
+  const toggle = useCallback(() => setIsOpen((v) => !v), []);
   const hasAnimated = useCallback((id) => animatedRef.current.has(id), []);
   const markAnimated = useCallback((id) => { animatedRef.current.add(id); }, []);
+
+  const newChat = useCallback(() => {
+    setConversationId(null);
+    setMessages([]);
+    setStage('');
+  }, []);
+
+  const selectConversation = useCallback(async (id) => {
+    try {
+      const data = await fetchAeonConversation(id);
+      if (data) {
+        setConversationId(data.id);
+        const mapped = (data.messages || []).map((m) => ({
+          id: m.id,
+          dbId: m.id,
+          role: m.role,
+          blocks: m.blocks || [{ type: 'text', text: m.content || '' }],
+          feedback: m.feedback ?? null,
+        }));
+        setMessages(mapped);
+      }
+    } catch {
+      // Fallback
+    }
+  }, []);
 
   const send = useCallback(async (text) => {
     const trimmed = (text || '').trim();
@@ -73,7 +99,7 @@ export function useAeon() {
         {
           id: idRef.current++,
           role: 'assistant',
-          blocks: [{ type: 'text', text: 'Aeon is temporarily unavailable. Please try again shortly.' }],
+          blocks: [{ type: 'text', text: 'Aeon encountered an issue processing your request. Please try again.' }],
         },
       ]);
     } finally {
@@ -93,9 +119,13 @@ export function useAeon() {
 
   return {
     messages,
+    conversationId,
     isOpen,
     open,
     close,
+    toggle,
+    newChat,
+    selectConversation,
     send,
     sending,
     stage,
