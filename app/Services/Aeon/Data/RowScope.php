@@ -17,7 +17,7 @@ class RowScope
     /**
      * Apply row-level scoping to an Eloquent/Query Builder.
      */
-    public function apply(Builder $query, string $table, ?int $userId): Builder
+    public function apply(Builder $query, string $table, int|string|null $userId): Builder
     {
         if ($userId === null) {
             return $query;

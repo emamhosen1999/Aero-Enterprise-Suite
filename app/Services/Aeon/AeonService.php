@@ -35,7 +35,7 @@ class AeonService
      * @param  Closure(string): void|null  $onStage
      * @return array{conversation_id: int, reply: array<string, mixed>, usage: array<string, mixed>}
      */
-    public function chat(string $prompt, ?int $conversationId, ?int $userId, array $context = [], ?Closure $onStage = null): array
+    public function chat(string $prompt, ?int $conversationId, int|string|null $userId, array $context = [], ?Closure $onStage = null): array
     {
         $conversation = $this->resolveConversation($conversationId, $userId, $prompt);
 
@@ -198,7 +198,7 @@ class AeonService
      * @param  Closure(string): void  $emit
      * @return array{response: array<string, mixed>, blocks: array<int, array<string, mixed>>, summary: string, terminal: bool}
      */
-    private function executeToolCall(string $name, array $args, ?int $userId, Closure $emit): array
+    private function executeToolCall(string $name, array $args, int|string|null $userId, Closure $emit): array
     {
         $tool = $this->tools->find($name);
         if (! $tool) {
@@ -274,7 +274,7 @@ class AeonService
         return $history;
     }
 
-    private function resolveConversation(?int $conversationId, ?int $userId, string $firstPrompt): Conversation
+    private function resolveConversation(?int $conversationId, int|string|null $userId, string $firstPrompt): Conversation
     {
         if ($conversationId !== null) {
             $c = Conversation::where('id', $conversationId)->where('user_id', $userId)->first();
@@ -284,12 +284,12 @@ class AeonService
         }
 
         return Conversation::create([
-            'user_id' => $userId ?? 0,
+            'user_id' => $userId ? (int) $userId : 0,
             'title' => Str::limit($firstPrompt, 40),
         ]);
     }
 
-    private function isOverDailyBudget(?int $userId): bool
+    private function isOverDailyBudget(int|string|null $userId): bool
     {
         if ($userId === null) {
             return false;
@@ -306,7 +306,7 @@ class AeonService
     /**
      * @return array<string, mixed>
      */
-    public function getUsageStatus(?int $userId): array
+    public function getUsageStatus(int|string|null $userId): array
     {
         $limit = (int) config('aeon.budget.daily_tokens_per_user', 500000);
         $used = 0;

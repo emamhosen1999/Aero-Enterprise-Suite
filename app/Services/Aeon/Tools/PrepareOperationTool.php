@@ -50,7 +50,7 @@ class PrepareOperationTool implements AeonToolContract
         ];
     }
 
-    public function run(array $args, ?int $userId): array
+    public function run(array $args, int|string|null $userId): array
     {
         $entity = (string) ($args['entity'] ?? '');
         $operation = (string) ($args['operation'] ?? 'create');

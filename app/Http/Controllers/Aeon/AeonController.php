@@ -22,7 +22,7 @@ class AeonController extends Controller
      */
     public function message(AeonMessageRequest $request): JsonResponse
     {
-        $userId = $request->user()?->id;
+        $userId = $request->user()?->id !== null && is_numeric($request->user()->id) ? (int) $request->user()->id : $request->user()?->id;
         $message = (string) $request->input('message');
         $conversationId = $request->input('conversation_id') ? (int) $request->input('conversation_id') : null;
         $context = (array) $request->input('context', []);
@@ -37,7 +37,7 @@ class AeonController extends Controller
      */
     public function stream(AeonMessageRequest $request): StreamedResponse
     {
-        $userId = $request->user()?->id;
+        $userId = $request->user()?->id !== null && is_numeric($request->user()->id) ? (int) $request->user()->id : $request->user()?->id;
         $message = (string) $request->input('message');
         $conversationId = $request->input('conversation_id') ? (int) $request->input('conversation_id') : null;
         $context = (array) $request->input('context', []);

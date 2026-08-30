@@ -127,7 +127,7 @@ class GeminiProvider implements AiProvider
                 for ($i = 0; $i <= $attempts; $i++) {
                     $res = Http::withHeaders(['x-goog-api-key' => $this->key])
                         ->timeout($this->timeout)
-                        ->post("{$this->endpoint}/models/{$model}:generateContent", $payload);
+                        ->post("{$this->endpoint}/models/{$model}:generateContent?key={$this->key}", $payload);
 
                     if (! in_array($res->status(), [429, 503], true)) {
                         break;
@@ -201,7 +201,7 @@ class GeminiProvider implements AiProvider
             try {
                 $res = Http::withHeaders(['x-goog-api-key' => $this->key])
                     ->timeout($this->timeout)
-                    ->post("{$this->endpoint}/models/{$embedModel}:embedContent", [
+                    ->post("{$this->endpoint}/models/{$embedModel}:embedContent?key={$this->key}", [
                         'model' => "models/{$embedModel}",
                         'content' => ['parts' => [['text' => $text]]],
                         'outputDimensionality' => $dims,
@@ -226,7 +226,7 @@ class GeminiProvider implements AiProvider
         try {
             return Http::withHeaders(['x-goog-api-key' => $this->key])
                 ->timeout(5)
-                ->get("{$this->endpoint}/models")
+                ->get("{$this->endpoint}/models?key={$this->key}")
                 ->successful();
         } catch (\Throwable) {
             return false;

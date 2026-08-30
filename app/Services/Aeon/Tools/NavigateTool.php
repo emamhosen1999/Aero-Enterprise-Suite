@@ -36,7 +36,7 @@ class NavigateTool implements AeonToolContract
         ];
     }
 
-    public function run(array $args, ?int $userId): array
+    public function run(array $args, int|string|null $userId): array
     {
         $dest = strtolower(trim((string) ($args['destination'] ?? '')));
         $modules = (array) config('modules', []);

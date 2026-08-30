@@ -36,5 +36,5 @@ interface AeonToolContract
      * @param  array<string, mixed>  $args
      * @return array{text: string, blocks: array<int, array<string, mixed>>, data?: array<string, mixed>, terminal?: bool}
      */
-    public function run(array $args, ?int $userId): array;
+    public function run(array $args, int|string|null $userId): array;
 }
