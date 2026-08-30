@@ -4,8 +4,16 @@ import FloatingAeonButton from './FloatingAeonButton.jsx';
 import AeonDrawer from './AeonDrawer.jsx';
 import { useAeon } from './useAeon.js';
 
+function useSafePageProps() {
+  try {
+    return usePage()?.props || {};
+  } catch {
+    return {};
+  }
+}
+
 export default function FloatingAeon() {
-  const pageProps = usePage()?.props || {};
+  const pageProps = useSafePageProps();
   const user = pageProps.auth?.user ?? null;
   const available = pageProps.aeon?.available ?? true;
   const aeon = useAeon();
