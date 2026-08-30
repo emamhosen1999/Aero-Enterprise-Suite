@@ -984,4 +984,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 });
 
+// Aeon AI Copilot Routes
+Route::middleware(['auth', 'verified'])->prefix('aeon')->name('aeon.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Aeon\AeonPageController::class, 'index'])->name('index');
+    Route::post('/message', [\App\Http\Controllers\Aeon\AeonController::class, 'message'])->name('message');
+    Route::post('/message/stream', [\App\Http\Controllers\Aeon\AeonController::class, 'stream'])->name('message.stream');
+    Route::get('/conversations', [\App\Http\Controllers\Aeon\AeonController::class, 'conversations'])->name('conversations.index');
+    Route::get('/conversations/{id}', [\App\Http\Controllers\Aeon\AeonController::class, 'show'])->name('conversations.show');
+    Route::delete('/conversations/{id}', [\App\Http\Controllers\Aeon\AeonController::class, 'destroy'])->name('conversations.destroy');
+    Route::post('/messages/{id}/feedback', [\App\Http\Controllers\Aeon\AeonController::class, 'feedback'])->name('messages.feedback');
+});
+
 require __DIR__.'/auth.php';
+

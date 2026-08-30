@@ -21,10 +21,33 @@ class AppServiceProvider extends ServiceProvider
         // (config endpoint, sync kill switch) may resolve flags in one request
         // and CACHE_STORE is null in production, i.e. every miss hits the DB.
         $this->app->singleton(\App\Services\FeatureFlagService::class);
+
+        // --- Aeon AI Assistant Engine Bindings ---
+        $this->app->bind(\App\Contracts\Ai\AiProvider::class, function ($app) {
+            $driver = (string) config('aeon.provider', 'gemini');
+            return match ($driver) {
+                'openai' => $app->make(\App\Services\Aeon\Providers\OpenAiCompatProvider::class),
+                default => $app->make(\App\Services\Aeon\Providers\GeminiProvider::class),
+            };
+        });
+
+        $this->app->singleton(\App\Services\Aeon\Data\SchemaCatalog::class);
+        $this->app->singleton(\App\Services\Aeon\Data\RowScope::class);
+        $this->app->singleton(\App\Services\Aeon\Data\QueryTool::class);
+        $this->app->singleton(\App\Services\Aeon\Operations\OperationResolver::class);
+        $this->app->singleton(\App\Services\Aeon\Operations\RulesIntrospector::class);
+        $this->app->singleton(\App\Services\Aeon\Operations\FormSpecBuilder::class);
+        $this->app->singleton(\App\Services\Aeon\Tools\PrepareOperationTool::class);
+        $this->app->singleton(\App\Services\Aeon\Tools\NavigateTool::class);
+        $this->app->singleton(\App\Services\Aeon\Tools\ToolRegistry::class);
+        $this->app->singleton(\App\Services\Aeon\RagService::class);
+        $this->app->singleton(\App\Services\Aeon\IndexingService::class);
+        $this->app->singleton(\App\Services\Aeon\AeonService::class);
     }
 
     /**
      * Bootstrap any application services.
+
      */
     public function boot(): void
     {

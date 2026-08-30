@@ -144,3 +144,10 @@ Schedule::command('client-errors:prune')
         Log::error('Client error telemetry prune failed');
     })
     ->appendOutputTo(storage_path('logs/client-errors-prune.log'));
+
+// Aeon AI Copilot knowledge base refresh (daily at 04:00 AM off-peak)
+Schedule::command('aeon:index')
+    ->dailyAt('04:00')->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping()
+    ->runInBackground();
+

@@ -118,8 +118,15 @@ class HandleInertiaRequests extends Middleware
                 'namespace' => config('realtime.namespace'),
             ],
 
+            // Aeon AI Assistant Status & Usage
+            'aeon' => [
+                'available' => (bool) config('aeon.enabled', true),
+                'usage' => $user ? app(\App\Services\Aeon\AeonService::class)->getUsageStatus($user->id) : null,
+            ],
+
             'url' => $request->getPathInfo(),
             'csrfToken' => session('csrfToken'),
+
 
             // Localization - shared on every request
             'locale' => App::getLocale(),

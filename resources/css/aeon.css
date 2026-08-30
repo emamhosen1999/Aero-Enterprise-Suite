@@ -1,0 +1,37 @@
+/* Aeon AI Copilot Styles for DBEDC Guardian */
+
+.aeon-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.aeon-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aeon-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--gray-5, rgba(255, 255, 255, 0.15));
+  border-radius: 9999px;
+}
+
+.aeon-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-7, rgba(255, 255, 255, 0.25));
+}
+
+.aeon-typing {
+  position: relative;
+}
+
+.aeon-typing:not(.is-done)::after {
+  content: '▋';
+  display: inline-block;
+  color: var(--accent-9, #22e3ff);
+  animation: aeon-cursor 0.7s infinite;
+  margin-left: 2px;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+@keyframes aeon-cursor {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}

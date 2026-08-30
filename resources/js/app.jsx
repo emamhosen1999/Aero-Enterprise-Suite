@@ -14,6 +14,7 @@ import queryClient from './api/reactQueryClient';
 import { showToast } from './utils/toastUtils';
 import { initInstantNavigation } from './Utils/instant-navigation';
 import { subscribeDesktopNavigation } from './Utils/desktop-bridge';
+import FloatingAeon from './aeon/FloatingAeon';
 
 // Initialize secure device authentication
 initializeDeviceAuth();
@@ -127,8 +128,10 @@ createInertiaApp({
                     <RadixThemeProvider>
                         <RadixThemeShell>
                             <App {...props} />
+                            <FloatingAeon />
                         </RadixThemeShell>
                     </RadixThemeProvider>
+
                 </QueryClientProvider>
             </ErrorBoundary>
         );
