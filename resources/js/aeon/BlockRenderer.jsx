@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Flex, Box, Text, Heading, Badge, Button, Table, Avatar } from '@radix-ui/themes';
+import { Search, ChevronRight, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
 import Markdown from './Markdown.jsx';
 import AeonForm from './AeonForm.jsx';
 
@@ -63,13 +64,96 @@ function Spark({ points = [] }) {
   );
 }
 
+function StatusCell({ value }) {
+  const text = String(value || '');
+  const lower = text.toLowerCase();
+
+  if (lower.includes('closed') || lower.includes('resolved') || lower.includes('approved') || lower.includes('online') || lower.includes('success')) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)', fontWeight: 500 }}>
+        <CheckCircle2 size={11} /> {text}
+      </span>
+    );
+  }
+
+  if (lower.includes('open') || lower.includes('pending') || lower.includes('review') || lower.includes('active')) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', fontWeight: 500 }}>
+        <AlertTriangle size={11} /> {text}
+      </span>
+    );
+  }
+
+  if (lower.includes('rejected') || lower.includes('fail') || lower.includes('error') || lower.includes('absent')) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 500 }}>
+        <XCircle size={11} /> {text}
+      </span>
+    );
+  }
+
+  return <span>{text}</span>;
+}
+
+function InteractiveTable({ columns = [], rows = [] }) {
+  const [filter, setFilter] = useState('');
+  const filteredRows = rows.filter((row) => {
+    if (!filter) return true;
+    const s = Array.isArray(row) ? row.join(' ') : String(row);
+    return s.toLowerCase().includes(filter.toLowerCase());
+  });
+
+  return (
+    <div className="my-2.5 overflow-hidden rounded-xl border border-[var(--gray-4,rgba(255,255,255,0.08))] bg-[var(--gray-2,rgba(255,255,255,0.02))]">
+      {rows.length > 4 && (
+        <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--gray-4, rgba(255,255,255,0.06))', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)' }}>
+          <Search size={12} color="var(--gray-9)" />
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter table rows…"
+            style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '11px', outline: 'none', width: '100%' }}
+          />
+        </div>
+      )}
+      <div style={{ overflowX: 'auto' }}>
+        <Table.Root size="1" variant="surface">
+          {columns.length ? (
+            <Table.Header>
+              <Table.Row>
+                {columns.map((c, i) => (
+                  <Table.ColumnHeaderCell key={i} className="text-xs font-bold text-[var(--accent-11,#22e3ff)] py-2">
+                    {c}
+                  </Table.ColumnHeaderCell>
+                ))}
+              </Table.Row>
+            </Table.Header>
+          ) : null}
+          <Table.Body>
+            {filteredRows.map((row, i) => (
+              <Table.Row key={i} className="hover:bg-[var(--gray-3,rgba(255,255,255,0.04))] transition-colors">
+                {(Array.isArray(row) ? row : [row]).map((cell, j) => (
+                  <Table.Cell key={j} className="text-xs py-2 text-[var(--gray-12)]">
+                    <StatusCell value={cell} />
+                  </Table.Cell>
+                ))}
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
+      </div>
+    </div>
+  );
+}
+
 function Block({ block, onAction, animate, onAnimated }) {
   switch (block.type) {
     case 'stats':
       return (
         <div className="grid grid-cols-2 gap-2 my-2.5">
           {(block.items || []).map((s, i) => (
-            <Card key={i} size="1" variant="surface" className="p-3 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl">
+            <Card key={i} size="1" variant="surface" className="p-3 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl hover:border-[var(--accent-6,rgba(34,227,255,0.3))] transition-all">
               <Text size="1" color="gray" weight="medium" className="truncate">{s.k}</Text>
               <Heading size="4" className="mt-1 font-mono tracking-tight text-[var(--accent-11,#22e3ff)]">{s.v}</Heading>
               {s.d ? (
@@ -161,43 +245,16 @@ function Block({ block, onAction, animate, onAnimated }) {
     }
 
     case 'table':
-      return (
-        <div className="my-2.5 overflow-x-auto rounded-xl border border-[var(--gray-4,rgba(255,255,255,0.08))] bg-[var(--gray-2,rgba(255,255,255,0.02))]">
-          <Table.Root size="1" variant="surface">
-            {block.columns?.length ? (
-              <Table.Header>
-                <Table.Row>
-                  {block.columns.map((c, i) => (
-                    <Table.ColumnHeaderCell key={i} className="text-xs font-bold text-[var(--accent-11,#22e3ff)] py-2">
-                      {c}
-                    </Table.ColumnHeaderCell>
-                  ))}
-                </Table.Row>
-              </Table.Header>
-            ) : null}
-            <Table.Body>
-              {(block.rows || []).map((row, i) => (
-                <Table.Row key={i} className="hover:bg-[var(--gray-3,rgba(255,255,255,0.04))] transition-colors">
-                  {(Array.isArray(row) ? row : [row]).map((cell, j) => (
-                    <Table.Cell key={j} className="text-xs py-2 text-[var(--gray-12)]">
-                      {cell}
-                    </Table.Cell>
-                  ))}
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
-        </div>
-      );
+      return <InteractiveTable columns={block.columns || []} rows={block.rows || []} />;
 
     case 'entityCard': {
       const title = block.title || '';
       return (
-        <Card size="1" variant="surface" className="p-3.5 my-2.5 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl">
+        <Card size="1" variant="surface" className="p-3.5 my-2.5 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl hover:border-[var(--accent-6,rgba(34,227,255,0.3))] transition-all">
           <Flex align="center" gap="3" className="mb-3">
             <Avatar fallback={title.slice(0, 2).toUpperCase()} size="2" radius="full" color="cyan" />
             <Box className="min-w-0">
-              <Text size="2" weight="bold" className="truncate block">{title}</Text>
+              <Text size="2" weight="bold" className="truncate block text-[var(--accent-11,#22e3ff)]">{title}</Text>
               {block.subtitle && <Text size="1" color="gray" className="truncate block">{block.subtitle}</Text>}
             </Box>
           </Flex>
