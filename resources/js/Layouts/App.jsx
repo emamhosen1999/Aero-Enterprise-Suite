@@ -21,8 +21,10 @@ import { GlobalAutoTranslator } from '@/Contexts/GlobalAutoTranslator';
 import { AppStateProvider } from '@/Contexts/AppStateContext';
 import { useVersionManager } from '@/Hooks/useVersionManager.js';
 import NavigationProgress from '@/Components/NavigationProgress.jsx';
+import FloatingAeon from '@/aeon/FloatingAeon';
 
 import '@/utils/serviceWorkerManager.js';
+
 import queryClient from '@/api/reactQueryClient';
 
 const PageContent = React.memo(({ children, url }) => (
@@ -211,25 +213,12 @@ const App = React.memo(({ children }) => {
                 )}
               </Flex>
 
-              {/* Floating theme FAB — desktop only */}
-              {!isMobile && auth?.user && (
-                <Box style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}>
-                  <Tooltip content="Customize theme" side="left">
-                    <IconButton
-                      size="4"
-                      variant="solid"
-                      onClick={toggleThemeDrawer}
-                      aria-label="Open theme settings"
-                      style={{ borderRadius: '50%', boxShadow: 'var(--shadow-6)' }}
-                    >
-                      <MixerHorizontalIcon style={{ width: 20, height: 20 }} />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              )}
+              {/* Floating Aeon AI Copilot launcher */}
+              <FloatingAeon />
 
             </Box>
           </AuthGuard>
+
         </AppStateProvider>
       </GlobalAutoTranslator>
     </TranslationProvider>
