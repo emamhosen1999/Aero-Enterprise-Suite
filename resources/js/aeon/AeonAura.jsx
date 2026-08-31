@@ -79,5 +79,5 @@ export default function AeonAura() {
     };
   }, []);
 
-  return <canvas ref={ref} className="aeon-aura pointer-events-none absolute inset-0 w-full h-full opacity-60" aria-hidden="true" />;
+  return <canvas ref={ref} className="aeon-aura" aria-hidden="true" />;
 }

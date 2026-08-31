@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Flex, Box, Text, Avatar } from '@radix-ui/themes';
 import { Send, ThumbsUp, ThumbsDown, Mic, MicOff, Copy, Check } from 'lucide-react';
 import AeonCore from './AeonCore.jsx';
 import BlockRenderer from './BlockRenderer.jsx';
@@ -47,14 +46,26 @@ const SUGGESTIONS = {
 
 function UserAvatar({ user }) {
   const name = user?.name || user?.full_name || 'You';
+  const initials = name.slice(0, 2).toUpperCase();
   return (
-    <Avatar
-      fallback={name.slice(0, 2).toUpperCase()}
-      src={user?.avatar_url || user?.profile_photo_url}
-      size="1"
-      radius="full"
-      color="cyan"
-    />
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, var(--aeon-cyan), var(--aeon-violet))',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 11,
+        fontWeight: 700,
+        flexShrink: 0,
+        marginTop: 2,
+      }}
+    >
+      {initials}
+    </div>
   );
 }
 
@@ -150,7 +161,7 @@ export default function AeonConversation({
       <div ref={scrollRef} className="aeon-messages-scroll">
         {messages.length === 0 ? (
           <div className="aeon-welcome-card">
-            <AeonCore state="idle" size={56} />
+            <AeonCore state="idle" size={64} />
             <div className="aeon-welcome-title">Welcome to Aeon Copilot</div>
             <div className="aeon-welcome-subtitle">
               Your intelligent operations, quality control, TMC, and HRM copilot across DBEDC Guardian.
@@ -179,11 +190,11 @@ export default function AeonConversation({
                   onClick={() => onSend(s.text)}
                   className="aeon-prompt-chip"
                 >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '15px' }}>{s.icon}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>{s.icon}</span>
                     <span>{s.text}</span>
                   </span>
-                  <span style={{ opacity: 0.5 }}>→</span>
+                  <span style={{ opacity: 0.4, fontSize: 14 }}>→</span>
                 </button>
               ))}
             </div>
@@ -204,7 +215,7 @@ export default function AeonConversation({
                 className={`aeon-message ${m.role === 'user' ? 'is-user' : 'is-assistant'}`}
               >
                 {m.role === 'user' ? (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, justifyContent: 'flex-end' }}>
                     <div className="aeon-user-bubble">
                       <BlockRenderer
                         blocks={m.blocks}
@@ -215,27 +226,8 @@ export default function AeonConversation({
                     <UserAvatar user={user} />
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                    <div
-                      style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        background: 'var(--accent-3, rgba(34,227,255,0.15))',
-                        color: 'var(--accent-11, #22e3ff)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '13px',
-                        fontWeight: 'bold',
-                        flexShrink: 0,
-                        marginTop: '2px',
-                        border: '1px solid var(--accent-6, rgba(34,227,255,0.35))',
-                        boxShadow: '0 0 10px rgba(34,227,255,0.2)',
-                      }}
-                    >
-                      ✦
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div className="aeon-avatar-icon">✦</div>
                     <div className="aeon-assistant-bubble">
                       <BlockRenderer
                         blocks={m.blocks}
@@ -244,19 +236,8 @@ export default function AeonConversation({
                         onAnimated={() => markAnimated?.(key)}
                       />
 
-                      <div
-                        style={{
-                          marginTop: '10px',
-                          paddingTop: '8px',
-                          borderTop: '1px solid var(--gray-4, rgba(255,255,255,0.06))',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          fontSize: '11px',
-                          color: 'var(--gray-9, #94a3b8)',
-                        }}
-                      >
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div className="aeon-msg-footer">
+                        <div className="aeon-msg-footer-actions">
                           <button
                             type="button"
                             onClick={() => copyMessage(key, msgText)}
@@ -264,11 +245,11 @@ export default function AeonConversation({
                             title="Copy response"
                           >
                             {copiedId === key ? (
-                              <span style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <span style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: 3 }}>
                                 <Check size={12} /> Copied
                               </span>
                             ) : (
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                                 <Copy size={12} /> Copy
                               </span>
                             )}
@@ -281,11 +262,11 @@ export default function AeonConversation({
                                 onClick={() => onFeedback(m.id, 1)}
                                 className="aeon-icon-btn"
                                 style={{
-                                  color: m.feedback === 1 ? 'var(--accent-11, #22e3ff)' : 'inherit',
+                                  color: m.feedback === 1 ? 'var(--aeon-cyan)' : 'inherit',
                                 }}
                                 title="Helpful"
                               >
-                                <ThumbsUp size={12} style={{ marginRight: '3px' }} /> Helpful
+                                <ThumbsUp size={12} style={{ marginRight: 3 }} /> Helpful
                               </button>
                               <button
                                 type="button"
@@ -302,7 +283,7 @@ export default function AeonConversation({
                           )}
                         </div>
 
-                        <span style={{ fontSize: '9.5px', color: 'var(--gray-8, #64748b)' }}>
+                        <span className="aeon-msg-footer-badge">
                           Verified Guarded AI
                         </span>
                       </div>
@@ -316,26 +297,8 @@ export default function AeonConversation({
 
         {sending && (
           <div className="aeon-message is-assistant">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'var(--accent-3, rgba(34,227,255,0.15))',
-                  color: 'var(--accent-11, #22e3ff)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  flexShrink: 0,
-                  border: '1px solid var(--accent-6, rgba(34,227,255,0.35))',
-                  animation: 'aeonPulse 1.5s infinite',
-                }}
-              >
-                ✦
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="aeon-avatar-icon is-thinking">✦</div>
               <div className="aeon-stage-banner">
                 <span className="aeon-status-dot is-thinking" />
                 <span>{stage || 'Aeon is reasoning across expressway data…'}</span>

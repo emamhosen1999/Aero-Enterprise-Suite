@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Maximize2, Minimize2, X, History, Plus, Download, Trash2 } from 'lucide-react';
+import { Maximize2, Minimize2, X, History, Plus, Download } from 'lucide-react';
 import AeonCore from './AeonCore.jsx';
 import AeonAura from './AeonAura.jsx';
 import AeonConversation from './AeonConversation.jsx';
@@ -120,7 +120,7 @@ export default function AeonDrawer({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <button
               type="button"
               onClick={toggleHistory}
@@ -183,8 +183,8 @@ export default function AeonDrawer({
         {/* History Flyout Sidebar */}
         {showHistory && (
           <div className="aeon-history-sidebar">
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--aeon-border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray-12)' }}>Recent Chats</span>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--aeon-border-glass-strong)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--aeon-text-primary)' }}>Recent Chats</span>
               {onNewChat && (
                 <button
                   type="button"
@@ -193,7 +193,7 @@ export default function AeonDrawer({
                     onNewChat();
                   }}
                   className="aeon-icon-btn"
-                  style={{ fontSize: '11px', gap: '4px' }}
+                  style={{ fontSize: 11, gap: 4 }}
                 >
                   <Plus size={13} /> New
                 </button>
@@ -201,7 +201,7 @@ export default function AeonDrawer({
             </div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {historyList.length === 0 ? (
-                <div style={{ padding: '24px 14px', textAlign: 'center', fontSize: '12px', color: 'var(--gray-9)' }}>
+                <div style={{ padding: '24px 14px', textAlign: 'center', fontSize: 12, color: 'var(--aeon-text-muted)' }}>
                   No previous conversations
                 </div>
               ) : (
@@ -217,7 +217,7 @@ export default function AeonDrawer({
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {c.title || 'Conversation #' + c.id}
                     </span>
-                    <span style={{ fontSize: '10px', color: 'var(--gray-9)', flexShrink: 0 }}>
+                    <span style={{ fontSize: 10, color: 'var(--aeon-text-muted)', flexShrink: 0 }}>
                       {new Date(c.updated_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
@@ -227,7 +227,7 @@ export default function AeonDrawer({
           </div>
         )}
 
-        {/* Conversation Body */}
+        {/* Conversation Body — fills remaining space */}
         <div className="aeon-conversation-wrap">
           <AeonConversation
             messages={messages}

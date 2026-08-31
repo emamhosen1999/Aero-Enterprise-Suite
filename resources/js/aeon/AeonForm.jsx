@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { Card, Flex, Box, Text, Button, TextField, TextArea, Select, Switch, Badge, Callout } from '@radix-ui/themes';
 import { submitAeonForm } from './aeonClient.js';
 
 export default function AeonForm({ block, onAction }) {
@@ -50,56 +49,106 @@ export default function AeonForm({ block, onAction }) {
 
   if (state === 'done') {
     return (
-      <Card size="1" variant="surface" className="p-4 my-3 bg-green-950/20 border border-green-500/30 rounded-xl">
-        <Flex align="center" gap="3" className="mb-3">
-          <div className="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center font-bold">
+      <div className="aeon-form-success">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              background: 'rgba(34,197,94,0.2)',
+              color: '#4ade80',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              fontSize: 16,
+              flexShrink: 0,
+            }}
+          >
             ✓
           </div>
-          <Box>
-            <Text size="2" weight="bold" className="text-green-300">Successfully Submitted</Text>
-            <Text size="1" color="gray" className="block">Saved to Guardian with full authorization & audit logging.</Text>
-          </Box>
-        </Flex>
-        <Button
-          size="2"
-          color="green"
-          variant="soft"
-          className="cursor-pointer font-medium"
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80' }}>Successfully Submitted</div>
+            <div style={{ fontSize: 11, color: 'var(--aeon-text-secondary)' }}>
+              Saved to Guardian with full authorization & audit logging.
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
           onClick={() => onAction?.({ kind: 'navigate', block: { route: block.action || '/' } })}
+          style={{
+            padding: '8px 16px',
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: 600,
+            border: 'none',
+            background: 'rgba(34,197,94,0.15)',
+            color: '#4ade80',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
         >
           View Records →
-        </Button>
-      </Card>
+        </button>
+      </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="my-3">
-      <Card size="1" variant="surface" className="p-4 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl">
-        <Flex justify="between" align="center" className="mb-3">
-          <Badge size="1" color="cyan" variant="soft">{block.kind?.toUpperCase() || 'FORM'}</Badge>
-          <Text size="2" weight="bold" className="text-[var(--gray-12)]">{block.title}</Text>
-        </Flex>
+    <form onSubmit={submit} style={{ margin: '12px 0' }}>
+      <div className="aeon-form-card">
+        <div className="aeon-form-header">
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              padding: '3px 10px',
+              borderRadius: 9999,
+              background: 'rgba(34,227,255,0.1)',
+              color: 'var(--aeon-cyan)',
+              border: '1px solid rgba(34,227,255,0.25)',
+            }}
+          >
+            {block.kind?.toUpperCase() || 'FORM'}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--aeon-text-primary)' }}>
+            {block.title}
+          </span>
+        </div>
 
         {banner && (
-          <Callout.Root color="red" size="1" className="mb-3">
-            <Callout.Text size="1">{banner}</Callout.Text>
-          </Callout.Root>
+          <div
+            style={{
+              padding: '8px 12px',
+              borderRadius: 8,
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.2)',
+              color: '#f87171',
+              fontSize: 12,
+              marginBottom: 12,
+            }}
+          >
+            {banner}
+          </div>
         )}
 
-        <div className="space-y-3">
+        <div className="aeon-form-fields">
           {(block.fields || []).map((f) => (
-            <div key={f.name} className="space-y-1">
-              <Flex justify="between">
-                <Text size="1" weight="medium" className="text-[var(--gray-11)]">
-                  {f.label} {f.required && <span className="text-red-400">*</span>}
-                </Text>
+            <div key={f.name} className="aeon-form-field">
+              <div className="aeon-form-label">
+                <span>
+                  {f.label} {f.required && <span style={{ color: '#f87171' }}>*</span>}
+                </span>
                 {errors[f.name] && (
-                  <Text size="1" color="red" className="text-[11px]">
+                  <span style={{ fontSize: 11, color: '#f87171' }}>
                     {Array.isArray(errors[f.name]) ? errors[f.name][0] : String(errors[f.name])}
-                  </Text>
+                  </span>
                 )}
-              </Flex>
+              </div>
 
               <FieldControl
                 field={f}
@@ -110,60 +159,109 @@ export default function AeonForm({ block, onAction }) {
           ))}
         </div>
 
-        <Flex justify="between" align="center" className="mt-4 pt-3 border-t border-[var(--gray-4,rgba(255,255,255,0.08))]">
-          <Text size="1" color="gray" className="text-[11px] truncate max-w-[200px]">
+        <div className="aeon-form-footer">
+          <span style={{ fontSize: 11, color: 'var(--aeon-text-muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {block.note || 'Secured endpoint'}
-          </Text>
-          <Button
+          </span>
+          <button
             type="submit"
-            size="2"
-            color="cyan"
-            variant="solid"
             disabled={state === 'sending'}
-            className="cursor-pointer font-medium"
+            style={{
+              padding: '8px 18px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              border: 'none',
+              background: state === 'sending' ? 'rgba(34,227,255,0.3)' : 'linear-gradient(135deg, var(--aeon-cyan), var(--aeon-violet))',
+              color: '#fff',
+              cursor: state === 'sending' ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 12px rgba(34,227,255,0.2)',
+            }}
           >
             {state === 'sending' ? 'Submitting…' : (block.submit_label || 'Submit')}
-          </Button>
-        </Flex>
-      </Card>
+          </button>
+        </div>
+      </div>
     </form>
   );
 }
+
+const fieldInputStyle = {
+  width: '100%',
+  padding: '8px 12px',
+  borderRadius: 8,
+  fontSize: 12,
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  color: 'var(--aeon-text-primary)',
+  outline: 'none',
+  fontFamily: 'inherit',
+  transition: 'border-color 0.15s ease',
+  boxSizing: 'border-box',
+};
 
 function FieldControl({ field, value, onChange }) {
   switch (field.type) {
     case 'select':
       return (
-        <Select.Root value={value ? String(value) : undefined} onValueChange={onChange}>
-          <Select.Trigger placeholder="Select an option…" className="w-full text-xs" />
-          <Select.Content position="popper">
-            {(field.options || []).map((o) => (
-              <Select.Item key={String(o.value)} value={String(o.value)}>
-                {o.label}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
+        <select
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ ...fieldInputStyle, appearance: 'none', cursor: 'pointer' }}
+        >
+          <option value="">Select an option…</option>
+          {(field.options || []).map((o) => (
+            <option key={String(o.value)} value={String(o.value)}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       );
 
     case 'textarea':
       return (
-        <TextArea
-          size="1"
+        <textarea
           rows={3}
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Enter ${field.label.toLowerCase()}…`}
-          className="text-xs"
+          style={{ ...fieldInputStyle, resize: 'vertical', minHeight: 60 }}
         />
       );
 
     case 'toggle':
       return (
-        <Flex align="center" gap="2" className="py-1">
-          <Switch checked={!!value} onCheckedChange={onChange} size="1" color="cyan" />
-          <Text size="1" color="gray">{value ? 'Yes' : 'No'}</Text>
-        </Flex>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+          <button
+            type="button"
+            onClick={() => onChange(!value)}
+            style={{
+              width: 36,
+              height: 20,
+              borderRadius: 10,
+              border: 'none',
+              background: value ? 'var(--aeon-cyan)' : 'rgba(255,255,255,0.15)',
+              cursor: 'pointer',
+              position: 'relative',
+              transition: 'background 0.2s',
+            }}
+          >
+            <span
+              style={{
+                position: 'absolute',
+                top: 2,
+                left: value ? 18 : 2,
+                width: 16,
+                height: 16,
+                borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 0.2s',
+              }}
+            />
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--aeon-text-secondary)' }}>{value ? 'Yes' : 'No'}</span>
+        </div>
       );
 
     case 'date':
@@ -172,31 +270,29 @@ function FieldControl({ field, value, onChange }) {
           type="date"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-2.5 py-1.5 rounded-md text-xs bg-[var(--gray-3,rgba(255,255,255,0.06))] border border-[var(--gray-5,rgba(255,255,255,0.12))] text-[var(--gray-12)] focus:outline-none focus:border-[var(--accent-9)]"
+          style={fieldInputStyle}
         />
       );
 
     case 'number':
       return (
-        <TextField.Root
-          size="1"
+        <input
           type="number"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Enter ${field.label.toLowerCase()}…`}
-          className="text-xs"
+          style={fieldInputStyle}
         />
       );
 
     default:
       return (
-        <TextField.Root
-          size="1"
+        <input
           type={field.type || 'text'}
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={`Enter ${field.label.toLowerCase()}…`}
-          className="text-xs"
+          style={fieldInputStyle}
         />
       );
   }

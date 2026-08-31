@@ -115,5 +115,5 @@ export default function AeonCore({ state = 'listening', size = 44 }) {
     return () => cancelAnimationFrame(raf);
   }, [size]);
 
-  return <canvas ref={ref} className="aeon-core select-none" style={{ width: size, height: size }} aria-hidden="true" />;
+  return <canvas ref={ref} style={{ width: size, height: size, flexShrink: 0, userSelect: 'none' }} aria-hidden="true" />;
 }

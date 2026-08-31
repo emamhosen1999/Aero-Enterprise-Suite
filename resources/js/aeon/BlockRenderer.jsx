@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Flex, Box, Text, Heading, Badge, Button, Table, Avatar } from '@radix-ui/themes';
-import { Search, ChevronRight, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { Search, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import Markdown from './Markdown.jsx';
 import AeonForm from './AeonForm.jsx';
 
@@ -50,16 +49,16 @@ function Spark({ points = [] }) {
   const last = points.length - 1;
 
   return (
-    <svg className="aeon-spark w-full h-16" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label="trend">
+    <svg className="aeon-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label="trend">
       <defs>
         <linearGradient id="aeonSparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="var(--accent-9, #22e3ff)" stopOpacity="0.35" />
-          <stop offset="1" stopColor="var(--accent-9, #22e3ff)" stopOpacity="0" />
+          <stop offset="0" stopColor="var(--aeon-cyan, #22e3ff)" stopOpacity="0.35" />
+          <stop offset="1" stopColor="var(--aeon-cyan, #22e3ff)" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={a} fill="url(#aeonSparkGrad)" />
-      <path d={d} fill="none" stroke="var(--accent-9, #22e3ff)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={xs(last)} cy={ys(points[last])} r="3.5" fill="var(--accent-9, #22e3ff)" />
+      <path d={d} fill="none" stroke="var(--aeon-cyan, #22e3ff)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={xs(last)} cy={ys(points[last])} r="3.5" fill="var(--aeon-cyan, #22e3ff)" />
     </svg>
   );
 }
@@ -70,7 +69,7 @@ function StatusCell({ value }) {
 
   if (lower.includes('closed') || lower.includes('resolved') || lower.includes('approved') || lower.includes('online') || lower.includes('success')) {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)', fontWeight: 500 }}>
+      <span className="aeon-status-badge is-success">
         <CheckCircle2 size={11} /> {text}
       </span>
     );
@@ -78,7 +77,7 @@ function StatusCell({ value }) {
 
   if (lower.includes('open') || lower.includes('pending') || lower.includes('review') || lower.includes('active')) {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', fontWeight: 500 }}>
+      <span className="aeon-status-badge is-warning">
         <AlertTriangle size={11} /> {text}
       </span>
     );
@@ -86,7 +85,7 @@ function StatusCell({ value }) {
 
   if (lower.includes('rejected') || lower.includes('fail') || lower.includes('error') || lower.includes('absent')) {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 500 }}>
+      <span className="aeon-status-badge is-error">
         <XCircle size={11} /> {text}
       </span>
     );
@@ -104,44 +103,69 @@ function InteractiveTable({ columns = [], rows = [] }) {
   });
 
   return (
-    <div className="my-2.5 overflow-hidden rounded-xl border border-[var(--gray-4,rgba(255,255,255,0.08))] bg-[var(--gray-2,rgba(255,255,255,0.02))]">
+    <div className="aeon-table-wrap">
       {rows.length > 4 && (
-        <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--gray-4, rgba(255,255,255,0.06))', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)' }}>
-          <Search size={12} color="var(--gray-9)" />
+        <div className="aeon-table-filter">
+          <Search size={12} color="var(--aeon-text-muted)" />
           <input
             type="text"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Filter table rows…"
-            style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '11px', outline: 'none', width: '100%' }}
           />
         </div>
       )}
       <div style={{ overflowX: 'auto' }}>
-        <Table.Root size="1" variant="surface">
-          {columns.length ? (
-            <Table.Header>
-              <Table.Row>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          {columns.length > 0 && (
+            <thead>
+              <tr>
                 {columns.map((c, i) => (
-                  <Table.ColumnHeaderCell key={i} className="text-xs font-bold text-[var(--accent-11,#22e3ff)] py-2">
+                  <th
+                    key={i}
+                    style={{
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: 'var(--aeon-cyan)',
+                      borderBottom: '1px solid var(--aeon-border-glass-strong)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     {c}
-                  </Table.ColumnHeaderCell>
+                  </th>
                 ))}
-              </Table.Row>
-            </Table.Header>
-          ) : null}
-          <Table.Body>
+              </tr>
+            </thead>
+          )}
+          <tbody>
             {filteredRows.map((row, i) => (
-              <Table.Row key={i} className="hover:bg-[var(--gray-3,rgba(255,255,255,0.04))] transition-colors">
+              <tr
+                key={i}
+                style={{
+                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
                 {(Array.isArray(row) ? row : [row]).map((cell, j) => (
-                  <Table.Cell key={j} className="text-xs py-2 text-[var(--gray-12)]">
+                  <td
+                    key={j}
+                    style={{
+                      padding: '8px 12px',
+                      color: 'var(--aeon-text-primary)',
+                      fontSize: '12px',
+                    }}
+                  >
                     <StatusCell value={cell} />
-                  </Table.Cell>
+                  </td>
                 ))}
-              </Table.Row>
+              </tr>
             ))}
-          </Table.Body>
-        </Table.Root>
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -151,30 +175,30 @@ function Block({ block, onAction, animate, onAnimated }) {
   switch (block.type) {
     case 'stats':
       return (
-        <div className="grid grid-cols-2 gap-2 my-2.5">
+        <div className="aeon-stats-grid">
           {(block.items || []).map((s, i) => (
-            <Card key={i} size="1" variant="surface" className="p-3 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl hover:border-[var(--accent-6,rgba(34,227,255,0.3))] transition-all">
-              <Text size="1" color="gray" weight="medium" className="truncate">{s.k}</Text>
-              <Heading size="4" className="mt-1 font-mono tracking-tight text-[var(--accent-11,#22e3ff)]">{s.v}</Heading>
-              {s.d ? (
-                <Badge size="1" color={s.dir === 'down' ? 'red' : 'green'} variant="soft" className="mt-1">
+            <div key={i} className="aeon-stat-card">
+              <div className="aeon-stat-label">{s.k}</div>
+              <div className="aeon-stat-value">{s.v}</div>
+              {s.d && (
+                <span className={`aeon-stat-delta ${s.dir === 'down' ? 'is-down' : 'is-up'}`}>
                   {s.d}
-                </Badge>
-              ) : null}
-            </Card>
+                </span>
+              )}
+            </div>
           ))}
         </div>
       );
 
     case 'chart':
       return (
-        <Card size="1" variant="surface" className="p-3.5 my-2.5 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl">
-          <Flex justify="between" align="center" className="mb-2">
-            <Text size="2" weight="bold">{block.title || 'Trend'}</Text>
-            {block.value && <Badge size="1" variant="outline" color="cyan">{block.value}</Badge>}
-          </Flex>
+        <div className="aeon-chart-card">
+          <div className="aeon-chart-header">
+            <span className="aeon-chart-title">{block.title || 'Trend'}</span>
+            {block.value && <span className="aeon-chart-badge">{block.value}</span>}
+          </div>
           <Spark points={block.points || []} />
-        </Card>
+        </div>
       );
 
     case 'donut': {
@@ -190,30 +214,25 @@ function Block({ block, onAction, animate, onAnimated }) {
       }).join(', ');
 
       return (
-        <Card size="1" variant="surface" className="p-3.5 my-2.5 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl">
-          {block.title && <Text size="2" weight="bold" className="mb-3 block">{block.title}</Text>}
-          <Flex gap="4" align="center">
-            <div
-              className="relative w-20 h-20 rounded-full flex items-center justify-center shrink-0 shadow-inner"
-              style={{ background: `conic-gradient(${stops})` }}
-            >
-              <div className="w-13 h-13 rounded-full bg-[var(--color-background,#0f172a)] flex items-center justify-center font-bold text-xs">
-                {total}
-              </div>
+        <div className="aeon-donut-card">
+          {block.title && <div className="aeon-donut-title">{block.title}</div>}
+          <div className="aeon-donut-layout">
+            <div className="aeon-donut-ring" style={{ background: `conic-gradient(${stops})` }}>
+              <div className="aeon-donut-center">{total}</div>
             </div>
-            <div className="space-y-1.5 flex-1 min-w-0">
+            <div className="aeon-donut-legend">
               {items.map((it, i) => (
-                <Flex key={i} justify="between" align="center" className="text-xs">
-                  <Flex align="center" gap="2" className="min-w-0">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colors[i % colors.length] }} />
-                    <span className="truncate text-[var(--gray-11)]">{it.label}</span>
-                  </Flex>
-                  <span className="font-mono font-medium ml-2">{it.value}</span>
-                </Flex>
+                <div key={i} className="aeon-donut-legend-item">
+                  <div className="aeon-donut-legend-label">
+                    <span className="aeon-donut-legend-dot" style={{ background: colors[i % colors.length] }} />
+                    <span className="aeon-donut-legend-text">{it.label}</span>
+                  </div>
+                  <span className="aeon-donut-legend-value">{it.value}</span>
+                </div>
               ))}
             </div>
-          </Flex>
-        </Card>
+          </div>
+        </div>
       );
     }
 
@@ -222,25 +241,25 @@ function Block({ block, onAction, animate, onAnimated }) {
       const max = Math.max(1, ...items.map((it) => Number(it.value) || 0));
 
       return (
-        <Card size="1" variant="surface" className="p-3.5 my-2.5 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl">
-          {block.title && <Text size="2" weight="bold" className="mb-3 block">{block.title}</Text>}
-          <div className="space-y-2">
+        <div className="aeon-bar-card">
+          {block.title && <div className="aeon-bar-title">{block.title}</div>}
+          <div className="aeon-bar-items">
             {items.map((it, i) => (
-              <div key={i} className="text-xs">
-                <Flex justify="between" className="mb-1">
-                  <span className="truncate text-[var(--gray-11)]">{it.label}</span>
-                  <span className="font-mono font-semibold">{it.value}</span>
-                </Flex>
-                <div className="w-full bg-[var(--gray-4,rgba(255,255,255,0.1))] h-2 rounded-full overflow-hidden">
+              <div key={i}>
+                <div className="aeon-bar-item-header">
+                  <span className="aeon-bar-item-label">{it.label}</span>
+                  <span className="aeon-bar-item-value">{it.value}</span>
+                </div>
+                <div className="aeon-bar-track">
                   <div
-                    className="bg-[var(--accent-9,#22e3ff)] h-full rounded-full transition-all duration-500"
+                    className="aeon-bar-fill"
                     style={{ width: `${Math.round(((Number(it.value) || 0) / max) * 100)}%` }}
                   />
                 </div>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       );
     }
 
@@ -250,67 +269,103 @@ function Block({ block, onAction, animate, onAnimated }) {
     case 'entityCard': {
       const title = block.title || '';
       return (
-        <Card size="1" variant="surface" className="p-3.5 my-2.5 bg-[var(--gray-2,rgba(255,255,255,0.03))] border border-[var(--gray-4,rgba(255,255,255,0.08))] rounded-xl hover:border-[var(--accent-6,rgba(34,227,255,0.3))] transition-all">
-          <Flex align="center" gap="3" className="mb-3">
-            <Avatar fallback={title.slice(0, 2).toUpperCase()} size="2" radius="full" color="cyan" />
-            <Box className="min-w-0">
-              <Text size="2" weight="bold" className="truncate block text-[var(--accent-11,#22e3ff)]">{title}</Text>
-              {block.subtitle && <Text size="1" color="gray" className="truncate block">{block.subtitle}</Text>}
-            </Box>
-          </Flex>
-          {block.fields?.length ? (
-            <div className="grid grid-cols-2 gap-2 text-xs border-t border-[var(--gray-4,rgba(255,255,255,0.08))] pt-2.5">
+        <div className="aeon-entity-card">
+          <div className="aeon-entity-header">
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(34,227,255,0.15), rgba(140,107,255,0.1))',
+                color: 'var(--aeon-cyan)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 13,
+                fontWeight: 700,
+                flexShrink: 0,
+                border: '1px solid rgba(34,227,255,0.25)',
+              }}
+            >
+              {title.slice(0, 2).toUpperCase()}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="aeon-entity-title">{title}</div>
+              {block.subtitle && <div className="aeon-entity-subtitle">{block.subtitle}</div>}
+            </div>
+          </div>
+          {block.fields?.length > 0 && (
+            <div className="aeon-entity-fields">
               {block.fields.map((f, i) => (
                 <div key={i}>
-                  <span className="text-[var(--gray-10)] block text-[11px]">{f.k}</span>
-                  <span className="font-medium text-[var(--gray-12)] truncate block">{f.v}</span>
+                  <span className="aeon-entity-field-label">{f.k}</span>
+                  <span className="aeon-entity-field-value">{f.v}</span>
                 </div>
               ))}
             </div>
-          ) : null}
-        </Card>
+          )}
+        </div>
       );
     }
 
     case 'chips':
       return (
-        <Flex gap="1.5" wrap="wrap" className="my-2">
+        <div className="aeon-chips">
           {(block.items || []).map((c, i) => (
-            <Button
+            <button
               key={i}
-              size="1"
-              variant="soft"
-              color={block.variant === 'source' ? 'gray' : 'cyan'}
-              className="rounded-full text-xs cursor-pointer"
+              type="button"
               onClick={block.variant === 'source' ? undefined : () => onAction?.({ kind: 'chip', value: c })}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '9999px',
+                fontSize: '11px',
+                fontWeight: 500,
+                border: '1px solid rgba(34,227,255,0.25)',
+                background: 'rgba(34,227,255,0.08)',
+                color: block.variant === 'source' ? 'var(--aeon-text-secondary)' : 'var(--aeon-cyan)',
+                cursor: block.variant === 'source' ? 'default' : 'pointer',
+                transition: 'all 0.15s ease',
+                fontFamily: 'inherit',
+              }}
             >
               {typeof c === 'string' ? c : c.label}
-            </Button>
+            </button>
           ))}
-        </Flex>
+        </div>
       );
 
     case 'action': {
       const isNav = block.kind === 'navigate';
       return (
-        <Card size="1" variant="surface" className="p-3.5 my-2.5 border border-[var(--accent-7,rgba(34,227,255,0.3))] bg-[var(--accent-2,rgba(34,227,255,0.04))] rounded-xl">
-          <Badge size="1" color="cyan" variant="solid" className="mb-2">
+        <div className="aeon-action-card">
+          <div className="aeon-action-badge">
             {isNav ? 'Navigation Action' : 'Action Required'}
-          </Badge>
-          <Text size="2" weight="bold" className="block text-[var(--gray-12)]">{block.title}</Text>
-          {block.desc && <Text size="1" color="gray" className="mt-1 block">{block.desc}</Text>}
-          <Flex gap="2" className="mt-3">
-            <Button
-              size="2"
-              color="cyan"
-              variant="solid"
-              className="cursor-pointer font-medium"
+          </div>
+          <div className="aeon-action-title">{block.title}</div>
+          {block.desc && <div className="aeon-action-desc">{block.desc}</div>}
+          <div className="aeon-action-buttons">
+            <button
+              type="button"
               onClick={() => onAction?.({ kind: 'confirm', block })}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: 'none',
+                background: 'linear-gradient(135deg, var(--aeon-cyan), var(--aeon-violet))',
+                color: '#fff',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 12px rgba(34,227,255,0.2)',
+                fontFamily: 'inherit',
+              }}
             >
               {block.confirm_label || (isNav ? 'Open Page →' : 'Confirm Action →')}
-            </Button>
-          </Flex>
-        </Card>
+            </button>
+          </div>
+        </div>
       );
     }
 
@@ -327,7 +382,7 @@ function Block({ block, onAction, animate, onAnimated }) {
 
 export default function BlockRenderer({ blocks = [], onAction, animate = false, onAnimated }) {
   return (
-    <div className="aeon-blocks space-y-1">
+    <div className="aeon-blocks">
       {blocks.map((block, i) => (
         <Block key={i} block={block} onAction={onAction} animate={animate} onAnimated={onAnimated} />
       ))}

@@ -2,6 +2,7 @@ import React from 'react';
 
 /**
  * Dependency-free, XSS-safe Markdown renderer for Aeon responses.
+ * Uses vanilla CSS classes from aeon.css — zero Tailwind.
  */
 function inline(str, kp) {
   const out = [];
@@ -19,11 +20,25 @@ function inline(str, kp) {
       out.push(rest.slice(0, m.index));
     }
     if (m[2] != null) {
-      out.push(<strong key={`${kp}-${k}`} className="font-semibold text-[var(--accent-11,#22e3ff)]">{m[2]}</strong>);
+      out.push(<strong key={`${kp}-${k}`} style={{ fontWeight: 600, color: 'var(--aeon-cyan)' }}>{m[2]}</strong>);
     } else if (m[3] != null) {
-      out.push(<em key={`${kp}-${k}`} className="italic">{m[3]}</em>);
+      out.push(<em key={`${kp}-${k}`} style={{ fontStyle: 'italic' }}>{m[3]}</em>);
     } else if (m[4] != null) {
-      out.push(<code key={`${kp}-${k}`} className="px-1.5 py-0.5 rounded bg-[var(--gray-3,rgba(255,255,255,0.08))] text-xs font-mono text-[var(--accent-11,#22e3ff)]">{m[4]}</code>);
+      out.push(
+        <code
+          key={`${kp}-${k}`}
+          style={{
+            padding: '2px 6px',
+            borderRadius: 4,
+            background: 'rgba(255,255,255,0.07)',
+            fontSize: '12px',
+            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+            color: 'var(--aeon-cyan)',
+          }}
+        >
+          {m[4]}
+        </code>
+      );
     }
     rest = rest.slice(m.index + m[0].length);
     k += 1;
@@ -77,29 +92,34 @@ export default function Markdown({ text = '' }) {
   });
   flush();
 
+  const headingStyle = (level) => {
+    if (level === 1) return { fontSize: 16, fontWeight: 700, color: 'var(--aeon-cyan)', marginTop: 8 };
+    if (level === 2) return { fontSize: 14, fontWeight: 600, color: 'var(--aeon-cyan)', marginTop: 6 };
+    return { fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--aeon-text-secondary)' };
+  };
+
   return (
-    <div className="aeon-md space-y-2 text-[13.5px] leading-relaxed text-[var(--gray-12,#f1f5f9)]">
+    <div className="aeon-md">
       {blocks.map((b, i) => {
         if (b.type === 'h') {
           const Tag = `h${b.level}`;
-          const cls = b.level === 1 ? 'text-base font-bold text-[var(--accent-11,#22e3ff)] mt-2' : b.level === 2 ? 'text-sm font-semibold text-[var(--accent-11,#22e3ff)] mt-1.5' : 'text-xs font-semibold uppercase tracking-wider text-[var(--gray-11)]';
-          return <Tag key={i} className={cls}>{inline(b.text, i)}</Tag>;
+          return <Tag key={i} style={headingStyle(b.level)}>{inline(b.text, i)}</Tag>;
         }
         if (b.type === 'ul') {
           return (
-            <ul key={i} className="list-disc pl-5 space-y-1 my-1">
-              {b.items.map((it, j) => <li key={j}>{inline(it, `${i}-${j}`)}</li>)}
+            <ul key={i} style={{ listStyle: 'disc', paddingLeft: 20, margin: '4px 0' }}>
+              {b.items.map((it, j) => <li key={j} style={{ marginTop: j > 0 ? 4 : 0 }}>{inline(it, `${i}-${j}`)}</li>)}
             </ul>
           );
         }
         if (b.type === 'ol') {
           return (
-            <ol key={i} className="list-decimal pl-5 space-y-1 my-1">
-              {b.items.map((it, j) => <li key={j}>{inline(it, `${i}-${j}`)}</li>)}
+            <ol key={i} style={{ listStyle: 'decimal', paddingLeft: 20, margin: '4px 0' }}>
+              {b.items.map((it, j) => <li key={j} style={{ marginTop: j > 0 ? 4 : 0 }}>{inline(it, `${i}-${j}`)}</li>)}
             </ol>
           );
         }
-        return <p key={i} className="my-1">{inline(b.text, i)}</p>;
+        return <p key={i} style={{ margin: '4px 0' }}>{inline(b.text, i)}</p>;
       })}
     </div>
   );
