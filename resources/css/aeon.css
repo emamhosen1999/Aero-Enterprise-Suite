@@ -1,20 +1,28 @@
 /* ==========================================================================
    Aeon AI Copilot — DBEDC Guardian · Pixel-Perfect Premium UI
-   Complete Vanilla CSS — Zero Tailwind dependency
+   Complete Vanilla CSS — Zero Tailwind dependency · Zero Overflow Bugs
    ========================================================================== */
+
+/* ─── Global Box Sizing for Aeon Elements ─── */
+.aeon-drawer-panel,
+.aeon-drawer-panel *,
+.aeon-fab-container,
+.aeon-fab-container * {
+  box-sizing: border-box;
+}
 
 /* ─── Design Tokens ─── */
 :root {
   --aeon-cyan: #22e3ff;
+  --aeon-cyan-glow: rgba(34, 227, 255, 0.45);
   --aeon-violet: #8c6bff;
+  --aeon-violet-glow: rgba(140, 107, 255, 0.45);
   --aeon-pink: #ff66c4;
   --aeon-green: #22c55e;
   --aeon-amber: #f59e0b;
   --aeon-red: #ef4444;
-  --aeon-glow-cyan: rgba(34, 227, 255, 0.45);
-  --aeon-glow-purple: rgba(140, 107, 255, 0.45);
   --aeon-border-glass: rgba(255, 255, 255, 0.08);
-  --aeon-border-glass-strong: rgba(255, 255, 255, 0.13);
+  --aeon-border-glass-strong: rgba(255, 255, 255, 0.14);
   --aeon-bg-glass: rgba(13, 17, 28, 0.97);
   --aeon-bg-surface: rgba(255, 255, 255, 0.03);
   --aeon-bg-surface-hover: rgba(255, 255, 255, 0.06);
@@ -28,7 +36,7 @@
   --aeon-transition: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ─── Animations ─── */
+/* ─── Keyframe Animations ─── */
 @keyframes aeonFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -55,23 +63,13 @@
 }
 
 @keyframes aeonBreathGlow {
-  0%, 100% { box-shadow: 0 0 20px rgba(34, 227, 255, 0.2), 0 0 60px rgba(140, 107, 255, 0.08); }
-  50% { box-shadow: 0 0 30px rgba(34, 227, 255, 0.35), 0 0 80px rgba(140, 107, 255, 0.15); }
-}
-
-@keyframes aeonShimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0%, 100% { box-shadow: 0 0 20px rgba(34, 227, 255, 0.25), 0 0 60px rgba(140, 107, 255, 0.1); }
+  50% { box-shadow: 0 0 32px rgba(34, 227, 255, 0.4), 0 0 80px rgba(140, 107, 255, 0.2); }
 }
 
 @keyframes aeon-cursor {
   0%, 100% { opacity: 0; }
   50% { opacity: 1; }
-}
-
-@keyframes aeonFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
 }
 
 @keyframes aeonGradientShift {
@@ -98,7 +96,7 @@
   animation: aeonGradientShift 4s ease infinite, aeonBreathGlow 3s ease-in-out infinite;
   color: #fff;
   border: 2px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 8px 28px var(--aeon-glow-cyan), 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 28px var(--aeon-cyan-glow), 0 2px 8px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +106,7 @@
 
 .aeon-fab:hover {
   transform: scale(1.12) translateY(-3px);
-  box-shadow: 0 14px 42px var(--aeon-glow-cyan), 0 0 24px var(--aeon-glow-purple);
+  box-shadow: 0 14px 42px var(--aeon-cyan-glow), 0 0 24px var(--aeon-violet-glow);
 }
 
 .aeon-fab:active {
@@ -132,7 +130,7 @@
 .aeon-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.62);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 99998;
@@ -147,24 +145,25 @@
   right: 0;
   bottom: 0;
   width: 100%;
-  max-width: 480px;
+  max-width: min(480px, 100vw);
   background: var(--aeon-bg-glass);
   color: var(--aeon-text-primary);
   z-index: 99999;
-  box-shadow: -16px 0 50px rgba(0, 0, 0, 0.65), inset 1px 0 0 var(--aeon-border-glass);
+  box-shadow: -16px 0 50px rgba(0, 0, 0, 0.7), inset 1px 0 0 var(--aeon-border-glass);
   border-left: 1px solid var(--aeon-border-glass-strong);
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
   animation: aeonSlideIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
+  min-width: 0;
 }
 
 .aeon-drawer-panel.is-expanded {
-  max-width: 860px;
+  max-width: min(860px, 100vw);
 }
 
-/* ─── Aurora Canvas ─── */
+/* ─── Ambient Aurora Canvas ─── */
 .aeon-aura {
   position: absolute;
   top: 0;
@@ -174,7 +173,7 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  opacity: 0.55;
+  opacity: 0.5;
   z-index: 0;
 }
 
@@ -185,28 +184,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.7) 100%);
+  padding: 12px 16px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.72) 100%);
   border-bottom: 1px solid var(--aeon-border-glass-strong);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .aeon-header-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .aeon-header-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #fff;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .aeon-header-badge {
@@ -214,7 +216,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 2.5px 9px;
+  padding: 2px 8px;
   border-radius: var(--aeon-radius-pill);
   background: linear-gradient(135deg, rgba(34, 227, 255, 0.18) 0%, rgba(140, 107, 255, 0.14) 100%);
   color: var(--aeon-cyan);
@@ -227,7 +229,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
+  margin-top: 1px;
+  white-space: nowrap;
 }
 
 .aeon-status-dot {
@@ -250,7 +253,7 @@
   background: transparent;
   border: none;
   color: var(--aeon-text-secondary);
-  padding: 6px 8px;
+  padding: 6px 7px;
   border-radius: var(--aeon-radius-sm);
   cursor: pointer;
   display: inline-flex;
@@ -261,6 +264,7 @@
   font-size: 11px;
   font-family: inherit;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .aeon-icon-btn:hover {
@@ -276,10 +280,10 @@
 /* ─── History Sidebar ─── */
 .aeon-history-sidebar {
   position: absolute;
-  top: 57px;
+  top: 55px;
   left: 0;
   bottom: 0;
-  width: 260px;
+  width: min(260px, 80%);
   background: rgba(10, 14, 23, 0.98);
   border-right: 1px solid var(--aeon-border-glass-strong);
   z-index: 50;
@@ -287,6 +291,7 @@
   flex-direction: column;
   box-shadow: 6px 0 24px rgba(0, 0, 0, 0.5);
   animation: aeonSlideRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  min-width: 0;
 }
 
 .aeon-history-item {
@@ -300,6 +305,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .aeon-history-item:hover,
@@ -308,7 +314,7 @@
   color: var(--aeon-cyan);
 }
 
-/* ─── Conversation Wrapper — FULL HEIGHT ─── */
+/* ─── Conversation Wrapper — Full Height & No Horizontal Spill ─── */
 .aeon-conversation-wrap {
   position: relative;
   z-index: 10;
@@ -316,7 +322,9 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
+  width: 100%;
 }
 
 /* ─── Messages Scroll Area ─── */
@@ -324,11 +332,15 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 16px;
+  padding: 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   scroll-behavior: smooth;
+  min-width: 0;
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 .aeon-messages-scroll::-webkit-scrollbar {
@@ -340,23 +352,25 @@
 }
 
 .aeon-messages-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
   border-radius: var(--aeon-radius-pill);
 }
 
 /* ─── Welcome Card ─── */
 .aeon-welcome-card {
   text-align: center;
-  padding: 32px 16px 16px;
+  padding: 24px 12px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   animation: aeonMsgFade 0.4s ease forwards;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-welcome-title {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 800;
   background: linear-gradient(135deg, var(--aeon-cyan) 0%, var(--aeon-violet) 60%, var(--aeon-pink) 100%);
   background-clip: text;
@@ -366,27 +380,21 @@
 }
 
 .aeon-welcome-subtitle {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--aeon-text-secondary);
   max-width: 360px;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 /* ─── Domain Tabs ─── */
 .aeon-domain-tabs {
   display: flex;
   gap: 6px;
-  overflow-x: auto;
-  padding: 6px 0 10px;
+  padding: 4px 0 8px;
   width: 100%;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   justify-content: center;
   flex-wrap: wrap;
-}
-
-.aeon-domain-tabs::-webkit-scrollbar {
-  display: none;
+  min-width: 0;
 }
 
 .aeon-tab-pill {
@@ -422,9 +430,10 @@
 .aeon-quick-prompts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
-  margin-top: 12px;
+  margin-top: 8px;
+  min-width: 0;
 }
 
 .aeon-prompt-chip {
@@ -432,9 +441,9 @@
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.07);
   color: var(--aeon-text-secondary);
-  padding: 12px 16px;
+  padding: 11px 14px;
   border-radius: var(--aeon-radius-md);
-  font-size: 12.5px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -442,67 +451,79 @@
   justify-content: space-between;
   font-family: inherit;
   line-height: 1.4;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-prompt-chip:hover {
   background: rgba(34, 227, 255, 0.06);
   border-color: rgba(34, 227, 255, 0.25);
   color: var(--aeon-cyan);
-  transform: translateX(4px);
+  transform: translateX(3px);
   box-shadow: 0 2px 12px rgba(34, 227, 255, 0.08);
 }
 
-/* ─── Messages ─── */
+/* ─── Message Bubbles & Layout ─── */
 .aeon-message {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: 92%;
+  max-width: 94%;
   animation: aeonMsgFade 0.25s ease forwards;
+  min-width: 0;
 }
 
 .aeon-message.is-user {
   align-self: flex-end;
+  max-width: 88%;
 }
 
 .aeon-message.is-assistant {
   align-self: flex-start;
-  max-width: 96%;
+  max-width: 100%;
+  width: 100%;
 }
 
 .aeon-user-bubble {
   background: linear-gradient(135deg, var(--aeon-cyan) 0%, var(--aeon-violet) 100%);
   color: #fff;
-  padding: 11px 16px;
+  padding: 10px 14px;
   border-radius: 16px 16px 4px 16px;
   font-size: 13px;
   line-height: 1.5;
   box-shadow: 0 4px 20px rgba(34, 227, 255, 0.2);
   word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .aeon-assistant-bubble {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%);
   border: 1px solid var(--aeon-border-glass-strong);
   color: var(--aeon-text-primary);
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 16px 16px 16px 4px;
   font-size: 13px;
   line-height: 1.6;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* ─── Assistant Avatar ─── */
 .aeon-avatar-icon {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: linear-gradient(135deg, rgba(34, 227, 255, 0.15) 0%, rgba(140, 107, 255, 0.1) 100%);
   color: var(--aeon-cyan);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: bold;
   flex-shrink: 0;
   margin-top: 2px;
@@ -514,9 +535,9 @@
   animation: aeonPulse 1.5s infinite;
 }
 
-/* ─── Message Footer (copy/feedback) ─── */
+/* ─── Message Footer ─── */
 .aeon-msg-footer {
-  margin-top: 10px;
+  margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
@@ -524,11 +545,13 @@
   justify-content: space-between;
   font-size: 11px;
   color: var(--aeon-text-secondary);
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .aeon-msg-footer-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
@@ -538,7 +561,7 @@
   opacity: 0.8;
 }
 
-/* ─── Stage / Reasoning Banner ─── */
+/* ─── Stage Banner ─── */
 .aeon-stage-banner {
   display: inline-flex;
   align-items: center;
@@ -546,24 +569,31 @@
   background: linear-gradient(135deg, rgba(34, 227, 255, 0.06) 0%, rgba(140, 107, 255, 0.04) 100%);
   border: 1px solid rgba(34, 227, 255, 0.18);
   color: var(--aeon-cyan);
-  padding: 8px 14px;
+  padding: 7px 12px;
   border-radius: var(--aeon-radius-sm);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
   animation: aeonPulse 2.5s infinite ease-in-out;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ─── Input Area ─── */
 .aeon-input-container {
-  padding: 12px 14px 16px;
+  padding: 10px 14px 14px;
   background: linear-gradient(180deg, rgba(13, 18, 30, 0.92) 0%, rgba(13, 18, 30, 0.98) 100%);
   border-top: 1px solid var(--aeon-border-glass-strong);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   flex-shrink: 0;
+  min-width: 0;
+  width: 100%;
 }
 
 .aeon-input-box {
@@ -573,8 +603,10 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--aeon-radius-md);
-  padding: 6px 8px 6px 14px;
+  padding: 5px 8px 5px 12px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
+  width: 100%;
 }
 
 .aeon-input-box:focus-within {
@@ -588,11 +620,12 @@
   border: none;
   color: #fff;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.45;
   outline: none;
-  padding: 6px 0;
+  padding: 5px 0;
   font-family: inherit;
   min-width: 0;
+  width: 100%;
 }
 
 .aeon-textarea::placeholder {
@@ -604,8 +637,8 @@
   background: transparent;
   border: none;
   color: var(--aeon-text-secondary);
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--aeon-radius-sm);
   display: flex;
   align-items: center;
@@ -632,8 +665,8 @@
   color: #fff;
   border: none;
   border-radius: var(--aeon-radius-sm);
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -666,9 +699,11 @@
 /* ─── Block Renderer: Stats Grid ─── */
 .aeon-stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 10px 0;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-stat-card {
@@ -677,6 +712,7 @@
   border: 1px solid var(--aeon-border-glass);
   border-radius: var(--aeon-radius-md);
   transition: all 0.2s ease;
+  min-width: 0;
 }
 
 .aeon-stat-card:hover {
@@ -701,6 +737,9 @@
   color: var(--aeon-cyan);
   margin-top: 4px;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .aeon-stat-delta {
@@ -730,6 +769,8 @@
   background: var(--aeon-bg-surface);
   border: 1px solid var(--aeon-border-glass);
   border-radius: var(--aeon-radius-md);
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-chart-header {
@@ -768,6 +809,8 @@
   background: var(--aeon-bg-surface);
   border: 1px solid var(--aeon-border-glass);
   border-radius: var(--aeon-radius-md);
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-donut-title {
@@ -781,6 +824,7 @@
   display: flex;
   gap: 16px;
   align-items: center;
+  min-width: 0;
 }
 
 .aeon-donut-ring {
@@ -821,6 +865,7 @@
   justify-content: space-between;
   align-items: center;
   font-size: 12px;
+  min-width: 0;
 }
 
 .aeon-donut-legend-label {
@@ -828,11 +873,12 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .aeon-donut-legend-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -849,6 +895,7 @@
   font-weight: 600;
   margin-left: 8px;
   color: var(--aeon-text-primary);
+  flex-shrink: 0;
 }
 
 /* ─── Block Renderer: Bar Chart ─── */
@@ -858,6 +905,8 @@
   background: var(--aeon-bg-surface);
   border: 1px solid var(--aeon-border-glass);
   border-radius: var(--aeon-radius-md);
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-bar-title {
@@ -871,6 +920,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-bar-item-header {
@@ -878,6 +929,7 @@
   justify-content: space-between;
   margin-bottom: 4px;
   font-size: 12px;
+  min-width: 0;
 }
 
 .aeon-bar-item-label {
@@ -885,12 +937,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--aeon-text-secondary);
+  min-width: 0;
 }
 
 .aeon-bar-item-value {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--aeon-text-primary);
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .aeon-bar-track {
@@ -908,13 +963,16 @@
   transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ─── Block Renderer: Table ─── */
+/* ─── Block Renderer: Table (Zero-Spill Horizontal Scroller) ─── */
 .aeon-table-wrap {
   margin: 10px 0;
-  overflow: hidden;
   border-radius: var(--aeon-radius-md);
   border: 1px solid var(--aeon-border-glass);
   background: var(--aeon-bg-surface);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .aeon-table-filter {
@@ -924,6 +982,8 @@
   align-items: center;
   gap: 8px;
   background: rgba(0, 0, 0, 0.2);
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-table-filter input {
@@ -933,11 +993,36 @@
   font-size: 11px;
   outline: none;
   width: 100%;
+  min-width: 0;
   font-family: inherit;
 }
 
 .aeon-table-filter input::placeholder {
   color: var(--aeon-text-muted);
+}
+
+.aeon-table-scroll-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.aeon-table-scroll-container::-webkit-scrollbar {
+  height: 5px;
+}
+
+.aeon-table-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aeon-table-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--aeon-radius-pill);
 }
 
 /* ─── Block Renderer: Entity Card ─── */
@@ -948,6 +1033,8 @@
   border: 1px solid var(--aeon-border-glass);
   border-radius: var(--aeon-radius-md);
   transition: all 0.2s ease;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-entity-card:hover {
@@ -959,6 +1046,7 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  min-width: 0;
 }
 
 .aeon-entity-title {
@@ -980,11 +1068,13 @@
 
 .aeon-entity-fields {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   border-top: 1px solid var(--aeon-border-glass);
   padding-top: 10px;
   font-size: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-entity-field-label {
@@ -1008,6 +1098,8 @@
   flex-wrap: wrap;
   gap: 6px;
   margin: 8px 0;
+  width: 100%;
+  min-width: 0;
 }
 
 /* ─── Block Renderer: Action Card ─── */
@@ -1017,6 +1109,8 @@
   border: 1px solid rgba(34, 227, 255, 0.25);
   background: rgba(34, 227, 255, 0.03);
   border-radius: var(--aeon-radius-md);
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-action-badge {
@@ -1036,18 +1130,21 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--aeon-text-primary);
+  word-break: break-word;
 }
 
 .aeon-action-desc {
   font-size: 12px;
   color: var(--aeon-text-secondary);
   margin-top: 4px;
+  word-break: break-word;
 }
 
 .aeon-action-buttons {
   display: flex;
   gap: 8px;
   margin-top: 12px;
+  flex-wrap: wrap;
 }
 
 /* ─── Block Renderer: Status Badges ─── */
@@ -1059,6 +1156,7 @@
   border-radius: var(--aeon-radius-pill);
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .aeon-status-badge.is-success {
@@ -1084,6 +1182,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
 
 /* ─── Markdown Renderer ─── */
@@ -1091,6 +1191,10 @@
   font-size: 13.5px;
   line-height: 1.65;
   color: var(--aeon-text-primary);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  width: 100%;
 }
 
 .aeon-md > * + * {
@@ -1113,6 +1217,7 @@
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   color: var(--aeon-cyan);
+  word-break: break-all;
 }
 
 .aeon-md h1 {
@@ -1168,6 +1273,9 @@
   overflow: hidden;
   border: 1px solid var(--aeon-border-glass);
   background: rgba(13, 17, 23, 0.9);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .aeon-code-header {
@@ -1204,11 +1312,18 @@
   line-height: 1.5;
   overflow-x: auto;
   color: #e6edf3;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 /* ─── Typing Cursor ─── */
 .aeon-typing {
   position: relative;
+  min-width: 0;
+  width: 100%;
 }
 
 .aeon-typing:not(.is-done)::after {
@@ -1227,6 +1342,8 @@
   background: var(--aeon-bg-surface);
   border: 1px solid var(--aeon-border-glass);
   border-radius: var(--aeon-radius-md);
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-form-success {
@@ -1235,6 +1352,8 @@
   background: rgba(34, 197, 94, 0.06);
   border: 1px solid rgba(34, 197, 94, 0.25);
   border-radius: var(--aeon-radius-md);
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-form-header {
@@ -1242,18 +1361,23 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .aeon-form-fields {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-form-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
 
 .aeon-form-label {
@@ -1272,12 +1396,13 @@
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--aeon-border-glass);
+  min-width: 0;
 }
 
-/* ─── Responsive ─── */
+/* ─── Responsive Adjustments ─── */
 @media (max-width: 640px) {
   .aeon-drawer-panel {
-    max-width: 100%;
+    max-width: 100vw;
   }
   .aeon-fab-container {
     bottom: 16px;
@@ -1289,5 +1414,11 @@
   }
   .aeon-stats-grid {
     grid-template-columns: 1fr;
+  }
+  .aeon-entity-fields {
+    grid-template-columns: 1fr;
+  }
+  .aeon-header-title span:first-child {
+    display: none;
   }
 }

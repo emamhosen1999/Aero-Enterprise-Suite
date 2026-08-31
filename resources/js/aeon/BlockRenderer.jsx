@@ -75,7 +75,7 @@ function StatusCell({ value }) {
     );
   }
 
-  if (lower.includes('open') || lower.includes('pending') || lower.includes('review') || lower.includes('active')) {
+  if (lower.includes('open') || lower.includes('pending') || lower.includes('review') || lower.includes('active') || lower.includes('require')) {
     return (
       <span className="aeon-status-badge is-warning">
         <AlertTriangle size={11} /> {text}
@@ -91,7 +91,7 @@ function StatusCell({ value }) {
     );
   }
 
-  return <span>{text}</span>;
+  return <span style={{ wordBreak: 'break-word' }}>{text}</span>;
 }
 
 function InteractiveTable({ columns = [], rows = [] }) {
@@ -104,7 +104,7 @@ function InteractiveTable({ columns = [], rows = [] }) {
 
   return (
     <div className="aeon-table-wrap">
-      {rows.length > 4 && (
+      {rows.length > 3 && (
         <div className="aeon-table-filter">
           <Search size={12} color="var(--aeon-text-muted)" />
           <input
@@ -115,8 +115,8 @@ function InteractiveTable({ columns = [], rows = [] }) {
           />
         </div>
       )}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+      <div className="aeon-table-scroll-container">
+        <table style={{ width: '100%', minWidth: columns.length > 3 ? '480px' : '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
           {columns.length > 0 && (
             <thead>
               <tr>
@@ -124,13 +124,14 @@ function InteractiveTable({ columns = [], rows = [] }) {
                   <th
                     key={i}
                     style={{
-                      padding: '8px 12px',
+                      padding: '8px 10px',
                       textAlign: 'left',
                       fontSize: '11px',
                       fontWeight: 700,
                       color: 'var(--aeon-cyan)',
                       borderBottom: '1px solid var(--aeon-border-glass-strong)',
                       whiteSpace: 'nowrap',
+                      background: 'rgba(13, 17, 28, 0.4)',
                     }}
                   >
                     {c}
@@ -147,16 +148,17 @@ function InteractiveTable({ columns = [], rows = [] }) {
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
                   transition: 'background 0.15s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 {(Array.isArray(row) ? row : [row]).map((cell, j) => (
                   <td
                     key={j}
                     style={{
-                      padding: '8px 12px',
+                      padding: '8px 10px',
                       color: 'var(--aeon-text-primary)',
                       fontSize: '12px',
+                      verticalAlign: 'middle',
                     }}
                   >
                     <StatusCell value={cell} />
@@ -273,15 +275,15 @@ function Block({ block, onAction, animate, onAnimated }) {
           <div className="aeon-entity-header">
             <div
               style={{
-                width: 36,
-                height: 36,
+                width: 34,
+                height: 34,
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, rgba(34,227,255,0.15), rgba(140,107,255,0.1))',
                 color: 'var(--aeon-cyan)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 700,
                 flexShrink: 0,
                 border: '1px solid rgba(34,227,255,0.25)',
@@ -297,7 +299,7 @@ function Block({ block, onAction, animate, onAnimated }) {
           {block.fields?.length > 0 && (
             <div className="aeon-entity-fields">
               {block.fields.map((f, i) => (
-                <div key={i}>
+                <div key={i} style={{ minWidth: 0 }}>
                   <span className="aeon-entity-field-label">{f.k}</span>
                   <span className="aeon-entity-field-value">{f.v}</span>
                 </div>
@@ -327,6 +329,10 @@ function Block({ block, onAction, animate, onAnimated }) {
                 cursor: block.variant === 'source' ? 'default' : 'pointer',
                 transition: 'all 0.15s ease',
                 fontFamily: 'inherit',
+                maxWidth: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
               {typeof c === 'string' ? c : c.label}

@@ -870,7 +870,7 @@
     "src": "public/assets/images/logo.png"
   },
   "resources/css/app.css": {
-    "file": "assets/css/app-B9umMjqc.css",
+    "file": "assets/css/app-BzBXHvHp.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -897,7 +897,7 @@
     ]
   },
   "resources/js/Components/DailyWorkSummaryAnalytics.jsx": {
-    "file": "assets/js/DailyWorkSummaryAnalytics-B9Bvrx1y.js",
+    "file": "assets/js/DailyWorkSummaryAnalytics-Dp7G_8jR.js",
     "name": "DailyWorkSummaryAnalytics",
     "src": "resources/js/Components/DailyWorkSummaryAnalytics.jsx",
     "isDynamicEntry": true,
@@ -976,7 +976,7 @@
     ]
   },
   "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx": {
-    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-DOLDGvtI.js",
+    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-BZ9R_NM2.js",
     "name": "EnhancedDailyWorkSummaryExportForm",
     "src": "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx",
     "isDynamicEntry": true,
@@ -1034,7 +1034,7 @@
     ]
   },
   "resources/js/Pages/Admin/ClientErrors.jsx": {
-    "file": "assets/js/ClientErrors-C8LL6wfG.js",
+    "file": "assets/js/ClientErrors-xx7oQCSK.js",
     "name": "ClientErrors",
     "src": "resources/js/Pages/Admin/ClientErrors.jsx",
     "isEntry": true,
@@ -1058,7 +1058,7 @@
     ]
   },
   "resources/js/Pages/Admin/DeviceSessions.jsx": {
-    "file": "assets/js/DeviceSessions-C8LL6wfG.js",
+    "file": "assets/js/DeviceSessions-xx7oQCSK.js",
     "name": "DeviceSessions",
     "src": "resources/js/Pages/Admin/DeviceSessions.jsx",
     "isEntry": true,
@@ -1082,7 +1082,7 @@
     ]
   },
   "resources/js/Pages/Admin/FeatureFlags.jsx": {
-    "file": "assets/js/FeatureFlags-C8LL6wfG.js",
+    "file": "assets/js/FeatureFlags-xx7oQCSK.js",
     "name": "FeatureFlags",
     "src": "resources/js/Pages/Admin/FeatureFlags.jsx",
     "isEntry": true,
@@ -1106,7 +1106,7 @@
     ]
   },
   "resources/js/Pages/Admin/NotificationSettings.jsx": {
-    "file": "assets/js/NotificationSettings-DcWDnzFk.js",
+    "file": "assets/js/NotificationSettings-CdNcti9w.js",
     "name": "NotificationSettings",
     "src": "resources/js/Pages/Admin/NotificationSettings.jsx",
     "isEntry": true,
@@ -1130,7 +1130,7 @@
     ]
   },
   "resources/js/Pages/Administration/RoleManagement.jsx": {
-    "file": "assets/js/RoleManagement-B4YFj5I_.js",
+    "file": "assets/js/RoleManagement-B0glBqOX.js",
     "name": "RoleManagement",
     "src": "resources/js/Pages/Administration/RoleManagement.jsx",
     "isEntry": true,
@@ -1154,7 +1154,7 @@
     ]
   },
   "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx": {
-    "file": "assets/js/SystemMonitoringEnhanced-CmHalJ_D.js",
+    "file": "assets/js/SystemMonitoringEnhanced-NuCYhI0d.js",
     "name": "SystemMonitoringEnhanced",
     "src": "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx",
     "isEntry": true,
@@ -1178,7 +1178,7 @@
     ]
   },
   "resources/js/Pages/Aeon/Index.jsx": {
-    "file": "assets/js/Index-CR5JrzTT.js",
+    "file": "assets/js/Index-BcfMktfQ.js",
     "name": "Index",
     "src": "resources/js/Pages/Aeon/Index.jsx",
     "isEntry": true,
@@ -1213,7 +1213,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-BRsJsJuX.js",
+    "file": "assets/js/AttendancePage-D0XraVqy.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1638,7 +1638,7 @@
     "isEntry": true
   },
   "resources/js/Pages/AttendanceEmployee.jsx": {
-    "file": "assets/js/AttendanceEmployee-DV0yTkoG.js",
+    "file": "assets/js/AttendanceEmployee-D6XdZmp1.js",
     "name": "AttendanceEmployee",
     "src": "resources/js/Pages/AttendanceEmployee.jsx",
     "isDynamicEntry": true,
@@ -1733,7 +1733,7 @@
     ]
   },
   "resources/js/Pages/Dashboard.jsx": {
-    "file": "assets/js/Dashboard-BfTUCfMA.js",
+    "file": "assets/js/Dashboard-B8SsvsR4.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Dashboard.jsx",
     "isEntry": true,
@@ -1757,7 +1757,7 @@
     ]
   },
   "resources/js/Pages/Departments.jsx": {
-    "file": "assets/js/Departments-B_GmkiQu.js",
+    "file": "assets/js/Departments-C4NrV_5v.js",
     "name": "Departments",
     "src": "resources/js/Pages/Departments.jsx",
     "isDynamicEntry": true,
@@ -1799,7 +1799,7 @@
     ]
   },
   "resources/js/Pages/Designations.jsx": {
-    "file": "assets/js/Designations-FnSgsgAk.js",
+    "file": "assets/js/Designations-CdhtXH5-.js",
     "name": "Designations",
     "src": "resources/js/Pages/Designations.jsx",
     "isEntry": true,
@@ -1823,7 +1823,7 @@
     ]
   },
   "resources/js/Pages/EmployeeDashboard.jsx": {
-    "file": "assets/js/EmployeeDashboard-BZAF7qQN.js",
+    "file": "assets/js/EmployeeDashboard-BFv-pYu3.js",
     "name": "EmployeeDashboard",
     "src": "resources/js/Pages/EmployeeDashboard.jsx",
     "isEntry": true,
@@ -1849,7 +1849,7 @@
     ]
   },
   "resources/js/Pages/Employees/EmployeesPage.jsx": {
-    "file": "assets/js/EmployeesPage-BQU9zxDS.js",
+    "file": "assets/js/EmployeesPage-C4-iwAu3.js",
     "name": "EmployeesPage",
     "src": "resources/js/Pages/Employees/EmployeesPage.jsx",
     "isDynamicEntry": true,
@@ -1899,7 +1899,7 @@
     ]
   },
   "resources/js/Pages/Errors/Forbidden.jsx": {
-    "file": "assets/js/Forbidden-CR5JrzTT.js",
+    "file": "assets/js/Forbidden-BcfMktfQ.js",
     "name": "Forbidden",
     "src": "resources/js/Pages/Errors/Forbidden.jsx",
     "isEntry": true,
@@ -1923,7 +1923,7 @@
     ]
   },
   "resources/js/Pages/Holidays.jsx": {
-    "file": "assets/js/Holidays-DRMM3gyc.js",
+    "file": "assets/js/Holidays-3lSYx8jM.js",
     "name": "Holidays",
     "src": "resources/js/Pages/Holidays.jsx",
     "isEntry": true,
@@ -1959,7 +1959,7 @@
     ]
   },
   "resources/js/Pages/LeavesEmployee.jsx": {
-    "file": "assets/js/LeavesEmployee-DtleW9OM.js",
+    "file": "assets/js/LeavesEmployee-DWDxLvHS.js",
     "name": "LeavesEmployee",
     "src": "resources/js/Pages/LeavesEmployee.jsx",
     "isEntry": true,
@@ -1986,7 +1986,7 @@
     ]
   },
   "resources/js/Pages/LeavesUnified.jsx": {
-    "file": "assets/js/LeavesUnified-DHw5YIfA.js",
+    "file": "assets/js/LeavesUnified-DahSH8H7.js",
     "name": "LeavesUnified",
     "src": "resources/js/Pages/LeavesUnified.jsx",
     "isDynamicEntry": true,
@@ -2020,7 +2020,7 @@
     ]
   },
   "resources/js/Pages/Notifications/Index.jsx": {
-    "file": "assets/js/Index-BfTUCfMA.js",
+    "file": "assets/js/Index-B8SsvsR4.js",
     "name": "Index",
     "src": "resources/js/Pages/Notifications/Index.jsx",
     "isEntry": true,
@@ -2044,7 +2044,7 @@
     ]
   },
   "resources/js/Pages/Operations/EquipmentFacilities.jsx": {
-    "file": "assets/js/EquipmentFacilities-B4YFj5I_.js",
+    "file": "assets/js/EquipmentFacilities-B0glBqOX.js",
     "name": "EquipmentFacilities",
     "src": "resources/js/Pages/Operations/EquipmentFacilities.jsx",
     "isEntry": true,
@@ -2068,7 +2068,7 @@
     ]
   },
   "resources/js/Pages/Operations/IncidentsPatrol.jsx": {
-    "file": "assets/js/IncidentsPatrol-B4YFj5I_.js",
+    "file": "assets/js/IncidentsPatrol-B0glBqOX.js",
     "name": "IncidentsPatrol",
     "src": "resources/js/Pages/Operations/IncidentsPatrol.jsx",
     "isEntry": true,
@@ -2092,7 +2092,7 @@
     ]
   },
   "resources/js/Pages/Operations/MaintenanceWorkOrders.jsx": {
-    "file": "assets/js/MaintenanceWorkOrders-B4YFj5I_.js",
+    "file": "assets/js/MaintenanceWorkOrders-B0glBqOX.js",
     "name": "MaintenanceWorkOrders",
     "src": "resources/js/Pages/Operations/MaintenanceWorkOrders.jsx",
     "isEntry": true,
@@ -2116,7 +2116,7 @@
     ]
   },
   "resources/js/Pages/Operations/OmDashboard.jsx": {
-    "file": "assets/js/OmDashboard-B4YFj5I_.js",
+    "file": "assets/js/OmDashboard-B0glBqOX.js",
     "name": "OmDashboard",
     "src": "resources/js/Pages/Operations/OmDashboard.jsx",
     "isEntry": true,
@@ -2140,7 +2140,7 @@
     ]
   },
   "resources/js/Pages/Operations/ShiftHandoverLogs.jsx": {
-    "file": "assets/js/ShiftHandoverLogs-B4YFj5I_.js",
+    "file": "assets/js/ShiftHandoverLogs-B0glBqOX.js",
     "name": "ShiftHandoverLogs",
     "src": "resources/js/Pages/Operations/ShiftHandoverLogs.jsx",
     "isEntry": true,
@@ -2164,7 +2164,7 @@
     ]
   },
   "resources/js/Pages/Operations/TollOperations.jsx": {
-    "file": "assets/js/TollOperations-B4YFj5I_.js",
+    "file": "assets/js/TollOperations-B0glBqOX.js",
     "name": "TollOperations",
     "src": "resources/js/Pages/Operations/TollOperations.jsx",
     "isEntry": true,
@@ -2188,7 +2188,7 @@
     ]
   },
   "resources/js/Pages/Operations/TrafficMonitoring.jsx": {
-    "file": "assets/js/TrafficMonitoring-B4YFj5I_.js",
+    "file": "assets/js/TrafficMonitoring-B0glBqOX.js",
     "name": "TrafficMonitoring",
     "src": "resources/js/Pages/Operations/TrafficMonitoring.jsx",
     "isEntry": true,
@@ -2421,7 +2421,7 @@
     ]
   },
   "resources/js/Pages/PettyCashUnified.jsx": {
-    "file": "assets/js/PettyCashUnified-CWwAYcda.js",
+    "file": "assets/js/PettyCashUnified-HgFc5WYY.js",
     "name": "PettyCashUnified",
     "src": "resources/js/Pages/PettyCashUnified.jsx",
     "isDynamicEntry": true,
@@ -2486,7 +2486,7 @@
     ]
   },
   "resources/js/Pages/Profile/UserProfile.jsx": {
-    "file": "assets/js/UserProfile-CAydH4ZR.js",
+    "file": "assets/js/UserProfile-D-R-crb7.js",
     "name": "UserProfile",
     "src": "resources/js/Pages/Profile/UserProfile.jsx",
     "isDynamicEntry": true,
@@ -2514,7 +2514,7 @@
     ]
   },
   "resources/js/Pages/Project/DailyWorksUnified.jsx": {
-    "file": "assets/js/DailyWorksUnified-BQhkWtfE.js",
+    "file": "assets/js/DailyWorksUnified-ZFoEMyLD.js",
     "name": "DailyWorksUnified",
     "src": "resources/js/Pages/Project/DailyWorksUnified.jsx",
     "isDynamicEntry": true,
@@ -2574,7 +2574,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-CWkTY9x-.js",
+    "file": "assets/js/Index-CWR49d3z.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isDynamicEntry": true,
@@ -2717,7 +2717,7 @@
     ]
   },
   "resources/js/Pages/Quality/NcrRegister.jsx": {
-    "file": "assets/js/NcrRegister-DFrvO9qx.js",
+    "file": "assets/js/NcrRegister-7q9VHpkn.js",
     "name": "NcrRegister",
     "src": "resources/js/Pages/Quality/NcrRegister.jsx",
     "isEntry": true,
@@ -2742,7 +2742,7 @@
     ]
   },
   "resources/js/Pages/Settings/BiometricDevices.jsx": {
-    "file": "assets/js/BiometricDevices-kEOrbTnD.js",
+    "file": "assets/js/BiometricDevices-D0aIHq-1.js",
     "name": "BiometricDevices",
     "src": "resources/js/Pages/Settings/BiometricDevices.jsx",
     "isDynamicEntry": true,
@@ -2769,7 +2769,7 @@
     ]
   },
   "resources/js/Pages/Settings/CompanySettings.jsx": {
-    "file": "assets/js/CompanySettings-CgQ2-MV9.js",
+    "file": "assets/js/CompanySettings-CF5qn858.js",
     "name": "CompanySettings",
     "src": "resources/js/Pages/Settings/CompanySettings.jsx",
     "isEntry": true,
@@ -2793,7 +2793,7 @@
     ]
   },
   "resources/js/Pages/Settings/NotificationPreferences.jsx": {
-    "file": "assets/js/NotificationPreferences-DcWDnzFk.js",
+    "file": "assets/js/NotificationPreferences-CdNcti9w.js",
     "name": "NotificationPreferences",
     "src": "resources/js/Pages/Settings/NotificationPreferences.jsx",
     "isEntry": true,
@@ -2817,7 +2817,7 @@
     ]
   },
   "resources/js/Pages/Settings/RequestLogs.jsx": {
-    "file": "assets/js/RequestLogs-DSouv_Jm.js",
+    "file": "assets/js/RequestLogs-Cqt2Dm_T.js",
     "name": "RequestLogs",
     "src": "resources/js/Pages/Settings/RequestLogs.jsx",
     "isEntry": true,
@@ -2842,7 +2842,7 @@
     ]
   },
   "resources/js/Pages/UserDevices.jsx": {
-    "file": "assets/js/UserDevices-yMfhWc89.js",
+    "file": "assets/js/UserDevices-CYDs4II-.js",
     "name": "UserDevices",
     "src": "resources/js/Pages/UserDevices.jsx",
     "isEntry": true,
@@ -2872,7 +2872,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CzObr_Xx.js",
+    "file": "assets/js/app-BtBckKnb.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2976,7 +2976,7 @@
       "resources/js/Pages/UserDevices.jsx"
     ],
     "css": [
-      "assets/css/app-B9umMjqc.css"
+      "assets/css/app-BzBXHvHp.css"
     ],
     "assets": [
       "assets/woff2/roboto-cyrillic-ext-300-normal-DIxttMbC.woff2",
