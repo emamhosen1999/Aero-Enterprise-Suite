@@ -14,12 +14,23 @@ class OmIncident extends Model
     protected $fillable = [
         'incident_number',
         'title',
+        'incident_type',
+        'detection_source',
         'chainage',
+        'latitude',
+        'longitude',
         'direction',
         'severity',
         'status',
         'dispatched_unit',
         'response_time_minutes',
+        'casualties_fatalities',
+        'casualties_injured',
+        'vehicles_involved_count',
+        'has_asset_damage',
+        'asset_damage_cost_est',
+        'tppd_claim_status',
+        'police_case_number',
         'description',
         'reported_by',
         'escalation_level',
@@ -27,14 +38,28 @@ class OmIncident extends Model
         'escalated_by',
         'escalation_notes',
         'reported_at',
+        'dispatched_at',
+        'on_scene_at',
+        'lane_cleared_at',
         'cleared_at',
     ];
 
     protected $casts = [
         'reported_at' => 'datetime',
+        'dispatched_at' => 'datetime',
+        'on_scene_at' => 'datetime',
+        'lane_cleared_at' => 'datetime',
         'cleared_at' => 'datetime',
         'escalated_at' => 'datetime',
         'escalation_level' => 'integer',
+        'response_time_minutes' => 'integer',
+        'casualties_fatalities' => 'integer',
+        'casualties_injured' => 'integer',
+        'vehicles_involved_count' => 'integer',
+        'has_asset_damage' => 'boolean',
+        'asset_damage_cost_est' => 'decimal:2',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     public function reporter(): BelongsTo
@@ -45,6 +70,11 @@ class OmIncident extends Model
     public function escalator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'escalated_by');
+    }
+
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(OmIncidentVehicle::class, 'incident_id');
     }
 
     public function photos(): HasMany

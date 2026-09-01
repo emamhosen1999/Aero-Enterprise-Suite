@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, Separator } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, Separator, Card } from '@radix-ui/themes';
 import {
     WrenchScrewdriverIcon,
     ShieldCheckIcon,
@@ -10,37 +10,94 @@ import {
     ExclamationTriangleIcon,
     PlusIcon,
     CheckCircleIcon,
-    ClockIcon
+    ClockIcon,
+    MapPinIcon,
+    BoltIcon,
+    ArrowPathIcon,
+    BuildingOffice2Icon
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
 
-export default function OmDashboard({ auth, stats, recentIncidents, trafficSections, recentWorkOrders, vmsBoards }) {
+export default function OmDashboard({
+    auth,
+    stats,
+    recentIncidents,
+    trafficSections,
+    recentWorkOrders,
+    recentDefects,
+    vmsBoards,
+    activeLaneClosures
+}) {
     const defaultStats = stats || {
         today_toll_revenue: 485200.00,
         etc_vehicle_ratio: 78.4,
         active_incidents_count: 3,
         open_work_orders_count: 7,
+        active_lane_closures_count: 1,
+        open_defects_count: 4,
         equipment_uptime_pct: 99.8,
-        avg_patrol_response_min: 12.5,
+        avg_patrol_response_min: 11.8,
     };
 
-    const incidentsList = recentIncidents || [
-        { id: 1, incident_number: 'INC-2026-001', title: 'Stalled Heavy Truck on Shoulder', chainage: 'Ch 14+200 SB', severity: 'minor', status: 'dispatched', dispatched_unit: 'Patrol Unit 2', reported_at: '10 mins ago' },
-        { id: 2, incident_number: 'INC-2026-002', title: 'Debris on Main Carriageway', chainage: 'Ch 28+500 NB', severity: 'minor', status: 'on_scene', dispatched_unit: 'Patrol Unit 1', reported_at: '35 mins ago' },
-        { id: 3, incident_number: 'INC-2026-003', title: 'Overloaded Tipper Vehicle Warning', chainage: 'Ch 39+800 SB', severity: 'major', status: 'detected', dispatched_unit: 'Weighbridge Unit 3', reported_at: '1 hour ago' },
+    const statItems = [
+        {
+            key: 'revenue',
+            title: "Today's Toll Revenue",
+            value: `৳ ${Number(defaultStats.today_toll_revenue || 0).toLocaleString()}`,
+            icon: <CurrencyDollarIcon />,
+            color: 'green',
+            description: `ETC Ratio: ${defaultStats.etc_vehicle_ratio}%`,
+        },
+        {
+            key: 'incidents',
+            title: 'Active Incidents',
+            value: defaultStats.active_incidents_count || 0,
+            icon: <ExclamationTriangleIcon />,
+            color: 'amber',
+            description: `Avg Response: ${defaultStats.avg_patrol_response_min} mins`,
+        },
+        {
+            key: 'work_orders',
+            title: 'Ongoing Work Orders',
+            value: `${defaultStats.open_work_orders_count || 0} Tickets`,
+            icon: <WrenchScrewdriverIcon />,
+            color: 'blue',
+            description: `${defaultStats.active_lane_closures_count || 0} Active Lane Closures`,
+        },
+        {
+            key: 'defects',
+            title: 'Unresolved Defects',
+            value: `${defaultStats.open_defects_count || 0} Distress`,
+            icon: <BoltIcon />,
+            color: 'red',
+            description: 'Roadway Distress Queue',
+        },
+        {
+            key: 'uptime',
+            title: 'Equipment & ITS Uptime',
+            value: `${defaultStats.equipment_uptime_pct || 99.8}%`,
+            icon: <ComputerDesktopIcon />,
+            color: 'indigo',
+            description: 'CCTV, VMS, WIM & SOS',
+        },
     ];
 
-    const workOrdersList = recentWorkOrders || [
-        { id: 1, work_order_number: 'WO-90124', title: 'Guardrail Repair & Reflector Replacement', category: 'pavement', location: 'Ch 12+400', priority: 'medium', status: 'in_progress', assigned_to: 'Roadside Crew B' },
-        { id: 2, work_order_number: 'WO-90125', title: 'Toll Plaza Lane 4 ETC Reader Calibration', category: 'lighting', location: 'Main Toll Plaza', priority: 'high', status: 'assigned', assigned_to: 'ITS Tech Team' },
-        { id: 3, work_order_number: 'WO-90126', title: 'Expansion Joint Sealing at Kanchan Bridge', category: 'bridge', location: 'Ch 18+270', priority: 'high', status: 'pending', assigned_to: 'Bridge Maintenance Team' },
+    // Linear Corridor 48km Markers
+    const linearMarkers = [
+        { ch: 'Ch 0+000', name: 'Joydevpur Interchange', status: 'normal', type: 'plaza' },
+        { ch: 'Ch 10+000', name: 'Bhulta Crossing', status: 'normal' },
+        { ch: 'Ch 14+250', name: 'Work Zone (Pothole Patching)', status: 'work_zone', type: 'work' },
+        { ch: 'Ch 18+400', name: 'Kanchan Bridge (CCTV-01 / VMS)', status: 'normal', type: 'bridge' },
+        { ch: 'Ch 24+500', name: 'Active Incident (Crash On-Scene)', status: 'incident', type: 'alert' },
+        { ch: 'Ch 35+000', name: 'Debogram Ramp', status: 'normal' },
+        { ch: 'Ch 48+000', name: 'Madanpur Interchange (N-1)', status: 'normal', type: 'plaza' },
     ];
 
     return (
         <App auth={auth}>
-            <Head title="O&M Overview — Operations & Maintenance" />
+            <Head title="O&M Executive Command Center — Dhaka Bypass Expressway" />
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
                     <Panel>
@@ -49,19 +106,26 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
                                 <Flex align="center" gap="3">
                                     <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <TruckIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                        <TruckIcon style={{ width: 24, height: 24, color: 'var(--blue-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Expressway Operations & Maintenance Command Center</Heading>
-                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Dhaka Bypass Expressway (N-105) PPP · Live Toll, Traffic, Patrol & Maintenance Overview</Text>
+                                        <Heading size="6" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                            Expressway O&M Command Center
+                                        </Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                            Dhaka Bypass Expressway (N-105) PPP · Live Toll, Traffic Telemetry, Patrol Dispatch & Work Zones
+                                        </Text>
                                     </Box>
                                 </Flex>
                                 <Flex gap="2" wrap="wrap">
-                                    <Button color="blue" variant="soft" onClick={() => router.visit('/om/traffic-monitoring')} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
-                                        <ComputerDesktopIcon width={16} height={16} /> Traffic Control
+                                    <Button color="red" variant="soft" onClick={() => router.visit('/om/defects')} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                        <BoltIcon width={16} height={16} /> Distress Defect ({defaultStats.open_defects_count})
+                                    </Button>
+                                    <Button color="blue" variant="soft" onClick={() => router.visit('/om/work-orders')} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                        <WrenchScrewdriverIcon width={16} height={16} /> Work Orders
                                     </Button>
                                     <Button color="indigo" onClick={() => router.visit('/om/incidents')} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
-                                        <ShieldCheckIcon width={16} height={16} /> Patrol Dispatch
+                                        <ShieldCheckIcon width={16} height={16} /> Incident Dispatch
                                     </Button>
                                 </Flex>
                             </Flex>
@@ -69,92 +133,96 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
 
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                        {/* Top KPI Cards */}
-                        <StatsCards
-                            stats={[
-                                {
-                                    key: 'revenue',
-                                    title: "Today's Toll Revenue",
-                                    value: `৳ ${Number(defaultStats.today_toll_revenue).toLocaleString()}`,
-                                    icon: <CurrencyDollarIcon />,
-                                    color: 'green',
-                                    description: `ETC Ratio: ${defaultStats.etc_vehicle_ratio}%`,
-                                },
-                                {
-                                    key: 'incidents',
-                                    title: 'Active Incidents',
-                                    value: defaultStats.active_incidents_count,
-                                    icon: <ExclamationTriangleIcon />,
-                                    color: 'amber',
-                                    description: `Avg Response: ${defaultStats.avg_patrol_response_min} mins`,
-                                },
-                                {
-                                    key: 'maintenance',
-                                    title: 'Ongoing Maintenance',
-                                    value: `${defaultStats.open_work_orders_count} Work Orders`,
-                                    icon: <WrenchScrewdriverIcon />,
-                                    color: 'blue',
-                                    description: 'Pavement, Lighting & Bridges',
-                                },
-                                {
-                                    key: 'uptime',
-                                    title: 'Equipment Uptime',
-                                    value: `${defaultStats.equipment_uptime_pct}%`,
-                                    icon: <ComputerDesktopIcon />,
-                                    color: 'indigo',
-                                    description: 'CCTV, VMS & WIM Sensors Online',
-                                },
-                            ]}
-                            columns={{ initial: '1', sm: '2', md: '4' }}
-                            mb="4"
-                        />
+                        {/* Top KPI Cards Ribbon */}
+                        <StatsCards stats={statItems} columns={{ initial: '1', sm: '2', md: '5' }} mb="4" />
 
-                        {/* Main Content Grid */}
-                        <Grid columns={{ initial: '1', md: '2' }} gap="4">
-                            {/* Active Incidents & Emergency Patrol */}
-                            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
-                                <Flex align="center" justify="between" mb="3">
-                                    <Box>
-                                        <Heading size="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Active Incidents & Patrol Dispatch</Heading>
-                                        <Text size="1" color="gray">Live emergency responses and motorway safety</Text>
-                                    </Box>
-                                    <Button size="1" variant="soft" color="indigo" onClick={() => router.visit('/om/incidents')} style={{ borderRadius: 8 }}>
-                                        View All
-                                    </Button>
+                        {/* 48KM Linear Corridor Map Strip */}
+                        <Card style={{ borderRadius: 16, padding: 18, marginBottom: 20, background: 'var(--aero-surface, var(--color-background))', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.08))' }}>
+                            <Flex justify="between" align="center" mb="3">
+                                <Flex align="center" gap="2">
+                                    <MapPinIcon width={18} height={18} style={{ color: 'var(--blue-9)' }} />
+                                    <Heading size="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>
+                                        48km Linear Expressway Corridor Status (Ch 0+000 - Ch 48+000)
+                                    </Heading>
                                 </Flex>
-                                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                    <Table.Root size="2" style={{ minWidth: 420, width: '100%' }}>
-                                        <Table.Header style={{
-                                            position: 'sticky',
-                                            top: 0,
-                                            zIndex: 2,
-                                            background: 'var(--aero-surface, var(--color-background))',
-                                            backdropFilter: 'blur(8px)',
-                                            boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
-                                        }}>
+                                <Flex gap="2">
+                                    <Badge color="green" variant="soft">Free Flow</Badge>
+                                    <Badge color="amber" variant="soft">Active Work Zone</Badge>
+                                    <Badge color="red" variant="soft">Incident Scene</Badge>
+                                </Flex>
+                            </Flex>
+                            
+                            <Box style={{ position: 'relative', overflowX: 'auto', padding: '12px 6px' }}>
+                                <Flex align="center" justify="between" style={{ minWidth: 800, position: 'relative' }}>
+                                    {/* Central Line */}
+                                    <Box style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 6, background: 'linear-gradient(90deg, #10B981 0%, #3B82F6 30%, #F59E0B 40%, #10B981 60%, #EF4444 70%, #10B981 100%)', borderRadius: 3, zIndex: 0 }} />
+                                    
+                                    {linearMarkers.map((marker, i) => {
+                                        const isAlert = marker.status === 'incident';
+                                        const isWork = marker.status === 'work_zone';
+                                        const nodeColor = isAlert ? '#EF4444' : isWork ? '#F59E0B' : '#10B981';
+
+                                        return (
+                                            <Flex key={i} direction="column" align="center" style={{ zIndex: 1, position: 'relative' }}>
+                                                <Box style={{
+                                                    width: 22,
+                                                    height: 22,
+                                                    borderRadius: 999,
+                                                    background: nodeColor,
+                                                    border: '3px solid white',
+                                                    boxShadow: '0 0 0 2px ' + nodeColor,
+                                                    marginBottom: 8
+                                                }} />
+                                                <Text size="1" weight="bold" style={{ fontFamily: 'monospace' }}>{marker.ch}</Text>
+                                                <Text size="1" color="gray" style={{ maxWidth: 100, textAlign: 'center', fontSize: 10 }}>{marker.name}</Text>
+                                            </Flex>
+                                        );
+                                    })}
+                                </Flex>
+                            </Box>
+                        </Card>
+
+                        {/* Grid of Command Modules */}
+                        <Grid columns={{ initial: '1', lg: '2' }} gap="4">
+                            {/* Live Incidents & Patrol Timeline */}
+                            <Panel tinted style={{ borderRadius: 16, padding: 18, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                <Flex justify="between" align="center" mb="3">
+                                    <Flex align="center" gap="2">
+                                        <ShieldCheckIcon width={20} height={20} style={{ color: 'var(--amber-9)' }} />
+                                        <Heading size="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>
+                                            Live Incidents & Emergency Patrols
+                                        </Heading>
+                                    </Flex>
+                                    <Button size="1" variant="soft" color="indigo" onClick={() => router.visit('/om/incidents')}>View All</Button>
+                                </Flex>
+                                
+                                <Box style={{ overflowX: 'auto' }}>
+                                    <Table.Root size="1">
+                                        <Table.Header>
                                             <Table.Row>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Incident #</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 90, background: 'inherit' }}>Severity</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Dispatch Unit</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Incident #</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Severity</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Dispatched</Table.ColumnHeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
-                                            {incidentsList.map((inc) => (
+                                            {(recentIncidents || []).slice(0, 4).map((inc) => (
                                                 <Table.Row key={inc.id} align="center">
-                                                    <Table.RowHeaderCell>
-                                                        <Text weight="bold" size="2">{inc.incident_number}</Text>
-                                                        <Text size="1" color="gray" as="div">{inc.title}</Text>
-                                                    </Table.RowHeaderCell>
-                                                    <Table.Cell><Badge color="gray" variant="soft" style={{ borderRadius: 6, fontVariantNumeric: 'tabular-nums' }}>{inc.chainage}</Badge></Table.Cell>
+                                                    <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>{inc.incident_number}</Table.Cell>
+                                                    <Table.Cell><Text size="1">{inc.chainage} ({inc.direction})</Text></Table.Cell>
                                                     <Table.Cell>
-                                                        <Badge color={inc.severity === 'critical' ? 'red' : inc.severity === 'major' ? 'amber' : 'blue'} variant="soft" style={{ borderRadius: 999 }}>
+                                                        <Badge color={inc.severity === 'critical' ? 'red' : inc.severity === 'major' ? 'amber' : 'blue'} variant="soft">
                                                             {inc.severity}
                                                         </Badge>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <Text size="2">{inc.dispatched_unit}</Text>
+                                                        <Badge color={inc.status === 'on_scene' ? 'amber' : inc.status === 'cleared' ? 'green' : 'blue'} variant="soft">
+                                                            {inc.status}
+                                                        </Badge>
                                                     </Table.Cell>
+                                                    <Table.Cell><Text size="1">{inc.dispatched_unit}</Text></Table.Cell>
                                                 </Table.Row>
                                             ))}
                                         </Table.Body>
@@ -162,52 +230,41 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
                                 </Box>
                             </Panel>
 
-                            {/* Maintenance Work Orders */}
-                            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
-                                <Flex align="center" justify="between" mb="3">
-                                    <Box>
-                                        <Heading size="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Routine & Preventive Maintenance</Heading>
-                                        <Text size="1" color="gray">Active infrastructure work orders</Text>
-                                    </Box>
-                                    <Button size="1" variant="soft" color="blue" onClick={() => router.visit('/om/work-orders')} style={{ borderRadius: 8 }}>
-                                        View All
-                                    </Button>
+                            {/* Ongoing Maintenance Work Orders & Lane Closures */}
+                            <Panel tinted style={{ borderRadius: 16, padding: 18, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                <Flex justify="between" align="center" mb="3">
+                                    <Flex align="center" gap="2">
+                                        <WrenchScrewdriverIcon width={20} height={20} style={{ color: 'var(--blue-9)' }} />
+                                        <Heading size="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>
+                                            Active Maintenance & Work Zones
+                                        </Heading>
+                                    </Flex>
+                                    <Button size="1" variant="soft" color="blue" onClick={() => router.visit('/om/work-orders')}>View All</Button>
                                 </Flex>
-                                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                    <Table.Root size="2" style={{ minWidth: 420, width: '100%' }}>
-                                        <Table.Header style={{
-                                            position: 'sticky',
-                                            top: 0,
-                                            zIndex: 2,
-                                            background: 'var(--aero-surface, var(--color-background))',
-                                            backdropFilter: 'blur(8px)',
-                                            boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
-                                        }}>
+
+                                <Box style={{ overflowX: 'auto' }}>
+                                    <Table.Root size="1">
+                                        <Table.Header>
                                             <Table.Row>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>WO #</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Title</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 80, background: 'inherit' }}>Priority</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Assigned Crew</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>WO #</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Task</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Assigned Crew</Table.ColumnHeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
-                                            {workOrdersList.map((wo) => (
+                                            {(recentWorkOrders || []).slice(0, 4).map((wo) => (
                                                 <Table.Row key={wo.id} align="center">
-                                                    <Table.RowHeaderCell>
-                                                        <Text weight="bold" size="2">{wo.work_order_number}</Text>
-                                                    </Table.RowHeaderCell>
+                                                    <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>{wo.work_order_number}</Table.Cell>
+                                                    <Table.Cell><Text size="1" weight="bold">{wo.title}</Text></Table.Cell>
+                                                    <Table.Cell><Text size="1">{wo.location}</Text></Table.Cell>
                                                     <Table.Cell>
-                                                        <Text size="2">{wo.title}</Text>
-                                                        <Text size="1" color="gray" as="div">{wo.location}</Text>
-                                                    </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Badge color={wo.priority === 'high' ? 'red' : 'orange'} variant="soft" style={{ borderRadius: 999 }}>
-                                                            {wo.priority}
+                                                        <Badge color={wo.status === 'in_progress' ? 'blue' : wo.status === 'completed' ? 'green' : 'amber'} variant="soft">
+                                                            {wo.status}
                                                         </Badge>
                                                     </Table.Cell>
-                                                    <Table.Cell>
-                                                        <Text size="2">{wo.assigned_to}</Text>
-                                                    </Table.Cell>
+                                                    <Table.Cell><Text size="1">{wo.assigned_to || wo.contractor_name}</Text></Table.Cell>
                                                 </Table.Row>
                                             ))}
                                         </Table.Body>
@@ -215,6 +272,50 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
                                 </Box>
                             </Panel>
                         </Grid>
+
+                        {/* Quick Action Navigation Grid */}
+                        <Box mt="4">
+                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>
+                                Expressway Operations Subsystems
+                            </Heading>
+                            <Grid columns={{ initial: '2', sm: '3', md: '6' }} gap="3">
+                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/defects')}>
+                                    <BoltIcon width={24} height={24} style={{ color: 'var(--red-9)', margin: '0 auto 6px' }} />
+                                    <Text size="2" weight="bold" as="div">Road Defects</Text>
+                                    <Text size="1" color="gray">SLA Timers & Queue</Text>
+                                </Card>
+
+                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/work-orders')}>
+                                    <WrenchScrewdriverIcon width={24} height={24} style={{ color: 'var(--blue-9)', margin: '0 auto 6px' }} />
+                                    <Text size="2" weight="bold" as="div">Work Orders</Text>
+                                    <Text size="1" color="gray">BOQ & Lane Closure</Text>
+                                </Card>
+
+                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/assets')}>
+                                    <BuildingOffice2Icon width={24} height={24} style={{ color: 'var(--indigo-9)', margin: '0 auto 6px' }} />
+                                    <Text size="2" weight="bold" as="div">Asset Inventory</Text>
+                                    <Text size="1" color="gray">Linear LRS & PCI</Text>
+                                </Card>
+
+                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/traffic-monitoring')}>
+                                    <ComputerDesktopIcon width={24} height={24} style={{ color: 'var(--purple-9)', margin: '0 auto 6px' }} />
+                                    <Text size="2" weight="bold" as="div">TMC & VMS</Text>
+                                    <Text size="1" color="gray">ITS Live Broadcast</Text>
+                                </Card>
+
+                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/toll-operations')}>
+                                    <CurrencyDollarIcon width={24} height={24} style={{ color: 'var(--green-9)', margin: '0 auto 6px' }} />
+                                    <Text size="2" weight="bold" as="div">Toll Operations</Text>
+                                    <Text size="1" color="gray">Shift Reconciliation</Text>
+                                </Card>
+
+                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/shift-logs')}>
+                                    <ShieldCheckIcon width={24} height={24} style={{ color: 'var(--amber-9)', margin: '0 auto 6px' }} />
+                                    <Text size="2" weight="bold" as="div">Shift Handover</Text>
+                                    <Text size="1" color="gray">Digital Signoff Log</Text>
+                                </Card>
+                            </Grid>
+                        </Box>
                     </Panel>
                 </Box>
             </Flex>

@@ -83,7 +83,11 @@ return new class extends Migration
                 if ($oldEmpId && $oldEmpId !== $newEmpId) {
                     foreach ($tablesWithEmpIdCol as $tbl) {
                         if (Schema::hasTable($tbl) && Schema::hasColumn($tbl, 'employee_id')) {
-                            DB::table($tbl)->where('employee_id', $oldEmpId)->update(['employee_id' => $newEmpId]);
+                            try {
+                                DB::table($tbl)->where('employee_id', (string) $oldEmpId)->update(['employee_id' => $newEmpId]);
+                            } catch (\Throwable $e) {
+                                // Skip type mismatch on non-string columns
+                            }
                         }
                     }
                 }

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog, Select, Separator } from '@radix-ui/themes';
 import {
     ComputerDesktopIcon,
     ExclamationTriangleIcon,
     RadioIcon,
     CheckCircleIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    BoltIcon,
+    SpeakerWaveIcon
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
@@ -30,6 +32,14 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
         { id: 3, vms_code: 'VMS-CH36', location: 'Ch 36+100 (Southbound)', message_line1: 'EXPRESSWAY CLEAR TO MADANPUR INTERCHANGE', message_line2: 'HAVE A SAFE JOURNEY', type: 'info', is_active: true },
     ];
 
+    const presets = [
+        { name: 'Standard Speed Limit', l1: 'DRIVE SAFELY - SPEED LIMIT 80 KM/H', l2: 'FASTEN SEATBELTS - KEEP LANE', type: 'info' },
+        { name: 'Roadwork Warning', l1: 'CAUTION: ROADWORK AHEAD ON RIGHT LANE', l2: 'REDUCE SPEED TO 40 KM/H', type: 'warning' },
+        { name: 'Accident Alert', l1: 'WARNING: ACCIDENT AT CH 24+500', l2: 'PATROL & AMBULANCE ON SCENE', type: 'emergency' },
+        { name: 'Adverse Fog / Rain', l1: 'DENSE FOG / RAIN - LOW VISIBILITY', l2: 'USE LOW BEAMS - DOUBLE GAP', type: 'warning' },
+        { name: 'Overload Enforcement', l1: 'WIM WEIGHBRIDGE ENFORCEMENT ACTIVE', l2: 'OVERLOADED TRUCKS WILL BE FINED', type: 'speed_limit' },
+    ];
+
     const handleUpdateVms = (e) => {
         e.preventDefault();
         if (!updatingVms) return;
@@ -43,6 +53,12 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
         });
     };
 
+    const applyPreset = (p) => {
+        setMsg1(p.l1);
+        setMsg2(p.l2);
+        setType(p.type);
+    };
+
     return (
         <App auth={auth}>
             <Head title="Traffic Monitoring Center (TMC / ITS)" />
@@ -53,12 +69,16 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                         <Box mb="4">
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
                                 <Flex align="center" gap="3">
-                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <ComputerDesktopIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    <Box p="3" style={{ background: 'var(--purple-a3)', borderRadius: 12, border: '1px solid var(--purple-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <ComputerDesktopIcon style={{ width: 22, height: 22, color: 'var(--purple-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Traffic Monitoring Center (TMC / ITS)</Heading>
-                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Live Expressway Vehicle Flow, Speed Sensors, VMS Board Broadcast & WIM Overload Detection</Text>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                            Traffic Monitoring Center (TMC / ITS)
+                                        </Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                            Live Expressway Section Flow Rates, VMS Dynamic Broadcasts & Weigh-in-Motion (WIM) Overload Detection
+                                        </Text>
                                     </Box>
                                 </Flex>
                                 <Button variant="soft" color="gray" onClick={() => router.reload()} style={{ borderRadius: 10 }}>
@@ -71,7 +91,9 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
 
                         {/* Section Density Matrix */}
                         <Box mb="4">
-                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Expressway Section Flow Rates (Ch 0+000 - Ch 48+000)</Heading>
+                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>
+                                Expressway Section Flow Rates (Ch 0+000 - Ch 48+000)
+                            </Heading>
                             <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3">
                                 {sections.map((sec) => (
                                     <Panel key={sec.id} tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: 16, background: 'var(--aero-surface, var(--color-background))' }}>
@@ -95,95 +117,104 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                             </Grid>
                         </Box>
 
-                {/* VMS Live Control & Message Broadcast */}
-                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', marginBottom: 24 }}>
-                    <Box p="4" style={{ borderBottom: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                        <Heading size="4" weight="bold">Variable Message Signs (VMS) Live Controller</Heading>
-                        <Text size="1" color="gray">Broadcast driver alerts and speed advisories to dynamic LED boards</Text>
-                    </Box>
-                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                        <Table.Root size="2" style={{ minWidth: 860, width: '100%' }}>
-                            <Table.Header style={{
-                                position: 'sticky',
-                                top: 0,
-                                zIndex: 2,
-                                background: 'var(--aero-surface, var(--color-background))',
-                                backdropFilter: 'blur(8px)',
-                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
-                            }}>
-                                <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Board Code</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Active Display Line 1</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 200, background: 'inherit' }}>Display Line 2</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Type</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120, background: 'inherit' }}>Action</Table.ColumnHeaderCell>
-                                </Table.Row>
-                            </Table.Header>
-                            <Table.Body>
-                                {vmsList.map((board) => (
-                                    <Table.Row key={board.id} align="center">
-                                        <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                                            {board.vms_code}
-                                        </Table.Cell>
-                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{board.location}</Text></Table.Cell>
-                                        <Table.Cell>
-                                            <Text weight="bold" color="blue" style={{ display: 'block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.message_line1}</Text>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Text color="gray" style={{ display: 'block', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.message_line2 || '—'}</Text>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Badge color={board.type === 'emergency' ? 'red' : board.type === 'warning' ? 'amber' : 'blue'} variant="soft" style={{ borderRadius: 999 }}>
-                                                {board.type}
+                        {/* VMS Live Control & Message Broadcast */}
+                        <Box mb="4">
+                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>
+                                Variable Message Signs (VMS) Live Gantry Controller
+                            </Heading>
+                            <Grid columns={{ initial: '1', md: '3' }} gap="3">
+                                {vmsList.map((vms) => (
+                                    <Panel key={vms.id} tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: 16 }}>
+                                        <Flex justify="between" align="center" mb="2">
+                                            <Badge color={vms.type === 'emergency' ? 'red' : vms.type === 'warning' ? 'amber' : 'green'} variant="solid">
+                                                {vms.vms_code}
                                             </Badge>
-                                        </Table.Cell>
-                                        <Table.Cell style={{ textAlign: 'right' }}>
-                                            <Button size="1" variant="soft" onClick={() => {
-                                                setUpdatingVms(board);
-                                                setMsg1(board.message_line1);
-                                                setMsg2(board.message_line2 || '');
-                                                setType(board.type);
-                                            }}>
-                                                Edit Broadcast
-                                            </Button>
-                                        </Table.Cell>
-                                    </Table.Row>
-                                ))}
-                            </Table.Body>
-                        </Table.Root>
-                    </Box>
-                </Panel>
+                                            <Text size="1" color="gray">{vms.location}</Text>
+                                        </Flex>
 
-                {/* Edit VMS Modal */}
-                {updatingVms && (
-                    <Dialog.Root open={!!updatingVms} onOpenChange={() => setUpdatingVms(null)}>
-                        <Dialog.Content style={{ maxWidth: 450 }}>
-                            <Dialog.Title>Broadcast VMS Alert ({updatingVms.vms_code})</Dialog.Title>
-                            <form onSubmit={handleUpdateVms}>
-                                <Box mb="3">
-                                    <Text size="2" weight="bold" mb="1" as="div">Display Line 1</Text>
-                                    <TextField.Root value={msg1} onChange={(e) => setMsg1(e.target.value)} required />
-                                </Box>
-                                <Box mb="3">
-                                    <Text size="2" weight="bold" mb="1" as="div">Display Line 2 (Optional)</Text>
-                                    <TextField.Root value={msg2} onChange={(e) => setMsg2(e.target.value)} />
-                                </Box>
-                                <Flex justify="end" gap="2" mt="4">
-                                    <Button type="button" variant="soft" color="gray" onClick={() => setUpdatingVms(null)}>
-                                        Cancel
-                                    </Button>
-                                    <Button type="submit" color="blue">
-                                        Update VMS Broadcast
-                                    </Button>
-                                </Flex>
-                            </form>
-                        </Dialog.Content>
-                    </Dialog.Root>
-                )}
+                                        {/* Electronic LED Display Simulation */}
+                                        <Box style={{ background: '#000000', borderRadius: 8, padding: 12, border: '2px solid #333333', margin: '8px 0', fontFamily: 'monospace' }}>
+                                            <Text size="2" weight="bold" style={{ color: '#FACC15', display: 'block', textAlign: 'center', letterSpacing: '0.05em' }}>
+                                                {vms.message_line1}
+                                            </Text>
+                                            {vms.message_line2 && (
+                                                <Text size="2" weight="bold" style={{ color: '#FACC15', display: 'block', textAlign: 'center', marginTop: 4, letterSpacing: '0.05em' }}>
+                                                    {vms.message_line2}
+                                                </Text>
+                                            )}
+                                        </Box>
+
+                                        <Flex justify="end" mt="2">
+                                            <Button size="1" color="purple" variant="soft" onClick={() => {
+                                                setUpdatingVms(vms);
+                                                setMsg1(vms.message_line1);
+                                                setMsg2(vms.message_line2 || '');
+                                                setType(vms.type);
+                                            }}>
+                                                <SpeakerWaveIcon width={14} height={14} /> Update Broadcast
+                                            </Button>
+                                        </Flex>
+                                    </Panel>
+                                ))}
+                            </Grid>
+                        </Box>
                     </Panel>
                 </Box>
             </Flex>
+
+            {/* VMS Update & Scenario Preset Modal */}
+            <Dialog.Root open={!!updatingVms} onOpenChange={(open) => !open && setUpdatingVms(null)}>
+                <Dialog.Content style={{ maxWidth: 560 }}>
+                    <Dialog.Title>Update VMS Board: {updatingVms?.vms_code}</Dialog.Title>
+                    <Dialog.Description size="2" mb="3">
+                        Location: {updatingVms?.location}. Broadcast live LED message to highway drivers.
+                    </Dialog.Description>
+
+                    {/* Presets Grid */}
+                    <Box mb="3" p="2" style={{ background: 'var(--gray-a2)', borderRadius: 8 }}>
+                        <Text size="1" weight="bold" color="gray" mb="1" as="div">Quick Scenario Presets</Text>
+                        <Flex gap="1" wrap="wrap">
+                            {presets.map((p, idx) => (
+                                <Button key={idx} size="1" variant="ghost" color="gray" onClick={() => applyPreset(p)}>
+                                    {p.name}
+                                </Button>
+                            ))}
+                        </Flex>
+                    </Box>
+
+                    <form onSubmit={handleUpdateVms}>
+                        <Flex direction="column" gap="3">
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">Message Line 1 (Upper)</Text>
+                                <TextField.Root value={msg1} onChange={(e) => setMsg1(e.target.value.toUpperCase())} maxLength={40} required />
+                            </label>
+
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">Message Line 2 (Lower)</Text>
+                                <TextField.Root value={msg2} onChange={(e) => setMsg2(e.target.value.toUpperCase())} maxLength={40} />
+                            </label>
+
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">Message Severity / Color Mode</Text>
+                                <Select.Root value={type} onValueChange={setType}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="info">Info (Amber / Standard)</Select.Item>
+                                        <Select.Item value="warning">Warning (Caution / Orange)</Select.Item>
+                                        <Select.Item value="emergency">Emergency (Red Hazard)</Select.Item>
+                                        <Select.Item value="speed_limit">Speed Limit / Regulatory</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </label>
+
+                            <Flex justify="end" gap="2" mt="2">
+                                <Button type="button" variant="soft" color="gray" onClick={() => setUpdatingVms(null)}>Cancel</Button>
+                                <Button type="submit" color="purple">Broadcast Live to Gantry</Button>
+                            </Flex>
+                        </Flex>
+                    </form>
+                </Dialog.Content>
+            </Dialog.Root>
         </App>
     );
 }

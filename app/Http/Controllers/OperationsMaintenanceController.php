@@ -2,13 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OmAsset;
+use App\Models\OmDefect;
 use App\Models\OmEquipment;
 use App\Models\OmIncident;
+use App\Models\OmLaneClosurePermit;
 use App\Models\OmShiftLog;
-use App\Models\OmTollRecord;
 use App\Models\OmTrafficLog;
 use App\Models\OmVmsMessage;
 use App\Models\OmWorkOrder;
+use App\Services\Operations\OmAssetService;
+use App\Services\Operations\OmDefectService;
+use App\Services\Operations\OmIncidentService;
+use App\Services\Operations\OmShiftService;
+use App\Services\Operations\OmTollAuditService;
+use App\Services\Operations\OmWorkOrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,33 +24,48 @@ use Inertia\Response;
 
 class OperationsMaintenanceController extends Controller
 {
+    public function __construct(
+        protected OmAssetService $assetService,
+        protected OmDefectService $defectService,
+        protected OmWorkOrderService $workOrderService,
+        protected OmIncidentService $incidentService,
+        protected OmTollAuditService $tollService,
+        protected OmShiftService $shiftService
+    ) {}
+
     /**
      * O&M Command Center Dashboard Overview
      */
     public function dashboard(Request $request): Response|JsonResponse
     {
         $stats = [
-            'today_toll_revenue' => OmTollRecord::whereDate('transacted_at', now())->sum('amount') ?: 485200.00,
-            'etc_vehicle_ratio' => 78.4,
+            'today_toll_revenue' => $this->tollService->getTollSummary()['total_revenue_today'],
+            'etc_vehicle_ratio' => $this->tollService->getTollSummary()['etc_percentage'],
             'active_incidents_count' => OmIncident::whereIn('status', ['detected', 'dispatched', 'on_scene'])->count() ?: 3,
             'open_work_orders_count' => OmWorkOrder::whereIn('status', ['pending', 'assigned', 'in_progress'])->count() ?: 7,
-            'equipment_uptime_pct' => round(OmEquipment::avg('uptime_pct') ?: 99.4, 2),
-            'avg_patrol_response_min' => 12.5,
+            'active_lane_closures_count' => OmLaneClosurePermit::where('status', 'active')->count() ?: 1,
+            'open_defects_count' => OmDefect::whereIn('status', ['reported', 'investigating', 'work_order_created', 'in_repair'])->count() ?: 4,
+            'equipment_uptime_pct' => round(OmEquipment::avg('uptime_pct') ?: 99.8, 2),
+            'avg_patrol_response_min' => $this->incidentService->getIncidentStats()['avg_response_time_min'],
         ];
 
-        $recentIncidents = OmIncident::latest('reported_at')->take(5)->get();
+        $recentIncidents = OmIncident::with('vehicles')->latest('reported_at')->take(5)->get();
         $trafficFlowSections = OmTrafficLog::latest('recorded_at')->take(4)->get();
-        $recentWorkOrders = OmWorkOrder::latest()->take(5)->get();
+        $recentWorkOrders = OmWorkOrder::with(['defect', 'materials', 'laneClosurePermit'])->latest()->take(5)->get();
+        $recentDefects = OmDefect::latest()->take(5)->get();
         $vmsBoards = OmVmsMessage::where('is_active', true)->get();
+        $activeLaneClosures = OmLaneClosurePermit::whereIn('status', ['requested', 'approved', 'active'])->latest()->take(5)->get();
 
-        if ($request->wantsJson() && !$request->header('X-Inertia')) {
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
             return response()->json([
                 'success' => true,
                 'stats' => $stats,
                 'recent_incidents' => $recentIncidents,
                 'traffic_sections' => $trafficFlowSections,
                 'recent_work_orders' => $recentWorkOrders,
+                'recent_defects' => $recentDefects,
                 'vms_boards' => $vmsBoards,
+                'active_lane_closures' => $activeLaneClosures,
             ]);
         }
 
@@ -51,7 +74,351 @@ class OperationsMaintenanceController extends Controller
             'recentIncidents' => $recentIncidents,
             'trafficSections' => $trafficFlowSections,
             'recentWorkOrders' => $recentWorkOrders,
+            'recentDefects' => $recentDefects,
             'vmsBoards' => $vmsBoards,
+            'activeLaneClosures' => $activeLaneClosures,
+        ]);
+    }
+
+    /**
+     * Defects & Roadway Distress Management Page
+     */
+    public function defects(Request $request): Response|JsonResponse
+    {
+        $filters = $request->only(['status', 'severity', 'distress_type', 'direction', 'search']);
+        $defects = $this->defectService->getDefects($filters, 15);
+        $stats = $this->defectService->getDefectStats();
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'stats' => $stats,
+                'defects' => $defects,
+            ]);
+        }
+
+        return Inertia::render('Operations/DefectsManagement', [
+            'defects' => $defects,
+            'stats' => $stats,
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * Store new Road Distress Defect
+     */
+    public function storeDefect(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'distress_type' => 'required|string',
+            'chainage' => 'required|string|max:50',
+            'direction' => 'required|in:northbound,southbound,both,median,ramp',
+            'severity' => 'required|in:low,medium,high,critical',
+            'description' => 'nullable|string',
+            'asset_id' => 'nullable|exists:om_assets,id',
+            'before_photos' => 'nullable|array',
+        ]);
+
+        $defect = $this->defectService->createDefect($validated, $request->user()?->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Defect {$defect->defect_number} logged successfully with {$defect->sla_hours}h SLA.",
+            'defect' => $defect,
+        ]);
+    }
+
+    /**
+     * Convert Defect to Maintenance Work Order
+     */
+    public function convertDefectToWorkOrder(Request $request, int $id): JsonResponse
+    {
+        $defect = OmDefect::findOrFail($id);
+        $validated = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'work_type' => 'nullable|string',
+            'priority' => 'nullable|string',
+            'assigned_to' => 'nullable|string',
+            'contractor_name' => 'nullable|string',
+            'estimated_cost' => 'nullable|numeric',
+            'requires_lane_closure' => 'nullable|boolean',
+        ]);
+
+        $wo = $this->defectService->convertToWorkOrder($defect, $validated, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Work Order {$wo->work_order_number} generated from Defect {$defect->defect_number}.",
+            'work_order' => $wo,
+        ]);
+    }
+
+    /**
+     * Routine, Preventive & Emergency Maintenance Work Orders Page
+     */
+    public function workOrders(Request $request): Response|JsonResponse
+    {
+        $filters = $request->only(['status', 'priority', 'category', 'work_type', 'search']);
+        $workOrders = $this->workOrderService->getWorkOrders($filters, 15);
+        $stats = $this->workOrderService->getWorkOrderStats();
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'stats' => $stats,
+                'work_orders' => $workOrders,
+            ]);
+        }
+
+        return Inertia::render('Operations/MaintenanceWorkOrders', [
+            'workOrders' => $workOrders,
+            'stats' => $stats,
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * Store new Work Order
+     */
+    public function storeWorkOrder(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'work_type' => 'nullable|string',
+            'category' => 'required|in:pavement,guardrail,lighting,drainage,bridge,signage',
+            'location' => 'required|string|max:100',
+            'priority' => 'required|in:low,medium,high,emergency',
+            'assigned_to' => 'nullable|string',
+            'contractor_name' => 'nullable|string',
+            'description' => 'nullable|string',
+            'estimated_cost' => 'nullable|numeric',
+            'requires_lane_closure' => 'nullable|boolean',
+            'materials' => 'nullable|array',
+            'lane_closure' => 'nullable|array',
+        ]);
+
+        $wo = $this->workOrderService->createWorkOrder($validated, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Maintenance Work Order {$wo->work_order_number} issued successfully.",
+            'work_order' => $wo,
+        ]);
+    }
+
+    /**
+     * Approve Work Order
+     */
+    public function approveWorkOrder(Request $request, int $id): JsonResponse
+    {
+        $wo = OmWorkOrder::findOrFail($id);
+        $wo = $this->workOrderService->approveWorkOrder($wo, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Work Order {$wo->work_order_number} approved and dispatched to crew.",
+            'work_order' => $wo,
+        ]);
+    }
+
+    /**
+     * Start Work Order
+     */
+    public function startWorkOrder(Request $request, int $id): JsonResponse
+    {
+        $wo = OmWorkOrder::findOrFail($id);
+        $wo = $this->workOrderService->startWorkOrder($wo);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Work Order {$wo->work_order_number} is now IN PROGRESS with active safety zone.",
+            'work_order' => $wo,
+        ]);
+    }
+
+    /**
+     * Complete Work Order (Submit for QC Verification)
+     */
+    public function completeWorkOrder(Request $request, int $id): JsonResponse
+    {
+        $wo = OmWorkOrder::findOrFail($id);
+        $validated = $request->validate([
+            'actual_cost' => 'nullable|numeric',
+            'materials' => 'nullable|array',
+        ]);
+
+        $wo = $this->workOrderService->completeWorkOrder($wo, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Work Order {$wo->work_order_number} marked COMPLETED. Pending QC verification.",
+            'work_order' => $wo,
+        ]);
+    }
+
+    /**
+     * Verify and Sign Off Work Order (QA/QC Close)
+     */
+    public function verifyWorkOrder(Request $request, int $id): JsonResponse
+    {
+        $wo = OmWorkOrder::findOrFail($id);
+        $validated = $request->validate([
+            'qc_notes' => 'nullable|string',
+        ]);
+
+        $wo = $this->workOrderService->verifyAndClose($wo, $request->user()?->id ?? 1, $validated['qc_notes'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Work Order {$wo->work_order_number} verified and closed successfully.",
+            'work_order' => $wo,
+        ]);
+    }
+
+    /**
+     * Incidents & Emergency Patrol Dispatch Page
+     */
+    public function incidents(Request $request): Response|JsonResponse
+    {
+        $filters = $request->only(['status', 'severity', 'incident_type', 'direction', 'search']);
+        $incidents = $this->incidentService->getIncidents($filters, 15);
+        $metrics = $this->incidentService->getIncidentStats();
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'metrics' => $metrics,
+                'incidents' => $incidents,
+            ]);
+        }
+
+        return Inertia::render('Operations/IncidentsPatrol', [
+            'metrics' => $metrics,
+            'incidents' => $incidents,
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * Store new Incident & Dispatch Patrol
+     */
+    public function storeIncident(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'incident_type' => 'nullable|string',
+            'detection_source' => 'nullable|string',
+            'chainage' => 'required|string|max:50',
+            'direction' => 'required|in:northbound,southbound,both',
+            'severity' => 'required|in:minor,major,critical',
+            'dispatched_unit' => 'nullable|string',
+            'description' => 'nullable|string',
+            'casualties_fatalities' => 'nullable|integer',
+            'casualties_injured' => 'nullable|integer',
+            'vehicles_involved_count' => 'nullable|integer',
+            'has_asset_damage' => 'nullable|boolean',
+            'asset_damage_cost_est' => 'nullable|numeric',
+            'police_case_number' => 'nullable|string',
+            'vehicles' => 'nullable|array',
+        ]);
+
+        $incident = $this->incidentService->createIncident($validated, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Incident {$incident->incident_number} logged and patrol units dispatched.",
+            'incident' => $incident,
+        ]);
+    }
+
+    /**
+     * Update Incident Status
+     */
+    public function updateIncidentStatus(Request $request, int $id): JsonResponse
+    {
+        $incident = OmIncident::findOrFail($id);
+        $validated = $request->validate([
+            'status' => 'required|in:detected,dispatched,on_scene,cleared,closed',
+            'description' => 'nullable|string',
+            'dispatched_unit' => 'nullable|string',
+        ]);
+
+        $incident = $this->incidentService->updateStatus($incident, $validated['status'], $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Incident {$incident->incident_number} updated to {$validated['status']}.",
+            'incident' => $incident,
+        ]);
+    }
+
+    /**
+     * Create Post-Incident Damage Work Order
+     */
+    public function createIncidentDamageWorkOrder(Request $request, int $id): JsonResponse
+    {
+        $incident = OmIncident::findOrFail($id);
+        $wo = $this->incidentService->createDamageRepairWorkOrder($incident, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "TPPD Emergency Repair Work Order {$wo->work_order_number} initiated.",
+            'work_order' => $wo,
+        ]);
+    }
+
+    /**
+     * Linear Asset Inventory & Infrastructure Health Page
+     */
+    public function assets(Request $request): Response|JsonResponse
+    {
+        $filters = $request->only(['category', 'status', 'condition', 'direction', 'search']);
+        $assets = $this->assetService->getAssets($filters, 15);
+        $stats = $this->assetService->getAssetStats();
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'stats' => $stats,
+                'assets' => $assets,
+            ]);
+        }
+
+        return Inertia::render('Operations/AssetInventory', [
+            'assets' => $assets,
+            'stats' => $stats,
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * Store new Asset
+     */
+    public function storeAsset(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'start_chainage' => 'required|string|max:50',
+            'end_chainage' => 'nullable|string|max:50',
+            'direction' => 'required|in:northbound,southbound,both,median,interchange,toll_plaza',
+            'location_description' => 'nullable|string',
+            'purchase_cost' => 'nullable|numeric',
+            'replacement_cost' => 'nullable|numeric',
+            'expected_lifespan_years' => 'nullable|integer',
+            'condition_score' => 'nullable|integer',
+            'condition_grade' => 'nullable|string',
+            'operational_status' => 'nullable|string',
+            'technical_specs' => 'nullable|string',
+        ]);
+
+        $asset = $this->assetService->createAsset($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Asset {$asset->asset_code} registered in expressway inventory.",
+            'asset' => $asset,
         ]);
     }
 
@@ -64,7 +431,7 @@ class OperationsMaintenanceController extends Controller
         $vmsMessages = OmVmsMessage::all();
         $overloadAlerts = OmTrafficLog::where('overload_count', '>', 0)->latest()->get();
 
-        if ($request->wantsJson() && !$request->header('X-Inertia')) {
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
             return response()->json([
                 'success' => true,
                 'traffic_sections' => $trafficSections,
@@ -81,183 +448,7 @@ class OperationsMaintenanceController extends Controller
     }
 
     /**
-     * Toll Operations & Revenue Page
-     */
-    public function tollOperations(Request $request): Response|JsonResponse
-    {
-        $tollRecords = OmTollRecord::latest('transacted_at')->paginate(20);
-        $summary = [
-            'total_revenue_today' => OmTollRecord::whereDate('transacted_at', now())->sum('amount') ?: 485200.00,
-            'etc_percentage' => 78.4,
-            'cash_percentage' => 21.6,
-            'total_transactions_today' => OmTollRecord::whereDate('transacted_at', now())->count() ?: 3840,
-        ];
-
-        if ($request->wantsJson() && !$request->header('X-Inertia')) {
-            return response()->json([
-                'success' => true,
-                'summary' => $summary,
-                'toll_records' => $tollRecords,
-            ]);
-        }
-
-        return Inertia::render('Operations/TollOperations', [
-            'summary' => $summary,
-            'tollRecords' => $tollRecords,
-        ]);
-    }
-
-    /**
-     * Incidents & Emergency Patrol Page
-     */
-    public function incidents(Request $request): Response|JsonResponse
-    {
-        $incidents = OmIncident::latest('reported_at')->paginate(15);
-        $metrics = [
-            'active_incidents' => OmIncident::whereIn('status', ['detected', 'dispatched', 'on_scene'])->count() ?: 3,
-            'cleared_today' => OmIncident::whereDate('cleared_at', now())->count() ?: 6,
-            'avg_response_time' => '11.8 mins',
-        ];
-
-        if ($request->wantsJson() && !$request->header('X-Inertia')) {
-            return response()->json([
-                'success' => true,
-                'metrics' => $metrics,
-                'incidents' => $incidents,
-            ]);
-        }
-
-        return Inertia::render('Operations/IncidentsPatrol', [
-            'metrics' => $metrics,
-            'incidents' => $incidents,
-        ]);
-    }
-
-    /**
-     * Store new Incident
-     */
-    public function storeIncident(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'chainage' => 'required|string|max:50',
-            'direction' => 'required|in:northbound,southbound,both',
-            'severity' => 'required|in:minor,major,critical',
-            'dispatched_unit' => 'nullable|string',
-            'description' => 'nullable|string',
-        ]);
-
-        $incident = OmIncident::create([
-            'incident_number' => 'INC-' . strtoupper(uniqid()),
-            'title' => $validated['title'],
-            'chainage' => $validated['chainage'],
-            'direction' => $validated['direction'],
-            'severity' => $validated['severity'],
-            'status' => 'dispatched',
-            'dispatched_unit' => $validated['dispatched_unit'] ?? 'Patrol Unit 1',
-            'response_time_minutes' => 10,
-            'description' => $validated['description'] ?? null,
-            'reported_at' => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Incident reported and patrol dispatched successfully.',
-            'incident' => $incident,
-        ]);
-    }
-
-    /**
-     * Routine Maintenance Work Orders Page
-     */
-    public function workOrders(Request $request): Response|JsonResponse
-    {
-        $workOrders = OmWorkOrder::latest()->paginate(15);
-
-        if ($request->wantsJson() && !$request->header('X-Inertia')) {
-            return response()->json([
-                'success' => true,
-                'work_orders' => $workOrders,
-            ]);
-        }
-
-        return Inertia::render('Operations/MaintenanceWorkOrders', [
-            'workOrders' => $workOrders,
-        ]);
-    }
-
-    /**
-     * Store new Work Order
-     */
-    public function storeWorkOrder(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'category' => 'required|in:pavement,guardrail,lighting,drainage,bridge,signage',
-            'location' => 'required|string|max:100',
-            'priority' => 'required|in:low,medium,high,emergency',
-            'assigned_to' => 'nullable|string',
-            'description' => 'nullable|string',
-        ]);
-
-        $wo = OmWorkOrder::create([
-            'work_order_number' => 'WO-' . rand(10000, 99999),
-            'title' => $validated['title'],
-            'category' => $validated['category'],
-            'location' => $validated['location'],
-            'priority' => $validated['priority'],
-            'status' => 'assigned',
-            'assigned_to' => $validated['assigned_to'] ?? 'Road Maintenance Crew A',
-            'description' => $validated['description'] ?? null,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Maintenance Work Order created successfully.',
-            'work_order' => $wo,
-        ]);
-    }
-
-    /**
-     * Equipment & Facilities Status Page
-     */
-    public function equipment(Request $request): Response|JsonResponse
-    {
-        $equipment = OmEquipment::all();
-
-        if ($request->wantsJson() && !$request->header('X-Inertia')) {
-            return response()->json([
-                'success' => true,
-                'equipment' => $equipment,
-            ]);
-        }
-
-        return Inertia::render('Operations/EquipmentFacilities', [
-            'equipment' => $equipment,
-        ]);
-    }
-
-    /**
-     * Digital Shift Handover Logs Page
-     */
-    public function shiftLogs(Request $request): Response|JsonResponse
-    {
-        $shiftLogs = OmShiftLog::with('operator')->latest('shift_date')->paginate(15);
-
-        if ($request->wantsJson() && !$request->header('X-Inertia')) {
-            return response()->json([
-                'success' => true,
-                'shift_logs' => $shiftLogs,
-            ]);
-        }
-
-        return Inertia::render('Operations/ShiftHandoverLogs', [
-            'shiftLogs' => $shiftLogs,
-        ]);
-    }
-
-    /**
-     * Update VMS Message
+     * Update Variable Message Sign
      */
     public function updateVmsMessage(Request $request): JsonResponse
     {
@@ -280,6 +471,144 @@ class OperationsMaintenanceController extends Controller
             'success' => true,
             'message' => 'Variable Message Sign updated and broadcast live.',
             'vms' => $vms,
+        ]);
+    }
+
+    /**
+     * Toll Operations & Shift Reconciliation Page
+     */
+    public function tollOperations(Request $request): Response|JsonResponse
+    {
+        $filters = $request->only(['payment_method', 'vehicle_class', 'lane_id']);
+        $tollRecords = $this->tollService->getTollRecords($filters, 20);
+        $shiftAudits = $this->tollService->getShiftAudits(10);
+        $exemptions = $this->tollService->getExemptions(10);
+        $summary = $this->tollService->getTollSummary();
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'summary' => $summary,
+                'toll_records' => $tollRecords,
+                'shift_audits' => $shiftAudits,
+                'exemptions' => $exemptions,
+            ]);
+        }
+
+        return Inertia::render('Operations/TollOperations', [
+            'summary' => $summary,
+            'tollRecords' => $tollRecords,
+            'shiftAudits' => $shiftAudits,
+            'exemptions' => $exemptions,
+            'filters' => $filters,
+        ]);
+    }
+
+    /**
+     * Store Toll Shift Reconciliation Audit
+     */
+    public function storeShiftAudit(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'plaza_name' => 'nullable|string',
+            'shift_date' => 'required|date',
+            'shift_type' => 'required|in:morning,evening,night',
+            'system_calculated_total' => 'required|numeric',
+            'cash_declared_by_collectors' => 'required|numeric',
+            'etc_automatic_revenue' => 'required|numeric',
+            'pos_card_mfs_revenue' => 'nullable|numeric',
+            'total_vehicle_transactions' => 'nullable|integer',
+            'avc_physical_axle_count' => 'nullable|integer',
+            'exempted_vehicle_count' => 'nullable|integer',
+            'bank_deposit_reference' => 'nullable|string',
+            'auditor_notes' => 'nullable|string',
+        ]);
+
+        $audit = $this->tollService->recordShiftAudit($validated, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Toll Shift Reconciliation Audit {$audit->audit_code} submitted.",
+            'audit' => $audit,
+        ]);
+    }
+
+    /**
+     * Equipment & Facilities Hardware Status Page
+     */
+    public function equipment(Request $request): Response|JsonResponse
+    {
+        $equipment = OmEquipment::all();
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'equipment' => $equipment,
+            ]);
+        }
+
+        return Inertia::render('Operations/EquipmentFacilities', [
+            'equipment' => $equipment,
+        ]);
+    }
+
+    /**
+     * Digital Shift Handover Logs Page
+     */
+    public function shiftLogs(Request $request): Response|JsonResponse
+    {
+        $shiftLogs = $this->shiftService->getShiftLogs(15);
+        $activeMetrics = $this->shiftService->getCurrentShiftMetrics();
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'shift_logs' => $shiftLogs,
+                'active_metrics' => $activeMetrics,
+            ]);
+        }
+
+        return Inertia::render('Operations/ShiftHandoverLogs', [
+            'shiftLogs' => $shiftLogs,
+            'activeMetrics' => $activeMetrics,
+        ]);
+    }
+
+    /**
+     * Store new Shift Handover Record
+     */
+    public function storeShiftLog(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'shift_date' => 'required|date',
+            'shift_type' => 'required|in:morning,evening,night',
+            'weather_condition' => 'nullable|in:clear,rain,heavy_fog,storm_high_winds',
+            'handover_notes' => 'required|string',
+            'equipment_exceptions' => 'nullable|string',
+            'incoming_operator_id' => 'nullable|exists:users,id',
+        ]);
+
+        $log = $this->shiftService->createShiftLog($validated, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Shift Handover {$log->shift_code} logged successfully.",
+            'shift_log' => $log,
+        ]);
+    }
+
+    /**
+     * Acknowledge / Dual Sign-off Shift Log
+     */
+    public function acknowledgeShiftLog(Request $request, int $id): JsonResponse
+    {
+        $log = OmShiftLog::findOrFail($id);
+        $log = $this->shiftService->acknowledgeShiftLog($log, $request->user()?->id ?? 1);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Shift Handover {$log->shift_code} acknowledged and signed off.",
+            'shift_log' => $log,
         ]);
     }
 }

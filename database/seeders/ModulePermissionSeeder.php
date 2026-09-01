@@ -370,6 +370,17 @@ class ModulePermissionSeeder extends Seeder
                     ],
                 ],
                 [
+                    'code' => 'DEFECTS_MANAGEMENT',
+                    'name' => 'Roadway Defects',
+                    'description' => 'Roadway distress catalog, severity tracking, and SLA countdowns',
+                    'icon' => 'ExclamationTriangleIcon',
+                    'route_prefix' => '/om/defects',
+                    'permissions' => ['om.maintenance.view'],
+                    'components' => [
+                        ['code' => 'DEFECTS_PAGE', 'name' => 'Defects & Distress Page', 'type' => 'page', 'route_name' => 'om.defects', 'permissions' => ['om.maintenance.view']],
+                    ],
+                ],
+                [
                     'code' => 'ROUTINE_MAINTENANCE',
                     'name' => 'Maintenance Work Orders',
                     'description' => 'Pavement care, lighting, guardrail, and bridge work orders',
@@ -381,8 +392,19 @@ class ModulePermissionSeeder extends Seeder
                     ],
                 ],
                 [
+                    'code' => 'ASSET_INVENTORY',
+                    'name' => 'Asset Inventory',
+                    'description' => 'Linear asset registry, condition surveys (PCI), and structural lifecycle',
+                    'icon' => 'BuildingOffice2Icon',
+                    'route_prefix' => '/om/assets',
+                    'permissions' => ['om.equipment.view'],
+                    'components' => [
+                        ['code' => 'ASSETS_PAGE', 'name' => 'Asset Inventory Page', 'type' => 'page', 'route_name' => 'om.assets', 'permissions' => ['om.equipment.view']],
+                    ],
+                ],
+                [
                     'code' => 'FACILITY_EQUIPMENT',
-                    'name' => 'Equipment & Assets',
+                    'name' => 'Equipment & Hardware',
                     'description' => 'CCTV, VMS, WIM scales, and toll plaza hardware status',
                     'icon' => 'CpuChipIcon',
                     'route_prefix' => '/om/equipment',

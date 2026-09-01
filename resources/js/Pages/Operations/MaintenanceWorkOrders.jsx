@@ -1,46 +1,122 @@
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog, Select, Separator } from '@radix-ui/themes';
-import { WrenchScrewdriverIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog, Select, Separator, TextArea, Tabs } from '@radix-ui/themes';
+import {
+    WrenchScrewdriverIcon,
+    PlusIcon,
+    CheckCircleIcon,
+    ClockIcon,
+    ShieldCheckIcon,
+    DocumentCheckIcon,
+    PlayIcon,
+    EyeIcon
+} from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import StatsCards from '@/Components/StatsCards';
 
-export default function MaintenanceWorkOrders({ auth, workOrders }) {
-    const [openModal, setOpenModal] = useState(false);
+export default function MaintenanceWorkOrders({ auth, workOrders, stats, filters }) {
+    const [openCreateModal, setOpenCreateModal] = useState(false);
+    const [selectedWo, setSelectedWo] = useState(null);
+    const [openQcModal, setOpenQcModal] = useState(null);
+    const [qcNotes, setQcNotes] = useState('');
+
+    // Create Modal Form States
     const [title, setTitle] = useState('');
+    const [workType, setWorkType] = useState('routine_corrective');
     const [category, setCategory] = useState('pavement');
-    const [location, setLocation] = useState('Ch 12+400');
+    const [location, setLocation] = useState('Ch 14+250');
     const [priority, setPriority] = useState('medium');
-    const [assignedTo, setAssignedTo] = useState('Roadside Crew A');
+    const [assignedTo, setAssignedTo] = useState('Roadside Maintenance Crew Alpha');
+    const [contractorName, setContractorName] = useState('Expressway Routine Maintenance Ltd.');
+    const [estimatedCost, setEstimatedCost] = useState('45000');
+    const [description, setDescription] = useState('');
+    const [requiresLaneClosure, setRequiresLaneClosure] = useState(true);
 
-    const woData = workOrders?.data || [
-        { id: 1, work_order_number: 'WO-90124', title: 'Guardrail Repair & Reflector Replacement', category: 'pavement', location: 'Ch 12+400 - Ch 13+100', priority: 'medium', status: 'in_progress', assigned_to: 'Roadside Crew B' },
-        { id: 2, work_order_number: 'WO-90125', title: 'Toll Plaza Lane 4 ETC Reader Calibration', category: 'lighting', location: 'Main Toll Plaza', priority: 'high', status: 'assigned', assigned_to: 'ITS Tech Team' },
-        { id: 3, work_order_number: 'WO-90126', title: 'Expansion Joint Sealing at Kanchan Bridge', category: 'bridge', location: 'Ch 18+270', priority: 'high', status: 'pending', assigned_to: 'Bridge Maintenance Team' },
-    ];
+    const woList = workOrders?.data || [];
 
-    const handleSubmit = (e) => {
+    const handleCreateSubmit = (e) => {
         e.preventDefault();
         router.post('/om/work-orders', {
-            title, category, location, priority, assigned_to: assignedTo
+            title,
+            work_type: workType,
+            category,
+            location,
+            priority,
+            assigned_to: assignedTo,
+            contractor_name: contractorName,
+            estimated_cost: Number(estimatedCost),
+            description,
+            requires_lane_closure: requiresLaneClosure,
         }, {
             onSuccess: () => {
-                setOpenModal(false);
+                setOpenCreateModal(false);
                 setTitle('');
+                setDescription('');
+            }
+        });
+    };
+
+    const handleApprove = (id) => {
+        router.post(`/om/work-orders/${id}/approve`, {}, {
+            onSuccess: () => setSelectedWo(null)
+        });
+    };
+
+    const handleStart = (id) => {
+        router.post(`/om/work-orders/${id}/start`, {}, {
+            onSuccess: () => setSelectedWo(null)
+        });
+    };
+
+    const handleComplete = (id) => {
+        router.post(`/om/work-orders/${id}/complete`, {}, {
+            onSuccess: () => setSelectedWo(null)
+        });
+    };
+
+    const handleVerifyQc = (e) => {
+        e.preventDefault();
+        if (!openQcModal) return;
+
+        router.post(`/om/work-orders/${openQcModal.id}/verify`, {
+            qc_notes: qcNotes,
+        }, {
+            onSuccess: () => {
+                setOpenQcModal(null);
+                setSelectedWo(null);
+                setQcNotes('');
             }
         });
     };
 
     const statItems = [
-        { key: 'total', title: 'Total Work Orders', value: woData.length, color: 'blue' },
-        { key: 'in_progress', title: 'In Progress', value: woData.filter(w => w.status === 'in_progress').length, color: 'amber' },
-        { key: 'high', title: 'High Priority', value: woData.filter(w => w.priority === 'high').length, color: 'red' },
+        { key: 'total', title: 'Total Work Orders', value: stats?.total_work_orders || woList.length, color: 'blue' },
+        { key: 'in_progress', title: 'In Progress / Active Zone', value: stats?.in_progress || 0, color: 'amber', icon: <PlayIcon /> },
+        { key: 'pending_qc', title: 'Pending QC Signoff', value: stats?.completed_pending_qc || 0, color: 'purple', icon: <DocumentCheckIcon /> },
+        { key: 'verified', title: 'Verified & Closed', value: stats?.verified_closed || 0, color: 'green', icon: <CheckCircleIcon /> },
     ];
+
+    const getStatusBadge = (st) => {
+        const map = {
+            pending: { color: 'amber', label: 'Pending Approval' },
+            assigned: { color: 'blue', label: 'Assigned / Dispatched' },
+            in_progress: { color: 'purple', label: 'Work Zone Active' },
+            completed: { color: 'indigo', label: 'Completed (Pending QC)' },
+            verified: { color: 'green', label: 'Verified & Closed' },
+        };
+        const item = map[st] || { color: 'gray', label: st };
+        return <Badge color={item.color} variant="surface" style={{ borderRadius: 999 }}>{item.label}</Badge>;
+    };
+
+    const getPriorityBadge = (p) => {
+        const map = { emergency: 'red', high: 'orange', medium: 'amber', low: 'gray' };
+        return <Badge color={map[p] || 'gray'} variant="soft" style={{ borderRadius: 999 }}>{p.toUpperCase()}</Badge>;
+    };
 
     return (
         <App auth={auth}>
-            <Head title="Maintenance Work Orders" />
+            <Head title="Maintenance Work Orders & Safety Work Zones" />
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
                     <Panel>
@@ -52,22 +128,27 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
                                         <WrenchScrewdriverIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Routine & Preventive Maintenance Work Orders</Heading>
-                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Highway Infrastructure Care: Pavement, Guardrails, Bridge Joints, Lighting & Signage</Text>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                            Routine & Preventive Maintenance Work Orders
+                                        </Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                            Full Lifecycle Management: Bill of Quantities (BOQ), Work Zone Safety Permits & Joint QC Verification
+                                        </Text>
                                     </Box>
                                 </Flex>
-                                <Button color="blue" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
-                                    <PlusIcon width={16} height={16} /> Create Work Order
+                                <Button color="blue" onClick={() => setOpenCreateModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                    <PlusIcon width={16} height={16} /> Issue Work Order
                                 </Button>
                             </Flex>
                         </Box>
 
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                        <StatsCards stats={statItems} variant="pill" mb="4" />
+                        <StatsCards stats={statItems} columns={{ initial: '1', sm: '4' }} mb="4" />
 
+                        {/* Work Orders Table */}
                         <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                            <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
+                            <Table.Root size="2" style={{ minWidth: 980, width: '100%' }}>
                                 <Table.Header style={{
                                     position: 'sticky',
                                     top: 0,
@@ -77,105 +158,271 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
                                     boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
                                 }}>
                                     <Table.Row>
-                                        <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>WO #</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Title</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Category</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell style={{ minWidth: 150, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Priority</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150, background: 'inherit' }}>Assigned Crew</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 120 }}>WO #</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 260 }}>Task / Scope of Work</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Category</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Location</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Priority</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Status</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 160 }}>Assigned Contractor</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 100 }}>Action</Table.ColumnHeaderCell>
                                     </Table.Row>
                                 </Table.Header>
                                 <Table.Body>
-                                    {woData.map((wo) => (
+                                    {woList.map((wo) => (
                                         <Table.Row key={wo.id} align="center">
                                             <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
                                                 {wo.work_order_number}
                                             </Table.Cell>
-                                            <Table.Cell><Text weight="bold" style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</Text></Table.Cell>
                                             <Table.Cell>
-                                                <Badge color="blue" variant="soft" style={{ borderRadius: 999 }}>{wo.category}</Badge>
+                                                <Text weight="bold" style={{ display: 'block', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {wo.title}
+                                                </Text>
+                                                <Text size="1" color="gray">{wo.work_type?.replace(/_/g, ' ').toUpperCase() || 'ROUTINE'}</Text>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Badge color="indigo" variant="soft" style={{ borderRadius: 999 }}>{wo.category.toUpperCase()}</Badge>
                                             </Table.Cell>
                                             <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.location}</Text></Table.Cell>
                                             <Table.Cell>
-                                                <Badge color={wo.priority === 'high' ? 'red' : wo.priority === 'medium' ? 'orange' : 'gray'} variant="soft" style={{ borderRadius: 999 }}>
-                                                    {wo.priority}
-                                                </Badge>
+                                                {getPriorityBadge(wo.priority)}
                                             </Table.Cell>
                                             <Table.Cell>
-                                                <Badge color={wo.status === 'completed' ? 'green' : wo.status === 'in_progress' ? 'blue' : 'amber'} variant="soft" style={{ borderRadius: 999 }}>
-                                                    {wo.status}
-                                                </Badge>
+                                                {getStatusBadge(wo.status)}
                                             </Table.Cell>
                                             <Table.Cell style={{ textAlign: 'right' }}>
-                                                <Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.assigned_to}</Text>
+                                                <Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.contractor_name || wo.assigned_to}</Text>
+                                            </Table.Cell>
+                                            <Table.Cell style={{ textAlign: 'right' }}>
+                                                <Button size="1" variant="soft" color="blue" onClick={() => setSelectedWo(wo)}>
+                                                    <EyeIcon width={14} height={14} /> Detail
+                                                </Button>
                                             </Table.Cell>
                                         </Table.Row>
                                     ))}
                                 </Table.Body>
                             </Table.Root>
                         </Box>
-
-                        {/* Create Modal */}
-                        <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
-                            <Dialog.Content style={{ maxWidth: 480 }}>
-                                <Dialog.Title>Create Maintenance Work Order</Dialog.Title>
-                                <Dialog.Description size="2" mb="4">
-                                    Issue a new routine, corrective, or emergency highway maintenance ticket.
-                                </Dialog.Description>
-                                <form onSubmit={handleSubmit}>
-                                    <Flex direction="column" gap="3">
-                                        <label>
-                                            <Text as="div" size="2" mb="1" weight="bold">Title / Task</Text>
-                                            <TextField.Root placeholder="e.g. Guardrail Replacement at Kanchan" value={title} onChange={(e) => setTitle(e.target.value)} required />
-                                        </label>
-                                        <Grid columns="2" gap="3">
-                                            <label>
-                                                <Text as="div" size="2" mb="1" weight="bold">Category</Text>
-                                                <Select.Root value={category} onValueChange={setCategory}>
-                                                    <Select.Trigger style={{ width: '100%' }} />
-                                                    <Select.Content>
-                                                        <Select.Item value="pavement">Pavement & Surfacing</Select.Item>
-                                                        <Select.Item value="bridge">Bridge & Culverts</Select.Item>
-                                                        <Select.Item value="lighting">Lighting & Electrification</Select.Item>
-                                                        <Select.Item value="drainage">Drainage & Slope</Select.Item>
-                                                        <Select.Item value="signage">Traffic Signs & VMS</Select.Item>
-                                                    </Select.Content>
-                                                </Select.Root>
-                                            </label>
-                                            <label>
-                                                <Text as="div" size="2" mb="1" weight="bold">Priority</Text>
-                                                <Select.Root value={priority} onValueChange={setPriority}>
-                                                    <Select.Trigger style={{ width: '100%' }} />
-                                                    <Select.Content>
-                                                        <Select.Item value="low">Low</Select.Item>
-                                                        <Select.Item value="medium">Medium</Select.Item>
-                                                        <Select.Item value="high">High Emergency</Select.Item>
-                                                    </Select.Content>
-                                                </Select.Root>
-                                            </label>
-                                        </Grid>
-                                        <label>
-                                            <Text as="div" size="2" mb="1" weight="bold">Location (Chainage)</Text>
-                                            <TextField.Root placeholder="e.g. Ch 12+400 Northbound" value={location} onChange={(e) => setLocation(e.target.value)} required />
-                                        </label>
-                                        <label>
-                                            <Text as="div" size="2" mb="1" weight="bold">Assigned Maintenance Crew</Text>
-                                            <TextField.Root placeholder="e.g. Roadside Civil Crew B" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} required />
-                                        </label>
-                                        <Flex gap="3" mt="4" justify="end">
-                                            <Dialog.Close>
-                                                <Button variant="soft" color="gray">Cancel</Button>
-                                            </Dialog.Close>
-                                            <Button type="submit" color="blue">Issue Ticket</Button>
-                                        </Flex>
-                                    </Flex>
-                                </form>
-                            </Dialog.Content>
-                        </Dialog.Root>
                     </Panel>
                 </Box>
             </Flex>
+
+            {/* Work Order Detail & Lifecycle Action Modal */}
+            <Dialog.Root open={!!selectedWo} onOpenChange={(open) => !open && setSelectedWo(null)}>
+                <Dialog.Content style={{ maxWidth: 650 }}>
+                    <Dialog.Title>Work Order: {selectedWo?.work_order_number}</Dialog.Title>
+                    <Dialog.Description size="2" mb="3">
+                        {selectedWo?.title} · Location: {selectedWo?.location}
+                    </Dialog.Description>
+
+                    <Separator size="4" mb="3" />
+
+                    <Flex direction="column" gap="3">
+                        <Grid columns="2" gap="2">
+                            <Box>
+                                <Text size="1" color="gray">Category & Work Type</Text>
+                                <Text size="2" weight="bold">{selectedWo?.category?.toUpperCase()} ({selectedWo?.work_type?.replace(/_/g, ' ')})</Text>
+                            </Box>
+                            <Box>
+                                <Text size="1" color="gray">Priority & Status</Text>
+                                <Flex gap="2" align="center" mt="1">
+                                    {selectedWo && getPriorityBadge(selectedWo.priority)}
+                                    {selectedWo && getStatusBadge(selectedWo.status)}
+                                </Flex>
+                            </Box>
+                            <Box>
+                                <Text size="1" color="gray">Assigned Crew / Contractor</Text>
+                                <Text size="2" weight="bold">{selectedWo?.contractor_name || selectedWo?.assigned_to || 'Unassigned'}</Text>
+                            </Box>
+                            <Box>
+                                <Text size="1" color="gray">Estimated Cost</Text>
+                                <Text size="2" weight="bold" color="green">৳ {Number(selectedWo?.estimated_cost || 0).toLocaleString()}</Text>
+                            </Box>
+                        </Grid>
+
+                        {/* Bill of Quantities (BOQ) Materials */}
+                        {selectedWo?.materials && selectedWo.materials.length > 0 && (
+                            <Box mt="2" p="3" style={{ background: 'var(--gray-a2)', borderRadius: 10 }}>
+                                <Heading size="2" mb="2">BOQ Materials Consumed</Heading>
+                                <Table.Root size="1">
+                                    <Table.Header>
+                                        <Table.Row>
+                                            <Table.ColumnHeaderCell>Material</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell>Planned</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell>Used</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell>Unit Cost</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Total</Table.ColumnHeaderCell>
+                                        </Table.Row>
+                                    </Table.Header>
+                                    <Table.Body>
+                                        {selectedWo.materials.map((m) => (
+                                            <Table.Row key={m.id}>
+                                                <Table.Cell><Text size="1">{m.item_name}</Text></Table.Cell>
+                                                <Table.Cell><Text size="1">{m.quantity_planned} {m.unit}</Text></Table.Cell>
+                                                <Table.Cell><Text size="1" weight="bold">{m.quantity_used} {m.unit}</Text></Table.Cell>
+                                                <Table.Cell><Text size="1">৳{m.unit_cost}</Text></Table.Cell>
+                                                <Table.Cell style={{ textAlign: 'right' }}><Text size="1" weight="bold">৳{Number(m.total_cost).toLocaleString()}</Text></Table.Cell>
+                                            </Table.Row>
+                                        ))}
+                                    </Table.Body>
+                                </Table.Root>
+                            </Box>
+                        )}
+
+                        {/* Lane Closure Permit Status */}
+                        {selectedWo?.lane_closure_permit && (
+                            <Box p="3" style={{ background: 'var(--amber-a2)', borderRadius: 10, border: '1px solid var(--amber-a4)' }}>
+                                <Flex justify="between" align="center">
+                                    <Text size="2" weight="bold" color="amber">Safety Permit: {selectedWo.lane_closure_permit.permit_number}</Text>
+                                    <Badge color="amber" variant="solid">{selectedWo.lane_closure_permit.status.toUpperCase()}</Badge>
+                                </Flex>
+                                <Text size="1" color="gray" mt="1">
+                                    Lanes Closed: {selectedWo.lane_closure_permit.lanes_closed.replace(/_/g, ' ')} · {selectedWo.lane_closure_permit.safety_cones_deployed} Cones Deployed
+                                </Text>
+                            </Box>
+                        )}
+
+                        {/* Action Buttons based on lifecycle status */}
+                        <Flex justify="end" gap="2" mt="3">
+                            <Button variant="soft" color="gray" onClick={() => setSelectedWo(null)}>Close</Button>
+
+                            {selectedWo?.status === 'pending' && (
+                                <Button color="green" onClick={() => handleApprove(selectedWo.id)}>
+                                    <CheckCircleIcon width={16} height={16} /> Approve & Dispatch
+                                </Button>
+                            )}
+
+                            {selectedWo?.status === 'assigned' && (
+                                <Button color="purple" onClick={() => handleStart(selectedWo.id)}>
+                                    <PlayIcon width={16} height={16} /> Activate Work Zone
+                                </Button>
+                            )}
+
+                            {selectedWo?.status === 'in_progress' && (
+                                <Button color="indigo" onClick={() => handleComplete(selectedWo.id)}>
+                                    <DocumentCheckIcon width={16} height={16} /> Mark Completed
+                                </Button>
+                            )}
+
+                            {selectedWo?.status === 'completed' && (
+                                <Button color="green" onClick={() => setOpenQcModal(selectedWo)}>
+                                    <ShieldCheckIcon width={16} height={16} /> QC Joint Verification
+                                </Button>
+                            )}
+                        </Flex>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* QC Joint Verification Modal */}
+            <Dialog.Root open={!!openQcModal} onOpenChange={(open) => !open && setOpenQcModal(null)}>
+                <Dialog.Content style={{ maxWidth: 480 }}>
+                    <Dialog.Title>Joint QA/QC Inspection Sign-off</Dialog.Title>
+                    <Dialog.Description size="2" mb="3">
+                        Verify and certify that maintenance work order {openQcModal?.work_order_number} adheres to expressway quality standards.
+                    </Dialog.Description>
+                    <form onSubmit={handleVerifyQc}>
+                        <Flex direction="column" gap="3">
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">QA/QC Inspection Remarks</Text>
+                                <TextArea placeholder="Confirm surface smoothness, compaction, guardrail torque, or electrical tests pass..." value={qcNotes} onChange={(e) => setQcNotes(e.target.value)} required />
+                            </label>
+                            <Flex justify="end" gap="2" mt="2">
+                                <Button type="button" variant="soft" color="gray" onClick={() => setOpenQcModal(null)}>Cancel</Button>
+                                <Button type="submit" color="green">Verify & Close Work Order</Button>
+                            </Flex>
+                        </Flex>
+                    </form>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* Create Work Order Modal */}
+            <Dialog.Root open={openCreateModal} onOpenChange={setOpenCreateModal}>
+                <Dialog.Content style={{ maxWidth: 520 }}>
+                    <Dialog.Title>Create Maintenance Work Order</Dialog.Title>
+                    <Dialog.Description size="2" mb="4">
+                        Issue a new routine, corrective, or preventive highway maintenance ticket.
+                    </Dialog.Description>
+                    <form onSubmit={handleCreateSubmit}>
+                        <Flex direction="column" gap="3">
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">Task / Scope</Text>
+                                <TextField.Root placeholder="e.g. Guardrail Replacement at Kanchan" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                            </label>
+
+                            <Grid columns="2" gap="3">
+                                <label>
+                                    <Text as="div" size="2" mb="1" weight="bold">Work Type</Text>
+                                    <Select.Root value={workType} onValueChange={setWorkType}>
+                                        <Select.Trigger style={{ width: '100%' }} />
+                                        <Select.Content>
+                                            <Select.Item value="routine_corrective">Routine Corrective</Select.Item>
+                                            <Select.Item value="preventive_scheduled">Preventive Scheduled</Select.Item>
+                                            <Select.Item value="emergency_repair">Emergency Repair</Select.Item>
+                                            <Select.Item value="periodic_rehabilitation">Periodic Rehabilitation</Select.Item>
+                                        </Select.Content>
+                                    </Select.Root>
+                                </label>
+
+                                <label>
+                                    <Text as="div" size="2" mb="1" weight="bold">Category</Text>
+                                    <Select.Root value={category} onValueChange={setCategory}>
+                                        <Select.Trigger style={{ width: '100%' }} />
+                                        <Select.Content>
+                                            <Select.Item value="pavement">Pavement Care</Select.Item>
+                                            <Select.Item value="guardrail">Guardrails & Safety</Select.Item>
+                                            <Select.Item value="lighting">Lighting & Electrical</Select.Item>
+                                            <Select.Item value="drainage">Drainage & Culverts</Select.Item>
+                                            <Select.Item value="bridge">Bridges & Expansion Joints</Select.Item>
+                                            <Select.Item value="signage">Signages & Markings</Select.Item>
+                                        </Select.Content>
+                                    </Select.Root>
+                                </label>
+                            </Grid>
+
+                            <Grid columns="2" gap="3">
+                                <label>
+                                    <Text as="div" size="2" mb="1" weight="bold">Location (Chainage)</Text>
+                                    <TextField.Root placeholder="e.g. Ch 18+270" value={location} onChange={(e) => setLocation(e.target.value)} required />
+                                </label>
+
+                                <label>
+                                    <Text as="div" size="2" mb="1" weight="bold">Priority</Text>
+                                    <Select.Root value={priority} onValueChange={setPriority}>
+                                        <Select.Trigger style={{ width: '100%' }} />
+                                        <Select.Content>
+                                            <Select.Item value="low">Low</Select.Item>
+                                            <Select.Item value="medium">Medium</Select.Item>
+                                            <Select.Item value="high">High</Select.Item>
+                                            <Select.Item value="emergency">Emergency</Select.Item>
+                                        </Select.Content>
+                                    </Select.Root>
+                                </label>
+                            </Grid>
+
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">Assigned Contractor / Internal Crew</Text>
+                                <TextField.Root value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} required />
+                            </label>
+
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">Estimated Cost (৳)</Text>
+                                <TextField.Root type="number" value={estimatedCost} onChange={(e) => setEstimatedCost(e.target.value)} />
+                            </label>
+
+                            <label>
+                                <Text as="div" size="2" mb="1" weight="bold">Description & Instructions</Text>
+                                <TextArea placeholder="Enter specific repair steps, safety precautions..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                            </label>
+
+                            <Flex justify="end" gap="3" mt="3">
+                                <Button type="button" variant="soft" color="gray" onClick={() => setOpenCreateModal(false)}>Cancel</Button>
+                                <Button type="submit" color="blue">Create Work Order</Button>
+                            </Flex>
+                        </Flex>
+                    </form>
+                </Dialog.Content>
+            </Dialog.Root>
         </App>
     );
 }

@@ -948,15 +948,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Operations & Maintenance (O&M) and Traffic Monitoring Center (TMC / ITS) Routes
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/om/dashboard', [OperationsMaintenanceController::class, 'dashboard'])->name('om.dashboard');
-    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])->name('om.traffic');
-    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])->name('om.toll');
-    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])->name('om.incidents');
-    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])->name('om.incidents.store');
+    Route::get('/om/defects', [OperationsMaintenanceController::class, 'defects'])->name('om.defects');
+    Route::post('/om/defects', [OperationsMaintenanceController::class, 'storeDefect'])->name('om.defects.store');
+    Route::post('/om/defects/{id}/convert-to-wo', [OperationsMaintenanceController::class, 'convertDefectToWorkOrder'])->name('om.defects.convert-wo');
+    
     Route::get('/om/work-orders', [OperationsMaintenanceController::class, 'workOrders'])->name('om.work-orders');
     Route::post('/om/work-orders', [OperationsMaintenanceController::class, 'storeWorkOrder'])->name('om.work-orders.store');
+    Route::post('/om/work-orders/{id}/approve', [OperationsMaintenanceController::class, 'approveWorkOrder'])->name('om.work-orders.approve');
+    Route::post('/om/work-orders/{id}/start', [OperationsMaintenanceController::class, 'startWorkOrder'])->name('om.work-orders.start');
+    Route::post('/om/work-orders/{id}/complete', [OperationsMaintenanceController::class, 'completeWorkOrder'])->name('om.work-orders.complete');
+    Route::post('/om/work-orders/{id}/verify', [OperationsMaintenanceController::class, 'verifyWorkOrder'])->name('om.work-orders.verify');
+    
+    Route::get('/om/incidents', [OperationsMaintenanceController::class, 'incidents'])->name('om.incidents');
+    Route::post('/om/incidents', [OperationsMaintenanceController::class, 'storeIncident'])->name('om.incidents.store');
+    Route::post('/om/incidents/{id}/status', [OperationsMaintenanceController::class, 'updateIncidentStatus'])->name('om.incidents.status');
+    Route::post('/om/incidents/{id}/create-damage-wo', [OperationsMaintenanceController::class, 'createIncidentDamageWorkOrder'])->name('om.incidents.damage-wo');
+
+    Route::get('/om/assets', [OperationsMaintenanceController::class, 'assets'])->name('om.assets');
+    Route::post('/om/assets', [OperationsMaintenanceController::class, 'storeAsset'])->name('om.assets.store');
+    
+    Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])->name('om.traffic');
+    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])->name('om.vms.update');
+    
+    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])->name('om.toll');
+    Route::post('/om/toll-operations/audit', [OperationsMaintenanceController::class, 'storeShiftAudit'])->name('om.toll.audit.store');
+    
     Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])->name('om.equipment');
     Route::get('/om/shift-logs', [OperationsMaintenanceController::class, 'shiftLogs'])->name('om.shift-logs');
-    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])->name('om.vms.update');
+    Route::post('/om/shift-logs', [OperationsMaintenanceController::class, 'storeShiftLog'])->name('om.shift-logs.store');
+    Route::post('/om/shift-logs/{id}/acknowledge', [OperationsMaintenanceController::class, 'acknowledgeShiftLog'])->name('om.shift-logs.acknowledge');
 });
 
 // Notification Settings Routes (admin)
