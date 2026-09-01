@@ -13,6 +13,7 @@ import PettyCashExpenseForm from '@/Forms/PettyCashExpenseForm.jsx';
 import PettyCashReimbursementForm from '@/Forms/PettyCashReimbursementForm.jsx';
 import PettyCashRepaymentForm from '@/Forms/PettyCashRepaymentForm.jsx';
 import PettyCashEditTransactionForm from '@/Forms/PettyCashEditTransactionForm.jsx';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 const CATEGORY_COLORS = {
     fuel: 'red',
@@ -355,87 +356,88 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
             )}
 
             {/* Transactions Table */}
-            <Panel>
-                <Table.Root>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.ColumnHeaderCell style={{ cursor: 'pointer' }} onClick={() => handleSort('transaction_date')}>
-                                Date{sortIcon('transaction_date')}
-                            </Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Category</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell style={{ cursor: 'pointer' }} onClick={() => handleSort('amount')}>
-                                Amount{sortIcon('amount')}
-                            </Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Description</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Bills</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {transactionData.length === 0 ? (
+            <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <Table.Root size="2" style={{ minWidth: 820, width: '100%' }}>
+                        <Table.Header>
                             <Table.Row>
-                                <Table.Cell colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>
-                                    <Text color="gray">{hasActiveFilters ? 'No transactions match your filters' : 'No transactions found'}</Text>
-                                </Table.Cell>
+                                <Table.ColumnHeaderCell style={{ cursor: 'pointer', minWidth: 120 }} onClick={() => handleSort('transaction_date')}>
+                                    Date{sortIcon('transaction_date')}
+                                </Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Type</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Category</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ cursor: 'pointer', minWidth: 130 }} onClick={() => handleSort('amount')}>
+                                    Amount{sortIcon('amount')}
+                                </Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Description</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Bills</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 90 }}>Actions</Table.ColumnHeaderCell>
                             </Table.Row>
-                        ) : (
-                            transactionData.map((transaction) => (
-                                <Table.Row key={transaction.id}>
-                                    <Table.Cell>
-                                        <Text size="2">{new Date(transaction.transaction_date).toLocaleDateString()}</Text>
+                        </Table.Header>
+                        <Table.Body>
+                            {transactionData.length === 0 ? (
+                                <Table.Row>
+                                    <Table.Cell colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>
+                                        <Text color="gray">{hasActiveFilters ? 'No transactions match your filters' : 'No transactions found'}</Text>
                                     </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={getTypeColor(transaction.type)} variant="soft">
-                                            {transaction.type.replace('_', ' ').toUpperCase()}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        {transaction.category ? (
-                                            <Badge color={getCategoryColor(transaction.category)} variant="soft">
-                                                {formatCategory(transaction.category)}
+                                </Table.Row>
+                            ) : (
+                                transactionData.map((transaction) => (
+                                    <Table.Row key={transaction.id} align="center">
+                                        <Table.Cell>
+                                            <Text size="2" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{new Date(transaction.transaction_date).toLocaleDateString()}</Text>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={getTypeColor(transaction.type)} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
+                                                {transaction.type.replace('_', ' ').toUpperCase()}
                                             </Badge>
-                                        ) : (
-                                            <Text color="gray">N/A</Text>
-                                        )}
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text weight="bold" color={transaction.type === 'expense' || transaction.type === 'repayment' ? 'red' : 'green'}>
-                                            ৳{parseFloat(transaction.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                        </Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="2" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {transaction.description || '-'}
-                                        </Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Flex gap="2" align="center" wrap="wrap">
-                                            {transaction.bills && transaction.bills.length > 0 ? (
-                                                transaction.bills.map((bill) => (
-                                                    <Flex key={bill.id} align="center" gap="1" style={{ background: 'var(--gray-a3)', borderRadius: 'var(--radius-1)', padding: '2px 6px' }}>
-                                                        <Link href={bill.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center' }}>
-                                                            <FileTextIcon style={{ width: 14, height: 14 }} />
-                                                        </Link>
-                                                        <IconButton
-                                                            size="1"
-                                                            variant="ghost"
-                                                            color="red"
-                                                            onClick={() => handleDeleteBill(transaction.id, bill.id)}
-                                                            style={{ cursor: 'pointer' }}
-                                                        >
-                                                            <Cross1Icon style={{ width: 10, height: 10 }} />
-                                                        </IconButton>
-                                                    </Flex>
-                                                ))
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            {transaction.category ? (
+                                                <Badge color={getCategoryColor(transaction.category)} variant="soft" style={{ borderRadius: 999 }}>
+                                                    {formatCategory(transaction.category)}
+                                                </Badge>
                                             ) : (
-                                                <Text size="1" color="gray">No bills</Text>
+                                                <Text color="gray">—</Text>
                                             )}
-                                        </Flex>
-                                    </Table.Cell>
-                                    <Table.Cell style={{ textAlign: 'right' }}>
-                                        {transaction.type !== 'loan_taken' ? (
-                                            <Flex gap="2" justify="end">
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Text weight="bold" color={transaction.type === 'expense' || transaction.type === 'repayment' ? 'red' : 'green'} style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                                                ৳{parseFloat(transaction.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </Text>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Text size="2" style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                                {transaction.description || '—'}
+                                            </Text>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Flex gap="2" align="center" wrap="wrap">
+                                                {transaction.bills && transaction.bills.length > 0 ? (
+                                                    transaction.bills.map((bill) => (
+                                                        <Flex key={bill.id} align="center" gap="1" style={{ background: 'var(--gray-a3)', borderRadius: 8, padding: '2px 8px' }}>
+                                                            <Link href={bill.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center' }}>
+                                                                <FileTextIcon style={{ width: 14, height: 14 }} />
+                                                            </Link>
+                                                            <IconButton
+                                                                size="1"
+                                                                variant="ghost"
+                                                                color="red"
+                                                                onClick={() => handleDeleteBill(transaction.id, bill.id)}
+                                                                style={{ cursor: 'pointer' }}
+                                                            >
+                                                                <Cross1Icon style={{ width: 10, height: 10 }} />
+                                                            </IconButton>
+                                                        </Flex>
+                                                    ))
+                                                ) : (
+                                                    <Text size="1" color="gray">No bills</Text>
+                                                )}
+                                            </Flex>
+                                        </Table.Cell>
+                                        <Table.Cell style={{ textAlign: 'right' }}>
+                                            {transaction.type !== 'loan_taken' ? (
+                                                <Flex gap="2" justify="end">
                                                 {(transaction.type === 'expense' || transaction.type === 'reimbursement') && (
                                                     <Tooltip content="Upload Receipt">
                                                         <IconButton
@@ -483,30 +485,21 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
                         )}
                     </Table.Body>
                 </Table.Root>
+                </Box>
 
                 {/* Pagination */}
-                {transactions.last_page > 1 && (
-                    <Flex justify="center" align="center" gap="2" mt="4">
-                        <Button
-                            variant="soft"
-                            size="1"
-                            disabled={page === 1}
-                            onClick={() => setPage(p => p - 1)}
-                        >
-                            Previous
-                        </Button>
-                        <Text size="2" color="gray" style={{ display: 'flex', alignItems: 'center' }}>
-                            Page {page} of {transactions.last_page} ({transactions.total} total)
-                        </Text>
-                        <Button
-                            variant="soft"
-                            size="1"
-                            disabled={page === transactions.last_page}
-                            onClick={() => setPage(p => p + 1)}
-                        >
-                            Next
-                        </Button>
-                    </Flex>
+                {transactions.total > 0 && (
+                    <Box p="3">
+                        <TablePagination
+                            pagination={{
+                                currentPage: page,
+                                perPage: transactions.per_page || 20,
+                                total: transactions.total || 0,
+                            }}
+                            onPageChange={setPage}
+                            loading={loading}
+                        />
+                    </Box>
                 )}
             </Panel>
 

@@ -50,58 +50,62 @@ export default function IncidentsPatrol({ auth, metrics, incidents }) {
                 </Flex>
 
                 <Grid columns={{ initial: '1', sm: '3' }} gap="4" mb="5">
-                    <Panel tinted style={{ padding: 18 }}>
-                        <Text size="1" color="gray" weight="bold" style={{ textTransform: 'uppercase' }}>Active Incidents</Text>
-                        <Heading size="6" style={{ color: 'var(--amber-11)' }}>{metrics?.active_incidents || 3}</Heading>
+                    <Panel tinted style={{ padding: '20px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                        <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Active Incidents</Text>
+                        <Heading size="6" mt="1" style={{ color: 'var(--amber-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{metrics?.active_incidents || 3}</Heading>
                     </Panel>
-                    <Panel tinted style={{ padding: 18 }}>
-                        <Text size="1" color="gray" weight="bold" style={{ textTransform: 'uppercase' }}>Cleared Today</Text>
-                        <Heading size="6" style={{ color: 'var(--green-11)' }}>{metrics?.cleared_today || 6}</Heading>
+                    <Panel tinted style={{ padding: '20px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                        <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cleared Today</Text>
+                        <Heading size="6" mt="1" style={{ color: 'var(--green-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{metrics?.cleared_today || 6}</Heading>
                     </Panel>
-                    <Panel tinted style={{ padding: 18 }}>
-                        <Text size="1" color="gray" weight="bold" style={{ textTransform: 'uppercase' }}>Avg SLA Response Time</Text>
-                        <Heading size="6" style={{ color: 'var(--blue-11)' }}>{metrics?.avg_response_time || '11.8 mins'}</Heading>
+                    <Panel tinted style={{ padding: '20px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                        <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Avg SLA Response Time</Text>
+                        <Heading size="6" mt="1" style={{ color: 'var(--blue-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{metrics?.avg_response_time || '11.8 mins'}</Heading>
                     </Panel>
                 </Grid>
 
-                <Panel style={{ padding: 20 }}>
-                    <Heading size="4" mb="3">Incident Logbook & Dispatch Status</Heading>
-                    <Table.Root variant="surface">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.ColumnHeaderCell>Incident #</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Severity</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Dispatched Unit</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Response Time</Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {incidentData.map((inc) => (
-                                <Table.Row key={inc.id}>
-                                    <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
-                                        {inc.incident_number}
-                                    </Table.RowHeaderCell>
-                                    <Table.Cell><Text weight="bold">{inc.title}</Text></Table.Cell>
-                                    <Table.Cell>{inc.chainage} ({inc.direction})</Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={inc.severity === 'critical' ? 'red' : inc.severity === 'major' ? 'amber' : 'blue'}>
-                                            {inc.severity}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={inc.status === 'cleared' ? 'green' : 'orange'}>
-                                            {inc.status}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>{inc.dispatched_unit}</Table.Cell>
-                                    <Table.Cell>{inc.response_time_minutes} mins</Table.Cell>
+                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                    <Box p="4" style={{ borderBottom: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                        <Heading size="4" weight="bold">Incident Logbook & Dispatch Status</Heading>
+                    </Box>
+                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <Table.Root size="2" style={{ minWidth: 920, width: '100%' }}>
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Incident #</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 220 }}>Title</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Location</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Severity</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 150 }}>Dispatched Unit</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120 }}>Response Time</Table.ColumnHeaderCell>
                                 </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
+                            </Table.Header>
+                            <Table.Body>
+                                {incidentData.map((inc) => (
+                                    <Table.Row key={inc.id} align="center">
+                                        <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                                            {inc.incident_number}
+                                        </Table.Cell>
+                                        <Table.Cell><Text weight="bold" style={{ display: 'block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.title}</Text></Table.Cell>
+                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{inc.chainage} ({inc.direction})</Text></Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={inc.severity === 'critical' ? 'red' : inc.severity === 'major' ? 'amber' : 'blue'} variant="soft" style={{ borderRadius: 999 }}>
+                                                {inc.severity}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={inc.status === 'cleared' ? 'green' : 'orange'} variant="soft" style={{ borderRadius: 999 }}>
+                                                {inc.status}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{inc.dispatched_unit}</Text></Table.Cell>
+                                        <Table.Cell style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{inc.response_time_minutes} mins</Table.Cell>
+                                    </Table.Row>
+                                ))}
+                            </Table.Body>
+                        </Table.Root>
+                    </Box>
                 </Panel>
 
                 {/* Dispatch Modal */}

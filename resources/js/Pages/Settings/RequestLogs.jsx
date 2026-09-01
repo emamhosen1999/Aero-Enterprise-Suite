@@ -440,7 +440,7 @@ const RequestLogs = ({ title }) => {
                                     direction="column"
                                     justify="center"
                                     align="center"
-                                    py="9"
+                                            py="9"
                                     gap="2"
                                 >
                                     <Text size="4">🪵</Text>
@@ -448,8 +448,8 @@ const RequestLogs = ({ title }) => {
                                     <Text size="2" color="gray">Try adjusting your filters or refreshing.</Text>
                                 </Flex>
                             ) : (
-                                <ScrollArea scrollbars="horizontal">
-                                    <Table.Root variant="surface" style={{ minWidth: 700 }}>
+                                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                    <Table.Root size="2" style={{ minWidth: 920, width: '100%' }}>
                                         <Table.Header>
                                             <Table.Row>
                                                 <Table.ColumnHeaderCell style={{ width: 36, paddingRight: 0 }}>
@@ -463,14 +463,14 @@ const RequestLogs = ({ title }) => {
                                                         style={{ cursor: 'pointer' }}
                                                     />
                                                 </Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>IP Address</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ width: 80 }}>Method</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell>URL</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ width: 80 }}>Status</Table.ColumnHeaderCell>
-                                                {!isTablet && <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>}
-                                                <Table.ColumnHeaderCell style={{ width: 90, whiteSpace: 'nowrap' }}>Duration</Table.ColumnHeaderCell>
-                                                {!isMobile && <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Time</Table.ColumnHeaderCell>}
-                                                <Table.ColumnHeaderCell style={{ width: 72 }}>Actions</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 130, whiteSpace: 'nowrap' }}>IP Address</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 90, whiteSpace: 'nowrap' }}>Method</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 240 }}>URL</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 90, whiteSpace: 'nowrap' }}>Status</Table.ColumnHeaderCell>
+                                                {!isTablet && <Table.ColumnHeaderCell style={{ minWidth: 130 }}>User</Table.ColumnHeaderCell>}
+                                                <Table.ColumnHeaderCell style={{ minWidth: 100, whiteSpace: 'nowrap' }}>Duration</Table.ColumnHeaderCell>
+                                                {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 160, whiteSpace: 'nowrap' }}>Time</Table.ColumnHeaderCell>}
+                                                <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 80 }}>Actions</Table.ColumnHeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
@@ -578,7 +578,7 @@ const RequestLogs = ({ title }) => {
                                             ))}
                                         </Table.Body>
                                     </Table.Root>
-                                </ScrollArea>
+                                </Box>
                             )}
 
                             {/* ── Pagination ── */}

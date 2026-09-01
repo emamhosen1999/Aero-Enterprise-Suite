@@ -137,16 +137,20 @@ const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, o
 
     return (
         <Box className="w-full">
-            <ScrollArea type="auto" scrollbars="horizontal">
-                <Table.Root variant="surface" style={{ minWidth: isMobile ? 720 : undefined }}>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
                     <Table.Header>
                         <Table.Row>
                             {columns.map((col) => (
                                 <Table.ColumnHeaderCell
                                     key={col.uid}
                                     justify={col.uid === 'actions' ? 'end' : 'start'}
+                                    style={{
+                                        minWidth: col.uid === 'employee' ? 180 : col.uid === 'review_type' ? 140 : col.uid === 'period' ? 120 : col.uid === 'status' ? 120 : col.uid === 'reviewer' ? 140 : col.uid === 'score' ? 90 : 80,
+                                        whiteSpace: 'nowrap'
+                                    }}
                                 >
-                                    {col.name}
+                                    <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{col.name}</Text>
                                 </Table.ColumnHeaderCell>
                             ))}
                         </Table.Row>
@@ -154,13 +158,13 @@ const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, o
                     <Table.Body>
                         {!data || data.length === 0 ? (
                             <Table.Row>
-                                <Table.Cell colSpan={columns.length}>
+                                <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>
                                     <Text size="2" color="gray">No performance reviews found</Text>
                                 </Table.Cell>
                             </Table.Row>
                         ) : (
                             data.map((item) => (
-                                <Table.Row key={item.id}>
+                                <Table.Row key={item.id} align="center">
                                     {columns.map((col) => (
                                         <Table.Cell key={col.uid}>{renderCell(item, col.uid)}</Table.Cell>
                                     ))}
@@ -169,7 +173,7 @@ const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, o
                         )}
                     </Table.Body>
                 </Table.Root>
-            </ScrollArea>
+            </Box>
         </Box>
     );
 };

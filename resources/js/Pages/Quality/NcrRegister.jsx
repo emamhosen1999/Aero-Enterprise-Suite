@@ -107,31 +107,31 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
                 </Flex>
 
                 {/* Register table */}
-                <Panel>
-                    <ScrollArea>
-                        <Table.Root variant="ghost" size="1">
+                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
                             <Table.Header>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell>Ref</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Non-conformity</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Severity</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Chainage</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Detected</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Ref</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 240 }}>Non-conformity</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Severity</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Chainage</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Detected</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 70 }}></Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>
                                 {filtered.map((n) => (
-                                    <Table.Row key={n.id} style={{ cursor: 'pointer' }} onClick={() => setDetail(n)}>
+                                    <Table.Row key={n.id} align="center" style={{ cursor: 'pointer' }} onClick={() => setDetail(n)}>
                                         <Table.Cell><Text style={{ fontFamily: MONO }} weight="medium">{n.ncr_number}</Text></Table.Cell>
                                         <Table.Cell><Text style={{ display: 'block', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</Text></Table.Cell>
-                                        <Table.Cell><Badge color={SEV[n.severity]?.color} variant="soft">{SEV[n.severity]?.label}</Badge></Table.Cell>
-                                        <Table.Cell><Badge color={STATUS[n.status]?.color} variant="soft" highContrast>{STATUS[n.status]?.label}</Badge></Table.Cell>
+                                        <Table.Cell><Badge color={SEV[n.severity]?.color} variant="soft" style={{ borderRadius: 999 }}>{SEV[n.severity]?.label}</Badge></Table.Cell>
+                                        <Table.Cell><Badge color={STATUS[n.status]?.color} variant="soft" highContrast style={{ borderRadius: 999 }}>{STATUS[n.status]?.label}</Badge></Table.Cell>
                                         <Table.Cell><Text style={{ fontFamily: MONO }} color="gray">{chLabel(n.chainage_m) ?? '—'}</Text></Table.Cell>
                                         <Table.Cell><Text style={{ fontFamily: MONO }} color="gray">{n.detected_date ?? '—'}</Text></Table.Cell>
-                                        <Table.Cell onClick={(e) => e.stopPropagation()}>
-                                            <Flex gap="1">
+                                        <Table.Cell onClick={(e) => e.stopPropagation()} style={{ textAlign: 'right' }}>
+                                            <Flex gap="1" justify="end">
                                                 {can.update && <Tooltip content="Edit"><IconButton size="1" variant="ghost" onClick={() => setEditing(n)}><Pencil1Icon /></IconButton></Tooltip>}
                                                 {can.delete && <Tooltip content="Delete"><IconButton size="1" variant="ghost" color="red" onClick={() => doDelete(n)}><TrashIcon /></IconButton></Tooltip>}
                                             </Flex>
@@ -143,7 +143,7 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
                                 )}
                             </Table.Body>
                         </Table.Root>
-                    </ScrollArea>
+                    </Box>
                 </Panel>
             </Box>
 

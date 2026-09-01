@@ -252,22 +252,28 @@ const LettersTable = ({
     return (
         <Box className="w-full">
             {loading && <Loader />}
-            <ScrollArea type="auto" scrollbars={isMobile ? 'horizontal' : 'vertical'}>
-                <Table.Root variant="surface" style={{ minWidth: isMobile ? 900 : undefined }}>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                <Table.Root size="2" style={{ minWidth: 980, width: '100%' }}>
                     <Table.Header>
                         <Table.Row>
                             {columns.map((column) => (
                                 <Table.ColumnHeaderCell
                                     key={column.uid}
                                     justify={column.uid === 'actions' ? 'center' : 'start'}
-                                    style={column.sortable ? { cursor: 'pointer' } : undefined}
+                                    style={{
+                                        minWidth: column.uid === 'from' ? 150 : column.uid === 'status' ? 140 : column.uid === 'subject' ? 220 : column.uid === 'action_taken' ? 180 : column.uid === 'assigned_to' ? 150 : column.uid === 'received_date' ? 120 : 90,
+                                        whiteSpace: 'nowrap',
+                                        cursor: column.sortable ? 'pointer' : undefined
+                                    }}
                                     onClick={
                                         column.sortable ? () => toggleSort(column.uid) : undefined
                                     }
                                 >
-                                    {column.name}
-                                    {sortDescriptor.column === column.uid &&
-                                        (sortDescriptor.direction === 'ascending' ? ' ↑' : ' ↓')}
+                                    <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>
+                                        {column.name}
+                                        {sortDescriptor.column === column.uid &&
+                                            (sortDescriptor.direction === 'ascending' ? ' ↑' : ' ↓')}
+                                    </Text>
                                 </Table.ColumnHeaderCell>
                             ))}
                         </Table.Row>
@@ -284,13 +290,13 @@ const LettersTable = ({
                             </Table.Row>
                         ) : items.length === 0 ? (
                             <Table.Row>
-                                <Table.Cell colSpan={columns.length}>
+                                <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>
                                     <Text size="2" color="gray">No letters found</Text>
                                 </Table.Cell>
                             </Table.Row>
                         ) : (
                             items.map((item) => (
-                                <Table.Row key={item.id}>
+                                <Table.Row key={item.id} align="center">
                                     {columns.map((col) => (
                                         <Table.Cell key={col.uid}>
                                             {renderCell(item, col.uid)}
@@ -301,7 +307,7 @@ const LettersTable = ({
                         )}
                     </Table.Body>
                 </Table.Root>
-            </ScrollArea>
+            </Box>
             {pages > 1 && (
                 <TablePagination
                     pagination={{

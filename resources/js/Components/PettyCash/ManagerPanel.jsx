@@ -105,63 +105,64 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                 </Select.Root>
             </Flex>
 
-            <Panel>
-                <Table.Root>
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Fund</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Amount</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Approval</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {loans.length === 0 ? (
+            <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <Table.Root size="2" style={{ minWidth: 800, width: '100%' }}>
+                        <Table.Header>
                             <Table.Row>
-                                <Table.Cell colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>
-                                    <Text color="gray">No requests found</Text>
-                                </Table.Cell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 170 }}>Employee</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Fund</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Date</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Amount</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 130 }}>Status</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Approval</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 140 }}>Actions</Table.ColumnHeaderCell>
                             </Table.Row>
-                        ) : (
-                            loans.map((loan) => (
-                                <Table.Row key={loan.id}>
-                                    <Table.Cell>
-                                        <Flex direction="column">
-                                            <Text size="2" weight="bold">{loan.user.name}</Text>
-                                            <Text size="1" color="gray">{loan.user.email}</Text>
-                                        </Flex>
+                        </Table.Header>
+                        <Table.Body>
+                            {loans.length === 0 ? (
+                                <Table.Row>
+                                    <Table.Cell colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>
+                                        <Text color="gray">No requests found</Text>
                                     </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge variant="soft" size="1">{loan.fund_name || 'General Fund'}</Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="2">{new Date(loan.loan_date).toLocaleDateString()}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text weight="bold">৳{parseFloat(loan.original_amount).toLocaleString()}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={getStatusColor(loan.status)} variant="soft">
-                                            {loan.status.toUpperCase().replace('_', ' ')}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        {loan.approver_name ? (
+                                </Table.Row>
+                            ) : (
+                                loans.map((loan) => (
+                                    <Table.Row key={loan.id} align="center">
+                                        <Table.Cell>
                                             <Flex direction="column">
-                                                <Text size="1" color="gray">By: {loan.approver_name}</Text>
-                                                {loan.approval_comment && (
-                                                    <Text size="1" color="gray" style={{ fontStyle: 'italic' }}>
-                                                        "{loan.approval_comment}"
-                                                    </Text>
-                                                )}
+                                                <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)', whiteSpace: 'nowrap' }}>{loan.user?.name}</Text>
+                                                <Text size="1" color="gray" style={{ whiteSpace: 'nowrap' }}>{loan.user?.email}</Text>
                                             </Flex>
-                                        ) : (
-                                            <Text size="1" color="gray">—</Text>
-                                        )}
-                                    </Table.Cell>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge variant="soft" size="1" style={{ borderRadius: 999 }}>{loan.fund_name || 'General Fund'}</Badge>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Text size="2" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{new Date(loan.loan_date).toLocaleDateString()}</Text>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Text weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>৳{parseFloat(loan.original_amount).toLocaleString()}</Text>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={getStatusColor(loan.status)} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
+                                                {loan.status.toUpperCase().replace('_', ' ')}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            {loan.approver_name ? (
+                                                <Flex direction="column">
+                                                    <Text size="1" color="gray" style={{ whiteSpace: 'nowrap' }}>By: {loan.approver_name}</Text>
+                                                    {loan.approval_comment && (
+                                                        <Text size="1" color="gray" style={{ fontStyle: 'italic', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            "{loan.approval_comment}"
+                                                        </Text>
+                                                    )}
+                                                </Flex>
+                                            ) : (
+                                                <Text size="1" color="gray">—</Text>
+                                            )}
+                                        </Table.Cell>
                                     <Table.Cell style={{ textAlign: 'right' }}>
                                         {loan.status === 'pending_approval' ? (
                                             <Flex gap="2" justify="end">
@@ -194,6 +195,7 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                         )}
                     </Table.Body>
                 </Table.Root>
+                </Box>
             </Panel>
 
             {/* Approval Comment Dialog */}

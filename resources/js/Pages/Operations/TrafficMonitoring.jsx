@@ -86,56 +86,56 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                 </Grid>
 
                 {/* VMS Live Control & Message Broadcast */}
-                <Panel style={{ padding: 20, marginBottom: 24 }}>
-                    <Flex align="center" justify="between" mb="3">
-                        <Box>
-                            <Heading size="4">Variable Message Signs (VMS) Live Controller</Heading>
-                            <Text size="1" color="gray">Broadcast driver alerts and speed advisories to dynamic LED boards</Text>
-                        </Box>
-                    </Flex>
-                    <Table.Root variant="surface">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.ColumnHeaderCell>Board Code</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Active Display Line 1</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Display Line 2</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {vmsList.map((board) => (
-                                <Table.Row key={board.id}>
-                                    <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
-                                        {board.vms_code}
-                                    </Table.RowHeaderCell>
-                                    <Table.Cell>{board.location}</Table.Cell>
-                                    <Table.Cell>
-                                        <Text weight="bold" color="blue">{board.message_line1}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text color="gray">{board.message_line2 || '—'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={board.type === 'emergency' ? 'red' : board.type === 'warning' ? 'amber' : 'blue'}>
-                                            {board.type}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Button size="1" variant="soft" onClick={() => {
-                                            setUpdatingVms(board);
-                                            setMsg1(board.message_line1);
-                                            setMsg2(board.message_line2 || '');
-                                            setType(board.type);
-                                        }}>
-                                            Edit Broadcast
-                                        </Button>
-                                    </Table.Cell>
+                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', marginBottom: 24 }}>
+                    <Box p="4" style={{ borderBottom: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                        <Heading size="4" weight="bold">Variable Message Signs (VMS) Live Controller</Heading>
+                        <Text size="1" color="gray">Broadcast driver alerts and speed advisories to dynamic LED boards</Text>
+                    </Box>
+                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <Table.Root size="2" style={{ minWidth: 860, width: '100%' }}>
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Board Code</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Location</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 240 }}>Active Display Line 1</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 200 }}>Display Line 2</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Type</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120 }}>Action</Table.ColumnHeaderCell>
                                 </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
+                            </Table.Header>
+                            <Table.Body>
+                                {vmsList.map((board) => (
+                                    <Table.Row key={board.id} align="center">
+                                        <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                                            {board.vms_code}
+                                        </Table.Cell>
+                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{board.location}</Text></Table.Cell>
+                                        <Table.Cell>
+                                            <Text weight="bold" color="blue" style={{ display: 'block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.message_line1}</Text>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Text color="gray" style={{ display: 'block', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.message_line2 || '—'}</Text>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={board.type === 'emergency' ? 'red' : board.type === 'warning' ? 'amber' : 'blue'} variant="soft" style={{ borderRadius: 999 }}>
+                                                {board.type}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell style={{ textAlign: 'right' }}>
+                                            <Button size="1" variant="soft" onClick={() => {
+                                                setUpdatingVms(board);
+                                                setMsg1(board.message_line1);
+                                                setMsg2(board.message_line2 || '');
+                                                setType(board.type);
+                                            }}>
+                                                Edit Broadcast
+                                            </Button>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                ))}
+                            </Table.Body>
+                        </Table.Root>
+                    </Box>
                 </Panel>
 
                 {/* Edit VMS Modal */}

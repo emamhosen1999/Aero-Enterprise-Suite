@@ -28,44 +28,48 @@ export default function EquipmentFacilities({ auth, equipment }) {
                     </Box>
                 </Flex>
 
-                <Panel style={{ padding: 20 }}>
-                    <Heading size="4" mb="3">Hardware Infrastructure Health Matrix</Heading>
-                    <Table.Root variant="surface">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.ColumnHeaderCell>Asset Code</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Equipment Name</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Category</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Uptime %</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Last Ping</Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {eqList.map((eq) => (
-                                <Table.Row key={eq.id}>
-                                    <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
-                                        {eq.equipment_code}
-                                    </Table.RowHeaderCell>
-                                    <Table.Cell><Text weight="bold">{eq.name}</Text></Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color="indigo">{eq.category.toUpperCase()}</Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>{eq.location}</Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={eq.status === 'online' ? 'green' : 'red'}>
-                                            {eq.status}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text weight="bold" color="green">{eq.uptime_pct}%</Text>
-                                    </Table.Cell>
-                                    <Table.Cell style={{ color: 'var(--gray-10)' }}>{eq.last_ping_at}</Table.Cell>
+                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                    <Box p="4" style={{ borderBottom: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                        <Heading size="4" weight="bold">Hardware Infrastructure Health Matrix</Heading>
+                    </Box>
+                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 130 }}>Asset Code</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 220 }}>Equipment Name</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Category</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Location</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Uptime %</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150 }}>Last Ping</Table.ColumnHeaderCell>
                                 </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
+                            </Table.Header>
+                            <Table.Body>
+                                {eqList.map((eq) => (
+                                    <Table.Row key={eq.id} align="center">
+                                        <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                                            {eq.equipment_code}
+                                        </Table.Cell>
+                                        <Table.Cell><Text weight="bold" style={{ display: 'block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.name}</Text></Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color="indigo" variant="soft" style={{ borderRadius: 999 }}>{eq.category.toUpperCase()}</Badge>
+                                        </Table.Cell>
+                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{eq.location}</Text></Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={eq.status === 'online' ? 'green' : 'red'} variant="soft" style={{ borderRadius: 999 }}>
+                                                {eq.status}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Text weight="bold" color="green" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{eq.uptime_pct}%</Text>
+                                        </Table.Cell>
+                                        <Table.Cell style={{ textAlign: 'right', color: 'var(--gray-10)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{eq.last_ping_at}</Table.Cell>
+                                    </Table.Row>
+                                ))}
+                            </Table.Body>
+                        </Table.Root>
+                    </Box>
                 </Panel>
             </Box>
         </App>

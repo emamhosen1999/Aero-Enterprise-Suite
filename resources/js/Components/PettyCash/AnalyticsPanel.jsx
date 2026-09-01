@@ -100,73 +100,77 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
             {/* Summary Cards */}
             <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
                 <Panel tinted style={{ 
-                    padding: '20px', 
-                    borderRadius: 'var(--radius-3)',
-                    borderLeft: '4px solid var(--blue-9)'
+                    padding: '20px 16px', 
+                    borderRadius: 16,
+                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                    background: 'var(--aero-surface, var(--color-background))'
                 }}>
                     <Flex justify="between" align="center">
                         <Flex direction="column" gap="1">
-                            <Text size="1" weight="bold" color="gray">INITIAL FUNDS</Text>
-                            <Text size="5" weight="bold" color="blue">
+                            <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em' }}>INITIAL FUNDS</Text>
+                            <Text size="5" weight="bold" color="blue" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
                                 ৳{parseFloat(typeDistribution.loan_taken || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
-                        <Box p="2" style={{ background: 'var(--blue-a2)', borderRadius: '50%' }}>
-                            <Banknote style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                        <Box p="2" style={{ background: 'var(--blue-a2)', border: '1px solid var(--blue-a4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Banknote style={{ width: 20, height: 20, color: 'var(--blue-9)' }} />
                         </Box>
                     </Flex>
                 </Panel>
 
                 <Panel tinted style={{ 
-                    padding: '20px', 
-                    borderRadius: 'var(--radius-3)',
-                    borderLeft: '4px solid var(--red-9)'
+                    padding: '20px 16px', 
+                    borderRadius: 16,
+                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                    background: 'var(--aero-surface, var(--color-background))'
                 }}>
                     <Flex justify="between" align="center">
                         <Flex direction="column" gap="1">
-                            <Text size="1" weight="bold" color="gray">TOTAL EXPENSES</Text>
-                            <Text size="5" weight="bold" color="red">
+                            <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em' }}>TOTAL EXPENSES</Text>
+                            <Text size="5" weight="bold" color="red" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
                                 ৳{parseFloat(typeDistribution.expense || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
-                        <Box p="2" style={{ background: 'var(--red-a2)', borderRadius: '50%' }}>
-                            <ShoppingBag style={{ width: 22, height: 22, color: 'var(--red-9)' }} />
+                        <Box p="2" style={{ background: 'var(--red-a2)', border: '1px solid var(--red-a4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ShoppingBag style={{ width: 20, height: 20, color: 'var(--red-9)' }} />
                         </Box>
                     </Flex>
                 </Panel>
 
                 <Panel tinted style={{ 
-                    padding: '20px', 
-                    borderRadius: 'var(--radius-3)',
-                    borderLeft: '4px solid var(--green-9)'
+                    padding: '20px 16px', 
+                    borderRadius: 16,
+                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                    background: 'var(--aero-surface, var(--color-background))'
                 }}>
                     <Flex justify="between" align="center">
                         <Flex direction="column" gap="1">
-                            <Text size="1" weight="bold" color="gray">TOTAL REIMBURSEMENTS</Text>
-                            <Text size="5" weight="bold" color="green">
+                            <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em' }}>TOTAL REIMBURSEMENTS</Text>
+                            <Text size="5" weight="bold" color="green" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
                                 ৳{parseFloat(typeDistribution.reimbursement || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
-                        <Box p="2" style={{ background: 'var(--green-a2)', borderRadius: '50%' }}>
-                            <ArrowUpRight style={{ width: 22, height: 22, color: 'var(--green-9)' }} />
+                        <Box p="2" style={{ background: 'var(--green-a2)', border: '1px solid var(--green-a4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ArrowUpRight style={{ width: 20, height: 20, color: 'var(--green-9)' }} />
                         </Box>
                     </Flex>
                 </Panel>
 
                 <Panel tinted style={{ 
-                    padding: '20px', 
-                    borderRadius: 'var(--radius-3)',
-                    borderLeft: '4px solid var(--gray-9)'
+                    padding: '20px 16px', 
+                    borderRadius: 16,
+                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                    background: 'var(--aero-surface, var(--color-background))'
                 }}>
                     <Flex justify="between" align="center">
                         <Flex direction="column" gap="1">
-                            <Text size="1" weight="bold" color="gray">TOTAL REPAYMENTS</Text>
-                            <Text size="5" weight="bold" color="gray">
+                            <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em' }}>TOTAL REPAYMENTS</Text>
+                            <Text size="5" weight="bold" color="gray" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
                                 ৳{parseFloat(typeDistribution.repayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
-                        <Box p="2" style={{ background: 'var(--gray-a2)', borderRadius: '50%' }}>
-                            <ArrowDownLeft style={{ width: 22, height: 22, color: 'var(--gray-9)' }} />
+                        <Box p="2" style={{ background: 'var(--gray-a2)', border: '1px solid var(--gray-a4)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ArrowDownLeft style={{ width: 20, height: 20, color: 'var(--gray-9)' }} />
                         </Box>
                     </Flex>
                 </Panel>
@@ -175,7 +179,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
             {/* Charts Section */}
             <Grid columns={{ initial: '1', lg: '2' }} gap="4" mb="4">
                 {/* Expenses by Category (Pie Chart) */}
-                <Panel style={{ padding: '24px', borderRadius: 'var(--radius-3)' }}>
+                <Panel style={{ padding: '24px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                     <Flex direction="column" gap="4">
                         <Flex align="center" gap="2">
                             <PieIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />

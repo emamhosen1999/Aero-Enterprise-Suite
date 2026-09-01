@@ -364,9 +364,9 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
     if (loading) return <DesktopLoadingSkeleton />;
 
     return (
-        <Box style={{ maxHeight: '84vh', overflowY: 'auto' }}>
-            <ScrollArea style={{ maxHeight: '70vh' }}>
-                <RadixTable.Root variant="surface" size="1">
+        <Box>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                <RadixTable.Root size="2" style={{ minWidth: 1240, width: '100%' }}>
                     <RadixTable.Header>
                         <RadixTable.Row>
                             {columns.map((column) => (
@@ -375,12 +375,13 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                                     style={{
                                         minWidth: column.uid === 'date' ? 128
                                             : column.uid === 'completionPercentage' || column.uid === 'rfiSubmissionPercentage' ? 180
-                                            : 'auto',
+                                            : 100,
+                                        whiteSpace: 'nowrap'
                                     }}
                                 >
                                     <Flex align="center" gap="1" justify={column.uid === 'date' ? 'start' : 'center'}>
                                         {column.icon && <column.icon style={{ width: 12, height: 12 }} />}
-                                        <Text size="1" weight="bold">{column.name}</Text>
+                                        <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{column.name}</Text>
                                     </Flex>
                                 </RadixTable.ColumnHeaderCell>
                             ))}
@@ -389,7 +390,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                     <RadixTable.Body>
                         {paginatedData?.length > 0 ? (
                             paginatedData.map((summary) => (
-                                <RadixTable.Row key={summary.date}>
+                                <RadixTable.Row key={summary.date} align="center">
                                     {columns.map((col) => (
                                         <React.Fragment key={col.uid}>
                                             {renderCell(summary, col.uid)}
@@ -410,7 +411,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                         )}
                     </RadixTable.Body>
                 </RadixTable.Root>
-            </ScrollArea>
+            </Box>
 
             {/* Pagination */}
             <TablePagination

@@ -430,19 +430,19 @@ const LeaveEmployeeTable = React.forwardRef(({
     return (
         <Box>
             {bulkBar}
-            <ScrollArea style={{ maxHeight: '70vh' }}>
-                <Table.Root variant="surface" size="1">
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                <Table.Root size="2" style={{ minWidth: isAdminView ? 960 : 780, width: '100%' }}>
                     <Table.Header>
                         <Table.Row>
                             {columns.map(col => (
-                                <Table.ColumnHeaderCell key={col.key}>
+                                <Table.ColumnHeaderCell key={col.key} style={{ minWidth: col.key === 'select' ? 36 : col.key === 'employee' ? 170 : col.key === 'leave_type' ? 120 : col.key === 'from_date' || col.key === 'to_date' ? 120 : col.key === 'status' ? 130 : col.key === 'reason' ? 160 : 80 }}>
                                     {col.key === 'select' ? (
                                         <input type="checkbox" checked={allSelected}
                                             onChange={toggleAll} style={{ cursor: 'pointer' }} />
                                     ) : (
                                         <Flex align="center" gap="1">
                                             {col.icon && React.createElement(col.icon, { style: { width: 12, height: 12 } })}
-                                            <Text size="1" weight="medium">{col.label}</Text>
+                                            <Text size="1" weight="medium" style={{ whiteSpace: 'nowrap' }}>{col.label}</Text>
                                         </Flex>
                                     )}
                                 </Table.ColumnHeaderCell>
@@ -456,6 +456,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                             </Table.Row>
                         ) : leaves.map(leave => (
                             <Table.Row key={leave.id}
+                                align="center"
                                 style={{ background: selectedIds.has(leave.id) ? 'var(--accent-a2)' : undefined }}>
                                 {columns.map(col => (
                                     <Table.Cell key={col.key}>{renderCellContent(leave, col.key)}</Table.Cell>
@@ -464,7 +465,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                         ))}
                     </Table.Body>
                 </Table.Root>
-            </ScrollArea>
+            </Box>
             {totalRows > perPage && (
                 <TablePagination
                     pagination={{ currentPage, perPage, total: totalRows }}

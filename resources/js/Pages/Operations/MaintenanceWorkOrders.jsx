@@ -49,46 +49,50 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
                     </Button>
                 </Flex>
 
-                <Panel style={{ padding: 20 }}>
-                    <Heading size="4" mb="3">Active Maintenance Register</Heading>
-                    <Table.Root variant="surface">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.ColumnHeaderCell>WO #</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Category</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Priority</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Assigned Crew</Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {woData.map((wo) => (
-                                <Table.Row key={wo.id}>
-                                    <Table.RowHeaderCell style={{ fontFamily: 'monospace' }}>
-                                        {wo.work_order_number}
-                                    </Table.RowHeaderCell>
-                                    <Table.Cell><Text weight="bold">{wo.title}</Text></Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color="blue">{wo.category}</Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>{wo.location}</Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={wo.priority === 'high' ? 'red' : 'orange'}>
-                                            {wo.priority}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={wo.status === 'completed' ? 'green' : 'amber'}>
-                                            {wo.status}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>{wo.assigned_to}</Table.Cell>
+                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                    <Box p="4" style={{ borderBottom: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                        <Heading size="4" weight="bold">Active Maintenance Register</Heading>
+                    </Box>
+                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>WO #</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 240 }}>Title</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Category</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 150 }}>Location</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Priority</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150 }}>Assigned Crew</Table.ColumnHeaderCell>
                                 </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
+                            </Table.Header>
+                            <Table.Body>
+                                {woData.map((wo) => (
+                                    <Table.Row key={wo.id} align="center">
+                                        <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                                            {wo.work_order_number}
+                                        </Table.Cell>
+                                        <Table.Cell><Text weight="bold" style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</Text></Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color="blue" variant="soft" style={{ borderRadius: 999 }}>{wo.category}</Badge>
+                                        </Table.Cell>
+                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.location}</Text></Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={wo.priority === 'high' ? 'red' : 'orange'} variant="soft" style={{ borderRadius: 999 }}>
+                                                {wo.priority}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge color={wo.status === 'completed' ? 'green' : 'amber'} variant="soft" style={{ borderRadius: 999 }}>
+                                                {wo.status}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell style={{ textAlign: 'right' }}><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.assigned_to}</Text></Table.Cell>
+                                    </Table.Row>
+                                ))}
+                            </Table.Body>
+                        </Table.Root>
+                    </Box>
                 </Panel>
 
                 {/* Create Work Order Modal */}
