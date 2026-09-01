@@ -19,56 +19,16 @@ import {
     ReloadIcon, TableIcon, LayersIcon
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
-import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import LeaveEmployeeTable from '@/Tables/LeaveEmployeeTable.jsx';
 import LeaveForm          from '@/Forms/LeaveForm.jsx';
 import DeleteLeaveForm    from '@/Forms/DeleteLeaveForm.jsx';
 import BulkLeaveModal           from '@/Components/BulkLeave/BulkLeaveModal.jsx';
 import BulkDeleteModal          from '@/Components/BulkDelete/BulkDeleteModal.jsx';
 import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdateModal.jsx';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
-/* ── Responsive Stat Pill ── */
-function StatPill({ label, value, color = 'gray', icon: Icon, loading = false, active = false, onClick }) {
-    return (
-        <Panel
-            tinted
-            style={{
-                minWidth: '130px',
-                flex: '1 1 auto',
-                borderRadius: 16,
-                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-                background: active ? 'linear-gradient(135deg, var(--blue-9) 0%, var(--blue-10) 100%)' : 'var(--aero-surface, var(--color-background))',
-                cursor: onClick ? 'pointer' : 'default',
-                transform: active ? 'translateY(-2px)' : 'none',
-                transition: 'all 0.15s ease',
-            }}
-            onClick={onClick}
-        >
-            <Flex align="center" gap="3" p="1">
-                <Box p="2" style={{ 
-                    backgroundColor: active ? 'rgba(255, 255, 255, 0.2)' : `var(--${color}-a3)`, 
-                    border: `1px solid ${active ? 'rgba(255, 255, 255, 0.3)' : `var(--${color}-a5)`}`,
-                    borderRadius: 10, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center' 
-                }}>
-                    {Icon ? (
-                        <Icon style={{ color: active ? 'white' : `var(--${color}-9)`, width: 16, height: 16 }} />
-                    ) : (
-                        <LayersIcon style={{ color: active ? 'white' : `var(--${color}-9)`, width: 16, height: 16 }} />
-                    )}
-                </Box>
-                <Box>
-                    <Skeleton loading={loading}>
-                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1, color: active ? 'white' : 'var(--gray-12)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{value}</Text>
-                    </Skeleton>
-                    <Text size="1" style={{ display: 'block', marginTop: 4, opacity: active ? 0.9 : 1, color: active ? 'white' : 'var(--aero-color-subtle, var(--gray-9))' }} weight="medium">{label}</Text>
-                </Box>
-            </Flex>
-        </Panel>
-    );
-}
 
 export default function AdminLeavesPanel({
     allUsers = [], isMobile, isActive, onCountChange, onSetHeaderActions,
@@ -272,153 +232,111 @@ export default function AdminLeavesPanel({
     const hasActiveFilters = !!(filters.employee ||
         filters.status.length || filters.leaveType.length || filters.department.length);
 
+    const statCards = [
+        { key: 'total', title: 'Total', value: leaveStats.total, color: 'blue', icon: TableIcon, isLoading: loading, active: filters.status.length === 0, onClick: () => setFilters(p => ({ ...p, status: [] })) },
+        { key: 'pending', title: 'Pending', value: leaveStats.pending, color: 'amber', icon: ClockIcon, isLoading: loading, active: filters.status.includes('pending'), onClick: () => toggleStatusFilter('pending') },
+        { key: 'approved', title: 'Approved', value: leaveStats.approved, color: 'green', icon: CheckCircledIcon, isLoading: loading, active: filters.status.includes('approved'), onClick: () => toggleStatusFilter('approved') },
+        { key: 'rejected', title: 'Rejected', value: leaveStats.rejected, color: 'red', icon: CrossCircledIcon, isLoading: loading, active: filters.status.includes('rejected'), onClick: () => toggleStatusFilter('rejected') },
+        { key: 'this_month', title: 'This Month', value: leaveStats.thisMonth, color: 'violet', icon: CalendarIcon, isLoading: loading },
+    ];
+
+    const activeFilterChips = useMemo(() => {
+        const chips = [];
+        if (filters.employee) chips.push({ label: 'Employee', value: filters.employee, onRemove: () => handleFilterChange('employee', '') });
+        filters.status.forEach(s => {
+            chips.push({ key: `status-${s}`, label: 'Status', value: s, onRemove: () => handleFilterChange('status', filters.status.filter(x => x !== s)) });
+        });
+        filters.leaveType.forEach(t => {
+            chips.push({ key: `type-${t}`, label: 'Type', value: t, onRemove: () => handleFilterChange('leaveType', filters.leaveType.filter(x => x !== t)) });
+        });
+        filters.department.forEach(dId => {
+            const dept = departments.find(d => String(d.id) === String(dId));
+            chips.push({ key: `dept-${dId}`, label: 'Dept', value: dept?.name || dId, onRemove: () => handleFilterChange('department', filters.department.filter(x => x !== dId)) });
+        });
+        return chips;
+    }, [filters, departments]);
+
     /* ── Render ── */
     return (
         <Box>
             {/* ── Stats Row ── */}
-            <ScrollArea type="auto" scrollbars="horizontal" style={{ width: '100%', marginBottom: '16px' }}>
-                <Flex gap="3" style={{ minWidth: '100%', paddingBottom: '4px' }}>
-                    <StatPill label="Total"      value={leaveStats.total}     color="blue"   icon={TableIcon} loading={loading} active={filters.status.length === 0} onClick={() => setFilters(p => ({ ...p, status: [] }))} />
-                    <StatPill label="Pending"    value={leaveStats.pending}   color="amber"  icon={ClockIcon} loading={loading} active={filters.status.includes('pending')} onClick={() => toggleStatusFilter('pending')} />
-                    <StatPill label="Approved"   value={leaveStats.approved}  color="green"  icon={CheckCircledIcon} loading={loading} active={filters.status.includes('approved')} onClick={() => toggleStatusFilter('approved')} />
-                    <StatPill label="Rejected"   value={leaveStats.rejected}  color="red"    icon={CrossCircledIcon} loading={loading} active={filters.status.includes('rejected')} onClick={() => toggleStatusFilter('rejected')} />
-                    <StatPill label="This Month" value={leaveStats.thisMonth} color="violet" icon={CalendarIcon} loading={loading} />
-                </Flex>
-            </ScrollArea>
+            <StatsCards stats={statCards} columns={{ initial: '1', sm: '2', md: '5' }} mb="4" />
 
-            {/* ── Toolbar ── */}
-            <Flex
-                direction={{ initial: 'column', sm: 'row' }}
-                gap="3" align={{ initial: 'stretch', sm: 'center' }} mb="4"
-            >
-                <Box style={{ flex: 1 }}>
-                    <TextField.Root
-                        placeholder="Search by employee name…"
-                        size="2"
-                        value={filters.employee}
-                        onChange={e => handleFilterChange('employee', e.target.value)}
+            {/* ── Toolbar & Filter Bar ── */}
+            <PageToolbar
+                leftSlot={
+                    <SearchFilterBar
+                        searchValue={filters.employee}
+                        onSearchChange={val => handleFilterChange('employee', val)}
+                        searchPlaceholder="Search by employee name..."
+                        showFilterToggle
+                        showFilters={showFilters}
+                        onToggleFilters={() => setShowFilters(v => !v)}
+                        activeFiltersCount={activeFilterChips.length}
+                        activeFilterChips={activeFilterChips}
+                        onClearFilters={hasActiveFilters ? () => setFilters({
+                            employee: '', selectedMonth: dayjs().format('YYYY-MM'),
+                            status: [], leaveType: [], department: [],
+                        }) : null}
+                        mb="0"
+                        extraActions={
+                            <TextField.Root
+                                type="month"
+                                size="2"
+                                value={filters.selectedMonth}
+                                onChange={e => handleFilterChange('selectedMonth', e.target.value)}
+                                style={{ flex: isMobile ? 1 : '0 0 160px', borderRadius: 10 }}
+                            />
+                        }
                     >
-                        <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                        {filters.employee && (
-                            <TextField.Slot side="right">
-                                <IconButton size="1" variant="ghost" onClick={() => handleFilterChange('employee', '')}>
-                                    <Cross2Icon />
-                                </IconButton>
-                            </TextField.Slot>
-                        )}
-                    </TextField.Root>
-                </Box>
+                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4">
+                            <Box>
+                                <Text size="2" color="gray" weight="medium" as="div" mb="2">Status</Text>
+                                <Select.Root size="2"
+                                    value={filters.status[0] || 'all'}
+                                    onValueChange={v => handleFilterChange('status', v === 'all' ? [] : [v])}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Status</Select.Item>
+                                        <Select.Item value="pending">Pending</Select.Item>
+                                        <Select.Item value="approved">Approved</Select.Item>
+                                        <Select.Item value="rejected">Rejected</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
 
-                <Flex gap="3">
-                    <TextField.Root
-                        type="month"
-                        size="2"
-                        value={filters.selectedMonth}
-                        onChange={e => handleFilterChange('selectedMonth', e.target.value)}
-                        style={{ flex: isMobile ? 1 : '0 0 160px' }}
-                    />
+                            <Box>
+                                <Text size="2" color="gray" weight="medium" as="div" mb="2">Leave Type</Text>
+                                <Select.Root size="2"
+                                    value={filters.leaveType[0] || 'all'}
+                                    onValueChange={v => handleFilterChange('leaveType', v === 'all' ? [] : [v])}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {leaveTypeOptions.map(o => (
+                                            <Select.Item key={o.value} value={o.value}>{o.label}</Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
 
-                    <Button
-                        size="2"
-                        variant={showFilters ? 'solid' : 'surface'}
-                        color={showFilters ? 'indigo' : 'gray'}
-                        onClick={() => setShowFilters(v => !v)}
-                        style={{ flexShrink: 0 }}
-                    >
-                        <MixerHorizontalIcon /> {!isMobile && 'Filters'}
-                        {hasActiveFilters && !showFilters && (
-                            <Box style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-9)', marginLeft: 4 }} />
-                        )}
-                    </Button>
-                </Flex>
-            </Flex>
-
-            {/* ── Advanced Filter Panel ── */}
-            {showFilters && (
-                <Panel tinted mb="4">
-                    <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4">
-                        <Box>
-                            <Text size="2" color="gray" weight="medium" as="div" mb="2">Status</Text>
-                            <Select.Root size="2"
-                                value={filters.status[0] || 'all'}
-                                onValueChange={v => handleFilterChange('status', v === 'all' ? [] : [v])}>
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    <Select.Item value="all">All Status</Select.Item>
-                                    <Select.Item value="pending">Pending</Select.Item>
-                                    <Select.Item value="approved">Approved</Select.Item>
-                                    <Select.Item value="rejected">Rejected</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-
-                        <Box>
-                            <Text size="2" color="gray" weight="medium" as="div" mb="2">Leave Type</Text>
-                            <Select.Root size="2"
-                                value={filters.leaveType[0] || 'all'}
-                                onValueChange={v => handleFilterChange('leaveType', v === 'all' ? [] : [v])}>
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    {leaveTypeOptions.map(o => (
-                                        <Select.Item key={o.value} value={o.value}>{o.label}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-
-                        <Box>
-                            <Text size="2" color="gray" weight="medium" as="div" mb="2">Department</Text>
-                            <Select.Root size="2"
-                                value={filters.department[0] || 'all'}
-                                onValueChange={v => handleFilterChange('department', v === 'all' ? [] : [v])}>
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    <Select.Item value="all">All Departments</Select.Item>
-                                    {departments.map(d => (
-                                        <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-
-                        <Flex align="end" style={{ height: '100%' }}>
-                            <Button size="2" variant="soft" color="red"
-                                disabled={!hasActiveFilters}
-                                onClick={() => setFilters({
-                                    employee: '', selectedMonth: dayjs().format('YYYY-MM'),
-                                    status: [], leaveType: [], department: [],
-                                })}
-                                style={{ width: '100%' }}>
-                                <Cross2Icon /> Clear Filters
-                            </Button>
-                        </Flex>
-                    </Grid>
-
-                    {/* Filter Tags */}
-                    {hasActiveFilters && (
-                        <Flex gap="2" wrap="wrap" mt="4" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
-                            {filters.status.map(s => (
-                                <Badge key={s} color="violet" style={{ cursor: 'pointer' }} onClick={() => handleFilterChange('status', filters.status.filter(x => x !== s))}>
-                                    Status: {s} <Cross2Icon style={{ marginLeft: 4 }} />
-                                </Badge>
-                            ))}
-                            {filters.leaveType.map(t => (
-                                <Badge key={t} color="amber" style={{ cursor: 'pointer' }} onClick={() => handleFilterChange('leaveType', filters.leaveType.filter(x => x !== t))}>
-                                    Type: {t} <Cross2Icon style={{ marginLeft: 4 }} />
-                                </Badge>
-                            ))}
-                            {filters.department.map(dId => {
-                                const dept = departments.find(d => String(d.id) === String(dId));
-                                return (
-                                    <Badge key={dId} color="green" style={{ cursor: 'pointer' }} onClick={() => handleFilterChange('department', filters.department.filter(x => x !== dId))}>
-                                        Dept: {dept?.name || dId} <Cross2Icon style={{ marginLeft: 4 }} />
-                                    </Badge>
-                                );
-                            })}
-                        </Flex>
-                    )}
-                </Panel>
-            )}
+                            <Box>
+                                <Text size="2" color="gray" weight="medium" as="div" mb="2">Department</Text>
+                                <Select.Root size="2"
+                                    value={filters.department[0] || 'all'}
+                                    onValueChange={v => handleFilterChange('department', v === 'all' ? [] : [v])}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Departments</Select.Item>
+                                        {departments.map(d => (
+                                            <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                        </Grid>
+                    </SearchFilterBar>
+                }
+            />
 
             {/* ── Content ── */}
             {loading ? (

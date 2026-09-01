@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
+import StatsCards from '@/Components/StatsCards';
 
 export default function OmDashboard({ auth, stats, recentIncidents, trafficSections, recentWorkOrders, vmsBoards }) {
     const defaultStats = stats || {
@@ -69,67 +70,44 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
                         {/* Top KPI Cards */}
-                        <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Flex align="center" justify="between" mb="2">
-                                    <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                        Today's Toll Revenue
-                                    </Text>
-                                    <CurrencyDollarIcon width={20} height={20} style={{ color: 'var(--green-9)' }} />
-                                </Flex>
-                                <Heading size="6" style={{ color: 'var(--green-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>
-                                    ৳ {Number(defaultStats.today_toll_revenue).toLocaleString()}
-                                </Heading>
-                                <Text size="1" color="gray" mt="1">
-                                    ETC Ratio: <Text weight="bold" color="green">{defaultStats.etc_vehicle_ratio}%</Text>
-                                </Text>
-                            </Panel>
-
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Flex align="center" justify="between" mb="2">
-                                    <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                        Active Incidents
-                                    </Text>
-                                    <ExclamationTriangleIcon width={20} height={20} style={{ color: 'var(--amber-9)' }} />
-                                </Flex>
-                                <Heading size="6" style={{ color: 'var(--amber-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>
-                                    {defaultStats.active_incidents_count}
-                                </Heading>
-                                <Text size="1" color="gray" mt="1">
-                                    Avg Patrol Response: <Text weight="bold">{defaultStats.avg_patrol_response_min} mins</Text>
-                                </Text>
-                            </Panel>
-
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Flex align="center" justify="between" mb="2">
-                                    <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                        Ongoing Maintenance
-                                    </Text>
-                                    <WrenchScrewdriverIcon width={20} height={20} style={{ color: 'var(--blue-9)' }} />
-                                </Flex>
-                                <Heading size="6" style={{ color: 'var(--blue-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>
-                                    {defaultStats.open_work_orders_count} Work Orders
-                                </Heading>
-                                <Text size="1" color="gray" mt="1">
-                                    Pavement, Lighting & Bridges
-                                </Text>
-                            </Panel>
-
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Flex align="center" justify="between" mb="2">
-                                    <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                        Equipment Uptime
-                                    </Text>
-                                    <ComputerDesktopIcon width={20} height={20} style={{ color: 'var(--indigo-9)' }} />
-                                </Flex>
-                                <Heading size="6" style={{ color: 'var(--indigo-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>
-                                    {defaultStats.equipment_uptime_pct}%
-                                </Heading>
-                                <Text size="1" color="gray" mt="1">
-                                    CCTV, VMS & WIM Sensors Online
-                                </Text>
-                            </Panel>
-                        </Grid>
+                        <StatsCards
+                            stats={[
+                                {
+                                    key: 'revenue',
+                                    title: "Today's Toll Revenue",
+                                    value: `৳ ${Number(defaultStats.today_toll_revenue).toLocaleString()}`,
+                                    icon: <CurrencyDollarIcon />,
+                                    color: 'green',
+                                    description: `ETC Ratio: ${defaultStats.etc_vehicle_ratio}%`,
+                                },
+                                {
+                                    key: 'incidents',
+                                    title: 'Active Incidents',
+                                    value: defaultStats.active_incidents_count,
+                                    icon: <ExclamationTriangleIcon />,
+                                    color: 'amber',
+                                    description: `Avg Response: ${defaultStats.avg_patrol_response_min} mins`,
+                                },
+                                {
+                                    key: 'maintenance',
+                                    title: 'Ongoing Maintenance',
+                                    value: `${defaultStats.open_work_orders_count} Work Orders`,
+                                    icon: <WrenchScrewdriverIcon />,
+                                    color: 'blue',
+                                    description: 'Pavement, Lighting & Bridges',
+                                },
+                                {
+                                    key: 'uptime',
+                                    title: 'Equipment Uptime',
+                                    value: `${defaultStats.equipment_uptime_pct}%`,
+                                    icon: <ComputerDesktopIcon />,
+                                    color: 'indigo',
+                                    description: 'CCTV, VMS & WIM Sensors Online',
+                                },
+                            ]}
+                            columns={{ initial: '1', sm: '2', md: '4' }}
+                            mb="4"
+                        />
 
                         {/* Main Content Grid */}
                         <Grid columns={{ initial: '1', md: '2' }} gap="4">

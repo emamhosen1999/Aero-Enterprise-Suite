@@ -4,6 +4,7 @@ import { Box, Flex, Text, Heading, Grid, Badge, Table } from '@radix-ui/themes';
 import { CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
+import StatsCards from '@/Components/StatsCards';
 
 export default function TollOperations({ auth, summary, tollRecords }) {
     const defaultSummary = summary || {
@@ -18,6 +19,13 @@ export default function TollOperations({ auth, summary, tollRecords }) {
         { id: 2, plaza_name: 'Main Toll Plaza (Ch 0+000)', lane_id: 'Lane 2 (ETC)', vehicle_class: 'Private Car / SUV', payment_method: 'etc', amount: 100.00, transacted_at: '2026-08-19 15:29:45' },
         { id: 3, plaza_name: 'Kanchan Interchange Toll', lane_id: 'Lane 3 (Cash)', vehicle_class: 'Medium Bus', payment_method: 'cash', amount: 220.00, transacted_at: '2026-08-19 15:28:10' },
         { id: 4, plaza_name: 'Main Toll Plaza (Ch 0+000)', lane_id: 'Lane 4 (ETC)', vehicle_class: 'Light Commercial Vehicle', payment_method: 'etc', amount: 150.00, transacted_at: '2026-08-19 15:27:02' },
+    ];
+
+    const statItems = [
+        { key: 'revenue', title: "Today's Revenue", value: `৳ ${Number(defaultSummary.total_revenue_today).toLocaleString()}`, color: 'green', icon: <CurrencyDollarIcon /> },
+        { key: 'etc', title: 'ETC Collection Share', value: `${defaultSummary.etc_percentage}%`, color: 'blue' },
+        { key: 'cash', title: 'Cash Toll Share', value: `${defaultSummary.cash_percentage}%`, color: 'amber' },
+        { key: 'vehicles', title: 'Total Vehicles Processed', value: Number(defaultSummary.total_transactions_today).toLocaleString(), color: 'indigo' },
     ];
 
     return (
@@ -43,27 +51,7 @@ export default function TollOperations({ auth, summary, tollRecords }) {
 
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                        <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Today's Revenue</Text>
-                                <Heading size="6" mt="1" style={{ color: 'var(--green-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>৳ {Number(defaultSummary.total_revenue_today).toLocaleString()}</Heading>
-                            </Panel>
-
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>ETC Collection Share</Text>
-                                <Heading size="6" mt="1" style={{ color: 'var(--blue-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{defaultSummary.etc_percentage}%</Heading>
-                            </Panel>
-
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cash Toll Share</Text>
-                                <Heading size="6" mt="1" style={{ color: 'var(--amber-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{defaultSummary.cash_percentage}%</Heading>
-                            </Panel>
-
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Total Vehicles Processed</Text>
-                                <Heading size="6" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{Number(defaultSummary.total_transactions_today).toLocaleString()}</Heading>
-                            </Panel>
-                        </Grid>
+                        <StatsCards stats={statItems} columns={{ initial: '1', sm: '2', md: '4' }} mb="4" />
 
                         <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                             <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>

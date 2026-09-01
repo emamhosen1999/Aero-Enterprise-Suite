@@ -19,6 +19,8 @@ import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } fro
 import { buildOptimisticCell, deriveSelectedShiftIds } from './rosterShiftSelection';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import TablePagination from '@/Components/TablePagination.jsx';
+import PageToolbar from '@/Components/PageToolbar';
+import SearchFilterBar from '@/Components/SearchFilterBar';
 
 export default function RosterTab({ month, onMonthChange, departments = [], isActive = true }) {
     const { employees = [], auth } = usePage().props;
@@ -256,92 +258,88 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     };
 
     return (
-        <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px 18px' }}>
+        <Box>
             {/* Toolbar */}
-            <Flex justify="between" align="center" mb="4" wrap="wrap" gap="3">
-                {/* Left: Month Nav, Search, Department */}
-                <Flex gap="2" align="center" wrap="wrap">
-                    <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(-1)}>
-                        <ChevronLeftIcon />
-                    </Button>
+            <PageToolbar
+                onRefresh={() => refetch()}
+                refreshLoading={isFetching}
+                mb="4"
+                leftSlot={
+                    <Flex gap="2" align="center" wrap="wrap">
+                        <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(-1)}>
+                            <ChevronLeftIcon />
+                        </Button>
 
-                    <TextField.Root
-                        type="month"
-                        size="2"
-                        value={month}
-                        onChange={e => onMonthChange?.(e.target.value)}
-                        style={{ width: 160 }}
-                    >
-                        <TextField.Slot>
-                            <CalendarIcon />
-                        </TextField.Slot>
-                    </TextField.Root>
-
-                    <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(1)}>
-                        <ChevronRightIcon />
-                    </Button>
-
-                    <TextField.Root
-                        size="2"
-                        placeholder="Search employee…"
-                        value={employeeQuery}
-                        onChange={e => setEmployeeQuery(e.target.value)}
-                        style={{ width: 200 }}
-                    >
-                        <TextField.Slot>
-                            <PersonIcon />
-                        </TextField.Slot>
-                    </TextField.Root>
-
-                    {!isNonGlobalManager && departments?.length > 0 && (
-                        <Select.Root
-                            value={selectedDepartmentId}
-                            onValueChange={setSelectedDepartmentId}
+                        <TextField.Root
+                            type="month"
+                            size="2"
+                            value={month}
+                            onChange={e => onMonthChange?.(e.target.value)}
+                            style={{ width: 160 }}
                         >
-                            <Select.Trigger size="2" style={{ minWidth: 150 }} placeholder="All Departments" />
-                            <Select.Content>
-                                <Select.Item value="all">All Departments</Select.Item>
-                                {departments.map(dept => (
-                                    <Select.Item key={dept.id} value={String(dept.id)}>
-                                        {dept.name}
-                                    </Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
-                    )}
+                            <TextField.Slot>
+                                <CalendarIcon />
+                            </TextField.Slot>
+                        </TextField.Root>
 
-                </Flex>
+                        <Button variant="ghost" size="2" color="gray" onClick={() => goMonth(1)}>
+                            <ChevronRightIcon />
+                        </Button>
 
-                {/* Right: View toggle, Refresh & Generate */}
-                <Flex gap="2" align="center" wrap="wrap">
-                    <SegmentedControl.Root size="2" value={viewMode} onValueChange={setViewMode}>
-                        <SegmentedControl.Item value="grid">
-                            <Flex align="center" gap="1"><GridIcon /> Grid</Flex>
-                        </SegmentedControl.Item>
-                        <SegmentedControl.Item value="employee">
-                            <Flex align="center" gap="1"><PersonIcon /> Per employee</Flex>
-                        </SegmentedControl.Item>
-                    </SegmentedControl.Root>
-                    <Button
-                        variant="soft" color="gray" size="2"
-                        onClick={() => refetch()}
-                        disabled={isFetching}
-                    >
-                        <ReloadIcon />
-                        Refresh
-                    </Button>
-                    <Button variant="soft" color="gray" size="2" onClick={() => setCoverageDialogOpen(true)}>
-                        Coverage rules
-                    </Button>
-                    <Button
-                        size="2"
-                        onClick={() => generate.mutate()}
-                        disabled={generate.isPending || filteredEmployees.length === 0}
-                    >
-                        {generate.isPending ? 'Generating…' : 'Generate roster'}
-                    </Button>
-                </Flex>
-            </Flex>
+                        <TextField.Root
+                            size="2"
+                            placeholder="Search employee…"
+                            value={employeeQuery}
+                            onChange={e => setEmployeeQuery(e.target.value)}
+                            style={{ width: 200 }}
+                        >
+                            <TextField.Slot>
+                                <PersonIcon />
+                            </TextField.Slot>
+                        </TextField.Root>
+
+                        {!isNonGlobalManager && departments?.length > 0 && (
+                            <Select.Root
+                                value={selectedDepartmentId}
+                                onValueChange={setSelectedDepartmentId}
+                            >
+                                <Select.Trigger size="2" style={{ minWidth: 150 }} placeholder="All Departments" />
+                                <Select.Content>
+                                    <Select.Item value="all">All Departments</Select.Item>
+                                    {departments.map(dept => (
+                                        <Select.Item key={dept.id} value={String(dept.id)}>
+                                            {dept.name}
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                        )}
+                    </Flex>
+                }
+                extraActions={
+                    <Flex gap="2" align="center" wrap="wrap">
+                        <SegmentedControl.Root size="2" value={viewMode} onValueChange={setViewMode}>
+                            <SegmentedControl.Item value="grid">
+                                <Flex align="center" gap="1"><GridIcon /> Grid</Flex>
+                            </SegmentedControl.Item>
+                            <SegmentedControl.Item value="employee">
+                                <Flex align="center" gap="1"><PersonIcon /> Per employee</Flex>
+                            </SegmentedControl.Item>
+                        </SegmentedControl.Root>
+                        <Button variant="soft" color="gray" size="2" onClick={() => setCoverageDialogOpen(true)}>
+                            Coverage rules
+                        </Button>
+                        <Button
+                            size="2"
+                            color="blue"
+                            onClick={() => generate.mutate()}
+                            disabled={generate.isPending || filteredEmployees.length === 0}
+                        >
+                            {generate.isPending ? 'Generating…' : 'Generate roster'}
+                        </Button>
+                    </Flex>
+                }
+            />
 
             {generateViolations.length > 0 && (
                 <Callout.Root color="amber" size="1" mb="3">
@@ -430,6 +428,6 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         />
                     </>
                 )}
-        </Panel>
+        </Box>
     );
 }

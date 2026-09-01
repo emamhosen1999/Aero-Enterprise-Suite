@@ -57,12 +57,11 @@ const Holidays = ({ title }) => {
         const y = now.getFullYear();
         const thisYear = safe.filter((h) => h?.from_date && new Date(h.from_date).getFullYear() === y);
         const upcoming = safe.filter((h) => h?.from_date && new Date(h.from_date) > now);
-        const totalDays = safe.reduce((sum, h) => sum + (h.duration || 1), 0);
         return [
-            { title: 'Total Holidays', value: safe.length, icon: <BarChartIcon style={{ width: 20, height: 20 }} />, color: 'text-blue-400', iconBg: 'bg-blue-500/20', description: 'Filtered' },
-            { title: 'This Year', value: thisYear.length, icon: <CalendarIcon style={{ width: 20, height: 20 }} />, color: 'text-green-400', iconBg: 'bg-green-500/20', description: 'Current year' },
-            { title: 'Upcoming', value: upcoming.length, icon: <CalendarIcon style={{ width: 20, height: 20 }} />, color: 'text-purple-400', iconBg: 'bg-purple-500/20', description: 'Future' },
-            { title: 'Holiday Days', value: totalDays, icon: <BarChartIcon style={{ width: 20, height: 20 }} />, color: 'text-orange-400', iconBg: 'bg-orange-500/20', description: 'Total days' },
+            { key: 'total', title: 'Total Holidays', value: safe.length, icon: <BarChartIcon style={{ width: 20, height: 20 }} />, color: 'blue', description: 'All records' },
+            { key: 'this_year', title: 'This Year', value: thisYear.length, icon: <CalendarIcon style={{ width: 20, height: 20 }} />, color: 'green', description: 'Current calendar year' },
+            { key: 'upcoming', title: 'Upcoming', value: upcoming.length, icon: <CalendarIcon style={{ width: 20, height: 20 }} />, color: 'violet', description: 'Future scheduled holidays' },
+            { key: 'days', title: 'Holiday Days', value: totalDays, icon: <BarChartIcon style={{ width: 20, height: 20 }} />, color: 'amber', description: 'Cumulative day count' },
         ];
     }, [filteredHolidaysData]);
 

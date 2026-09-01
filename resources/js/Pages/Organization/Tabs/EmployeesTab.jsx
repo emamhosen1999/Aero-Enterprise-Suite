@@ -14,23 +14,13 @@ import {
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import * as useEmployeesQuery from '@/api/queries/useEmployeesQuery';
 import QueryState from '@/Components/Common/QueryState';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
 import EmployeeTable from '../Tables/EmployeeTable.jsx';
 import ProfileAvatar from '../../../Components/Profile/ProfileAvatar.jsx';
 import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
-
-/* ─── stat pill component ─── */
-const StatPill = ({ label, value, color = 'gray' }) => (
-    <Flex align="center" gap="2" px="3" py="2" style={{
-        background: 'var(--aero-surface, var(--color-background))',
-        border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-        borderRadius: 12,
-        boxShadow: 'none'
-    }}>
-        <Text weight="bold" size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{value}</Text>
-        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{label}</Text>
-    </Flex>
-);
 
 /* ─── employee grid card ─── */
 const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
@@ -180,109 +170,123 @@ const EmployeesTab = ({ isActive }) => {
     const startRow = ((pagination.currentPage - 1) * pagination.perPage) + 1;
     const endRow = Math.min(pagination.currentPage * pagination.perPage, pagination.total);
 
+    const statPills = [
+        { key: 'total', label: 'Total', value: stats.overview?.total_employees || 0, color: 'blue' },
+        { key: 'active', label: 'Active', value: stats.overview?.active_employees || 0, color: 'green' },
+        { key: 'inactive', label: 'Inactive', value: stats.overview?.inactive_employees || 0, color: 'red' },
+        { key: 'departments', label: 'Departments', value: stats.overview?.total_departments || 0, color: 'violet' },
+        { key: 'retention', label: 'Retention', value: `${stats.workforce_health?.retention_rate || 0}%`, color: 'teal' },
+    ];
+
+    const activeFilterChips = useMemo(() => {
+        const chips = [];
+        if (filters.search) chips.push({ label: 'Search', value: filters.search, onRemove: () => handleSearchChange('') });
+        if (filters.department !== 'all') {
+            const d = departments?.find(item => String(item.id) === String(filters.department));
+            chips.push({ label: 'Department', value: d?.name || filters.department, onRemove: () => handleDeptChange('all') });
+        }
+        if (filters.designation !== 'all') {
+            const d = designations?.find(item => String(item.id) === String(filters.designation));
+            chips.push({ label: 'Designation', value: d?.title || filters.designation, onRemove: () => setFilters(p => ({ ...p, designation: 'all' })) });
+        }
+        if (filters.attendanceType !== 'all') {
+            const a = attendanceTypes?.find(item => String(item.id) === String(filters.attendanceType));
+            chips.push({ label: 'Attendance', value: a?.name || filters.attendanceType, onRemove: () => setFilters(p => ({ ...p, attendanceType: 'all' })) });
+        }
+        if (filters.role !== 'all') {
+            chips.push({ label: 'Role', value: filters.role, onRemove: () => setFilters(p => ({ ...p, role: 'all' })) });
+        }
+        if (filters.status !== 'all') {
+            chips.push({ label: 'Status', value: filters.status === 'active' ? 'Active' : 'Inactive', onRemove: () => setFilters(p => ({ ...p, status: 'all' })) });
+        }
+        if (filters.showDeleted) {
+            chips.push({ label: 'Deleted', value: 'Included', onRemove: () => setFilters(p => ({ ...p, showDeleted: false })) });
+        }
+        return chips;
+    }, [filters, departments, designations, attendanceTypes]);
+
     return (
         <Box>
-            {/* Quick Stats Row */}
-            <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total" value={stats.overview?.total_employees || 0} color="blue" />
-                <StatPill label="Active" value={stats.overview?.active_employees || 0} color="green" />
-                <StatPill label="Inactive" value={stats.overview?.inactive_employees || 0} color="red" />
-                <StatPill label="Departments" value={stats.overview?.total_departments || 0} color="violet" />
-                <StatPill label="Retention" value={`${stats.workforce_health?.retention_rate || 0}%`} color="teal" />
-            </Flex>
+            {/* Quick Stats Pills */}
+            <StatsCards stats={statPills} variant="pill" mb="4" />
 
-            {/* Toolbar Row */}
-            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} mb="4" justify="between">
-                <Flex gap="3" align="center" wrap="wrap" style={{ flex: 1 }}>
-                    <Box style={{ flex: 1, maxWidth: 300 }}>
-                        <TextField.Root placeholder="Search employee..." value={filters.search} onChange={e => handleSearchChange(e.target.value)} size="2">
-                            <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                            {filters.search && (
-                                <TextField.Slot side="right">
-                                    <IconButton size="1" variant="ghost" color="gray" onClick={() => handleSearchChange('')}><Cross2Icon /></IconButton>
-                                </TextField.Slot>
+            {/* Toolbar & Search/Filter Bar */}
+            <PageToolbar
+                showViewToggle
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onRefresh={() => refetch()}
+                refreshLoading={loading}
+                canAdd={canCreate}
+                onAdd={() => setAddDialogOpen(true)}
+                addLabel={!isMobile ? 'Add Employee' : 'Add'}
+                leftSlot={
+                    <SearchFilterBar
+                        searchValue={filters.search}
+                        onSearchChange={handleSearchChange}
+                        searchPlaceholder="Search employee name, ID, email..."
+                        showFilterToggle
+                        showFilters={showFilters}
+                        onToggleFilters={() => setShowFilters(v => !v)}
+                        activeFiltersCount={activeFilterChips.length}
+                        activeFilterChips={activeFilterChips}
+                        onClearFilters={hasActiveFilters ? clearFilters : null}
+                        mb="0"
+                    >
+                        <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '6' }} gap="4" align="end">
+                            {!isNonGlobalManager && (
+                                <Box>
+                                    <Text size="2" color="gray" mb="1" as="div">Department</Text>
+                                    <Select.Root size="2" value={filters.department} onValueChange={handleDeptChange}>
+                                        <Select.Trigger style={{ width: '100%' }} placeholder="All Departments" />
+                                        <Select.Content>
+                                            <Select.Item value="all">All Departments</Select.Item>
+                                            {departments?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>)}
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
                             )}
-                        </TextField.Root>
-                    </Box>
-                    <Button size="2" variant={viewMode === 'table' ? 'solid' : 'soft'} color={viewMode === 'table' ? undefined : 'gray'} onClick={() => setViewMode('table')}>
-                        <TableIcon />{!isMobile && 'Table'}
-                    </Button>
-                    <Button size="2" variant={viewMode === 'grid' ? 'solid' : 'soft'} color={viewMode === 'grid' ? undefined : 'gray'} onClick={() => setViewMode('grid')}>
-                        <StackIcon />{!isMobile && 'Grid'}
-                    </Button>
-                    <Button size="2" variant={showFilters ? 'solid' : 'surface'} color={showFilters ? 'indigo' : 'gray'} onClick={() => setShowFilters(v => !v)}>
-                        <MixerHorizontalIcon />{!isMobile && 'Filters'}
-                    </Button>
-                </Flex>
-                
-                <Flex gap="2">
-                    <Button size="2" variant="soft" color="gray" onClick={() => refetch()}><ReloadIcon /></Button>
-                    {canCreate && (
-                        <Button size="2" onClick={() => setAddDialogOpen(true)}>
-                            <PlusIcon />{!isMobile && 'Add Employee'}
-                        </Button>
-                    )}
-                </Flex>
-            </Flex>
-
-            {/* Filter Panel */}
-            {showFilters && (
-                <Box p="4" mb="4" style={{ background: 'var(--aero-surface, var(--color-background))', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                    <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '6' }} gap="4" align="end">
-                        {!isNonGlobalManager && (
                             <Box>
-                                <Text size="2" color="gray" mb="1" as="div">Department</Text>
-                                <Select.Root size="2" value={filters.department} onValueChange={handleDeptChange}>
-                                    <Select.Trigger style={{ width: '100%' }} placeholder="All Departments" />
+                                <Text size="2" color="gray" mb="1" as="div">Designation</Text>
+                                <Select.Root size="2" value={filters.designation} onValueChange={v => { setFilters(p => ({ ...p, designation: v })); setPagination(p => ({ ...p, currentPage: 1 })); }} disabled={filters.department === 'all'}>
+                                    <Select.Trigger style={{ width: '100%' }} placeholder={filters.department === 'all' ? 'Select Department First' : 'All Designations'} />
                                     <Select.Content>
-                                        <Select.Item value="all">All Departments</Select.Item>
-                                        {departments?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>)}
+                                        <Select.Item value="all">All Designations</Select.Item>
+                                        {filteredDesignations?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.title}</Select.Item>)}
                                     </Select.Content>
                                 </Select.Root>
                             </Box>
-                        )}
-                        <Box>
-                            <Text size="2" color="gray" mb="1" as="div">Designation</Text>
-                            <Select.Root size="2" value={filters.designation} onValueChange={v => { setFilters(p => ({ ...p, designation: v })); setPagination(p => ({ ...p, currentPage: 1 })); }} disabled={filters.department === 'all'}>
-                                <Select.Trigger style={{ width: '100%' }} placeholder={filters.department === 'all' ? 'Select Department First' : 'All Designations'} />
-                                <Select.Content>
-                                    <Select.Item value="all">All Designations</Select.Item>
-                                    {filteredDesignations?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.title}</Select.Item>)}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                        <Box>
-                            <Text size="2" color="gray" mb="1" as="div">Attendance Type</Text>
-                            <Select.Root size="2" value={filters.attendanceType} onValueChange={v => { setFilters(p => ({ ...p, attendanceType: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
-                                <Select.Trigger style={{ width: '100%' }} placeholder="All Types" />
-                                <Select.Content>
-                                    <Select.Item value="all">All Attendance Types</Select.Item>
-                                    {attendanceTypes?.map(t => <Select.Item key={t.id} value={String(t.id)}>{t.name}</Select.Item>)}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                        <Box>
-                            <Text size="2" color="gray" mb="1" as="div">System Role</Text>
-                            <Select.Root size="2" value={filters.role} onValueChange={v => { setFilters(p => ({ ...p, role: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
-                                <Select.Trigger style={{ width: '100%' }} placeholder="All Roles" />
-                                <Select.Content>
-                                    <Select.Item value="all">All Roles</Select.Item>
-                                    {roles?.map(r => <Select.Item key={r.id || r.name} value={r.name}>{r.name}</Select.Item>)}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                        <Box>
-                            <Text size="2" color="gray" mb="1" as="div">Status</Text>
-                            <Select.Root size="2" value={filters.status} onValueChange={v => { setFilters(p => ({ ...p, status: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
-                                <Select.Trigger style={{ width: '100%' }} placeholder="Active / Inactive" />
-                                <Select.Content>
-                                    <Select.Item value="all">All Statuses</Select.Item>
-                                    <Select.Item value="active">Active Only</Select.Item>
-                                    <Select.Item value="inactive">Inactive Only</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                        <Flex direction="column" gap="2" style={{ width: '100%' }}>
+                            <Box>
+                                <Text size="2" color="gray" mb="1" as="div">Attendance Type</Text>
+                                <Select.Root size="2" value={filters.attendanceType} onValueChange={v => { setFilters(p => ({ ...p, attendanceType: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                    <Select.Trigger style={{ width: '100%' }} placeholder="All Types" />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Attendance Types</Select.Item>
+                                        {attendanceTypes?.map(t => <Select.Item key={t.id} value={String(t.id)}>{t.name}</Select.Item>)}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                            <Box>
+                                <Text size="2" color="gray" mb="1" as="div">System Role</Text>
+                                <Select.Root size="2" value={filters.role} onValueChange={v => { setFilters(p => ({ ...p, role: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                    <Select.Trigger style={{ width: '100%' }} placeholder="All Roles" />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Roles</Select.Item>
+                                        {roles?.map(r => <Select.Item key={r.id || r.name} value={r.name}>{r.name}</Select.Item>)}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                            <Box>
+                                <Text size="2" color="gray" mb="1" as="div">Status</Text>
+                                <Select.Root size="2" value={filters.status} onValueChange={v => { setFilters(p => ({ ...p, status: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                    <Select.Trigger style={{ width: '100%' }} placeholder="Active / Inactive" />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Statuses</Select.Item>
+                                        <Select.Item value="active">Active Only</Select.Item>
+                                        <Select.Item value="inactive">Inactive Only</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
                             <Flex align="center" gap="2" style={{ height: '36px' }}>
                                 <Checkbox 
                                     id="showDeletedEmployees"
@@ -291,13 +295,10 @@ const EmployeesTab = ({ isActive }) => {
                                 />
                                 <Text size="2" color="gray" htmlFor="showDeletedEmployees" as="label" style={{ cursor: 'pointer', userSelect: 'none' }}>Include Deleted</Text>
                             </Flex>
-                            <Button size="2" variant="soft" color="red" disabled={!hasActiveFilters} onClick={clearFilters} style={{ width: '100%' }}>
-                                <Cross2Icon />Clear
-                            </Button>
-                        </Flex>
-                    </Grid>
-                </Box>
-            )}
+                        </Grid>
+                    </SearchFilterBar>
+                }
+            />
 
             {/* Header info */}
             <Flex align="center" justify="between" mb="3">

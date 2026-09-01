@@ -14,6 +14,8 @@ import App from "@/Layouts/App.jsx";
 import { showToast } from '@/utils/toastUtils';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useUserDevicesQuery from '@/api/queries/useUserDevicesQuery';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
 
 // Reusing your disclosure hook
 const useDisclosure = () => {
@@ -356,24 +358,16 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                 </Flex>
               </Flex>
 
-              <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
-                <Panel variant="surface" style={{ background: 'var(--gray-2)' }}>
-                  <Text size="2" color="gray">Total Devices</Text>
-                  <Heading size="6">{summary.total}</Heading>
-                </Panel>
-                <Panel variant="surface" style={{ background: 'var(--green-2)' }}>
-                  <Text size="2" color="green">Active Devices</Text>
-                  <Heading size="6" color="green">{summary.active}</Heading>
-                </Panel>
-                <Panel variant="surface" style={{ background: 'var(--gray-2)' }}>
-                  <Text size="2" color="gray">Inactive Devices</Text>
-                  <Heading size="6">{summary.inactive}</Heading>
-                </Panel>
-                <Panel variant="surface" style={{ background: 'var(--blue-2)' }}>
-                  <Text size="2" color="blue">Trusted Devices</Text>
-                  <Heading size="6" color="blue">{summary.trusted}</Heading>
-                </Panel>
-              </Grid>
+              <StatsCards
+                stats={[
+                  { key: 'total', title: 'Total Devices', value: summary.total ?? 0, color: 'gray' },
+                  { key: 'active', title: 'Active Devices', value: summary.active ?? 0, color: 'green' },
+                  { key: 'inactive', title: 'Inactive Devices', value: summary.inactive ?? 0, color: 'amber' },
+                  { key: 'trusted', title: 'Trusted Devices', value: summary.trusted ?? 0, color: 'blue' },
+                ]}
+                columns={{ initial: '1', sm: '2', md: '4' }}
+                mb="4"
+              />
 
               <Separator size="4" mb="3" />
 
@@ -395,7 +389,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             </Panel>
 
             {/* ── Device History List ── */}
-            <Panel variant="surface">
+            <Box mb="4">
               <Box mb="4">
                 <Heading size="4" mb="1">Device History</Heading>
                 <Text size="2" color="gray">Track login devices with detailed hardware, app, and activity metadata.</Text>
@@ -404,14 +398,12 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               {/* Toolbar */}
               <Flex direction={{ initial: 'column', lg: 'row' }} align={{ initial: 'stretch', lg: 'center' }} justify="between" gap="3" mb="4">
                 <Box style={{ flex: 1, maxWidth: 350 }}>
-                  <TextField.Root
-                    size="2"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search by name, platform, model, IP..."
-                  >
-                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                  </TextField.Root>
+                  <SearchFilterBar
+                    searchValue={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    searchPlaceholder="Search by name, platform, model, IP..."
+                    mb="0"
+                  />
                 </Box>
                 <Flex gap="3" wrap="wrap" align="center">
                   <Box>
@@ -603,7 +595,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                   </Box>
                 </>
               )}
-            </Panel>
+            </Box>
           </Flex>
           </Panel>
         </Box>

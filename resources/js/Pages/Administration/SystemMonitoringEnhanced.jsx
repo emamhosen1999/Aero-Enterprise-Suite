@@ -16,6 +16,7 @@ import App from '@/Layouts/App.jsx';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import QueryState from '@/Components/Common/QueryState';
+import StatsCards from '@/Components/StatsCards';
 
 const statusColor = (status) => {
     if (['healthy', 'compliant', 'good', 'success'].includes(status)) return 'green';
@@ -164,17 +165,19 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                 return <JsonPanel data={data.compliance_summary} empty="No compliance metrics." />;
             default:
                 return (
-                    <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="3">
-                        {overviewStats.map((stat) => (
-                            <Panel key={stat.title} tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{stat.title}</Text>
-                                <Heading size="6" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
-                                    <Badge color={stat.color} variant="soft" style={{ borderRadius: 8 }}>{stat.value}</Badge>
-                                </Heading>
-                            </Panel>
-                        ))}
+                    <Box>
+                        <StatsCards
+                            stats={overviewStats.map((stat, i) => ({
+                                key: `stat-${i}`,
+                                title: stat.title,
+                                value: stat.value,
+                                color: stat.color,
+                            }))}
+                            columns={{ initial: '1', sm: '2', lg: '4' }}
+                            mb="4"
+                        />
                         {data.system_health?.checks && (
-                            <Box style={{ gridColumn: '1 / -1' }}>
+                            <Box>
                                 <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: 20 }}>
                                     <Heading size="4" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Health Checks</Heading>
                                     <Flex direction="column" gap="2">
@@ -191,7 +194,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                                 </Panel>
                             </Box>
                         )}
-                    </Grid>
+                    </Box>
                 );
         }
     };

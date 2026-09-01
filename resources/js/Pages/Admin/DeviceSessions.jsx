@@ -15,6 +15,8 @@ import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { showToast } from '@/utils/toastUtils';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
 
 /* ── formatters ── */
 const parseDate = (value) => {
@@ -143,26 +145,28 @@ const DeviceSessions = ({ sessions = [], pagination = {}, filters = {}, summary 
               <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
               {/* ── fleet counters ── */}
-              <Grid columns={{ initial: '2', sm: '3', md: '5' }} gap="3" mb="4">
-                <Metric label="Total devices" value={summary.total_devices ?? 0} />
-                <Metric label="Active devices" value={summary.active_devices ?? 0} color="green" />
-                <Metric label="Inactive" value={summary.inactive_devices ?? 0} />
-                <Metric label="Users with devices" value={summary.users_with_devices ?? 0} />
-                <Metric label="Active refresh tokens" value={summary.active_refresh_tokens ?? 0} color="blue" />
-              </Grid>
+              <StatsCards
+                stats={[
+                  { key: 'total', title: 'Total devices', value: summary.total_devices ?? 0, color: 'gray' },
+                  { key: 'active', title: 'Active devices', value: summary.active_devices ?? 0, color: 'green' },
+                  { key: 'inactive', title: 'Inactive', value: summary.inactive_devices ?? 0, color: 'amber' },
+                  { key: 'users', title: 'Users with devices', value: summary.users_with_devices ?? 0, color: 'violet' },
+                  { key: 'tokens', title: 'Active refresh tokens', value: summary.active_refresh_tokens ?? 0, color: 'blue' },
+                ]}
+                columns={{ initial: '2', sm: '3', md: '5' }}
+                mb="4"
+              />
 
               {/* ── controls + table ── */}
-              <Box mb="4" p="3" style={{ background: 'var(--aero-surface, var(--color-background))', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+              <Box mb="4">
                 <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
                   <Flex align="center" gap="3" wrap="wrap">
-                    <TextField.Root
-                      placeholder="Search user, email, device…"
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      style={{ minWidth: 260 }}
-                    >
-                      <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                    </TextField.Root>
+                    <SearchFilterBar
+                      searchValue={search}
+                      onSearchChange={setSearch}
+                      searchPlaceholder="Search user, email, device…"
+                      mb="0"
+                    />
 
                     <Select.Root value={status} onValueChange={applyStatus}>
                       <Select.Trigger />

@@ -10,6 +10,8 @@ import {
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
 
 const RoleManagement = ({ title, roles = [], permissions = [], permissionsGrouped = {}, role_has_permissions = [], enterprise_modules = [] }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -63,6 +65,16 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
 
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
+                        <StatsCards
+                            stats={[
+                                { key: 'roles', title: 'System Roles', value: roles.length, color: 'blue', icon: <ShieldCheckIcon /> },
+                                { key: 'permissions', title: 'Total Permissions', value: permissions.length, color: 'indigo', icon: <KeyIcon /> },
+                                { key: 'modules', title: 'Enterprise Modules', value: enterprise_modules.length || Object.keys(permissionsGrouped).length || 8, color: 'jade', icon: <UserGroupIcon /> },
+                            ]}
+                            variant="pill"
+                            mb="4"
+                        />
+
                         <Tabs.Root value={selectedTab} onValueChange={setSelectedTab}>
                             <Tabs.List>
                                 <Tabs.Trigger value="roles">
@@ -98,22 +110,21 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                                         <Box
                                                             key={role.id}
                                                             p="3"
+                                                            onClick={() => setSelectedRole(role.id)}
                                                             style={{
                                                                 cursor: 'pointer',
                                                                 borderRadius: 12,
-                                                                border: isSelected ? '1px solid var(--accent-9)' : '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-                                                                background: isSelected ? 'var(--accent-a3)' : 'var(--aero-surface, var(--color-background))',
+                                                                background: isSelected ? 'var(--blue-a3)' : 'var(--gray-a2)',
+                                                                border: isSelected ? '1px solid var(--blue-a6)' : '1px solid transparent',
+                                                                transition: 'all 0.2s ease',
                                                             }}
-                                                            onClick={() => setSelectedRole(role.id)}
                                                         >
                                                             <Flex justify="between" align="center">
                                                                 <Box>
-                                                                    <Text weight="bold" size="3">{role.name}</Text>
-                                                                    <Text as="div" size="1" color="gray">Guard: {role.guard_name || 'web'}</Text>
+                                                                    <Text weight="bold" size="3" style={{ color: isSelected ? 'var(--blue-11)' : 'var(--gray-12)' }}>{role.name}</Text>
+                                                                    <Text size="1" color="gray" as="div">Guard: {role.guard_name}</Text>
                                                                 </Box>
-                                                                <Badge color={isSelected ? 'indigo' : 'gray'} style={{ borderRadius: 999 }}>
-                                                                    {permCount} Permissions
-                                                                </Badge>
+                                                                <Badge color={isSelected ? 'blue' : 'gray'} variant="soft" style={{ borderRadius: 999 }}>{permCount} perms</Badge>
                                                             </Flex>
                                                         </Box>
                                                     );
@@ -123,9 +134,9 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
 
                                         <Box style={{ gridColumn: 'span 2' }}>
                                             {activeRole && (
-                                                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
+                                                <Box style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
                                                     <Box>
-                                                        <Flex justify="between" align="center" mb="4">
+                                                        <Flex justify="between" align="start" mb="4">
                                                             <Box>
                                                                 <Heading size="4" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>{activeRole.name}</Heading>
                                                                 <Text size="2" color="gray">
@@ -135,16 +146,12 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                                             <Badge color="green" size="2" style={{ borderRadius: 999 }}>Active Guard: {activeRole.guard_name}</Badge>
                                                         </Flex>
 
-                                                        <TextField.Root
-                                                            placeholder="Filter granted permissions..."
-                                                            value={searchTerm}
-                                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                                        <SearchFilterBar
+                                                            searchValue={searchTerm}
+                                                            onSearchChange={setSearchTerm}
+                                                            searchPlaceholder="Filter granted permissions..."
                                                             mb="4"
-                                                        >
-                                                            <TextField.Slot>
-                                                                <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
-                                                            </TextField.Slot>
-                                                        </TextField.Root>
+                                                        />
 
                                                         <ScrollArea style={{ maxHeight: 500 }}>
                                                             <Flex wrap="wrap" gap="2">
@@ -160,25 +167,21 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                                             </Flex>
                                                         </ScrollArea>
                                                     </Box>
-                                                </Panel>
+                                                </Box>
                                             )}
                                         </Box>
                                     </Grid>
                                 </Tabs.Content>
 
                                 <Tabs.Content value="permissions">
-                                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
+                                    <Box style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
                                         <Box>
-                                            <TextField.Root
-                                                placeholder="Search all permissions..."
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                            <SearchFilterBar
+                                                searchValue={searchTerm}
+                                                onSearchChange={setSearchTerm}
+                                                searchPlaceholder="Search all permissions..."
                                                 mb="4"
-                                            >
-                                                <TextField.Slot>
-                                                    <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
-                                                </TextField.Slot>
-                                            </TextField.Root>
+                                            />
 
                                             <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                                                 <Table.Root size="2" style={{ minWidth: 680, width: '100%' }}>
@@ -221,7 +224,7 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                                 </Table.Root>
                                             </Box>
                                         </Box>
-                                    </Panel>
+                                    </Box>
                                 </Tabs.Content>
 
                                 <Tabs.Content value="modules">

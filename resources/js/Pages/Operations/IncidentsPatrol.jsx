@@ -4,6 +4,7 @@ import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog
 import { ShieldCheckIcon, PlusIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
+import StatsCards from '@/Components/StatsCards';
 
 export default function IncidentsPatrol({ auth, metrics, incidents }) {
     const [openModal, setOpenModal] = useState(false);
@@ -31,6 +32,12 @@ export default function IncidentsPatrol({ auth, metrics, incidents }) {
         });
     };
 
+    const statItems = [
+        { key: 'active', title: 'Active Incidents', value: metrics?.active_incidents || 3, color: 'amber', icon: <ExclamationTriangleIcon /> },
+        { key: 'cleared', title: 'Cleared Today', value: metrics?.cleared_today || 6, color: 'green', icon: <ShieldCheckIcon /> },
+        { key: 'sla', title: 'Avg SLA Response Time', value: metrics?.avg_response_time || '11.8 mins', color: 'blue' },
+    ];
+
     return (
         <App auth={auth}>
             <Head title="Incidents & Emergency Patrol" />
@@ -57,20 +64,7 @@ export default function IncidentsPatrol({ auth, metrics, incidents }) {
 
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                        <Grid columns={{ initial: '1', sm: '3' }} gap="3" mb="4">
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Active Incidents</Text>
-                                <Heading size="6" mt="1" style={{ color: 'var(--amber-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{metrics?.active_incidents || 3}</Heading>
-                            </Panel>
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cleared Today</Text>
-                                <Heading size="6" mt="1" style={{ color: 'var(--green-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{metrics?.cleared_today || 6}</Heading>
-                            </Panel>
-                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Avg SLA Response Time</Text>
-                                <Heading size="6" mt="1" style={{ color: 'var(--blue-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{metrics?.avg_response_time || '11.8 mins'}</Heading>
-                            </Panel>
-                        </Grid>
+                        <StatsCards stats={statItems} columns={{ initial: '1', sm: '3' }} mb="4" />
 
                         <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                             <Table.Root size="2" style={{ minWidth: 920, width: '100%' }}>

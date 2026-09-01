@@ -14,6 +14,8 @@ import PettyCashReimbursementForm from '@/Forms/PettyCashReimbursementForm.jsx';
 import PettyCashRepaymentForm from '@/Forms/PettyCashRepaymentForm.jsx';
 import PettyCashEditTransactionForm from '@/Forms/PettyCashEditTransactionForm.jsx';
 import TablePagination from '@/Components/TablePagination.jsx';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
 const CATEGORY_COLORS = {
     fuel: 'red',
@@ -230,58 +232,38 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
         );
     }
 
+    const activeFilterChips = [];
+    if (searchText) activeFilterChips.push({ label: 'Search', value: searchText, onRemove: () => { setSearchText(''); setPage(1); } });
+    if (filterType !== 'all') activeFilterChips.push({ label: 'Type', value: filterType, onRemove: () => { setFilterType('all'); setPage(1); } });
+    if (filterCategory !== 'all') activeFilterChips.push({ label: 'Category', value: formatCategory(filterCategory), onRemove: () => { setFilterCategory('all'); setPage(1); } });
+    if (dateFrom) activeFilterChips.push({ label: 'From', value: dateFrom, onRemove: () => { setDateFrom(''); setPage(1); } });
+    if (dateTo) activeFilterChips.push({ label: 'To', value: dateTo, onRemove: () => { setDateTo(''); setPage(1); } });
+
     return (
         <Box>
-            {/* Action Buttons */}
-            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="3" mb="4">
-                <Flex gap="2" wrap="wrap">
-                    <Button onClick={() => setShowExpenseForm(true)} variant="solid" size="2">
-                        <PlusIcon style={{ marginRight: '4px' }} />
-                        {!isMobile && 'Log Expense'}
-                    </Button>
-                    <Button onClick={() => setShowReimbursementForm(true)} variant="solid" color="green" size="2">
-                        <PlusIcon style={{ marginRight: '4px' }} />
-                        {!isMobile && 'Receive Cash'}
-                    </Button>
-                    <Button onClick={() => setShowRepaymentForm(true)} variant="solid" color="blue" size="2">
-                        <PlusIcon style={{ marginRight: '4px' }} />
-                        {!isMobile && 'Return Cash'}
-                    </Button>
-                </Flex>
-                <Flex gap="2">
-                    <Button onClick={() => setShowFilters(p => !p)} variant="soft" size="2">
-                        <MagnifyingGlassIcon style={{ marginRight: '4px' }} />
-                        {showFilters ? 'Hide Filters' : 'Filters'}
-                        {hasActiveFilters && <Badge color="red" size="1" ml="1">{[filterType !== 'all', filterCategory !== 'all', searchText, dateFrom, dateTo].filter(Boolean).length}</Badge>}
-                    </Button>
-                    <Button onClick={handleExport} variant="soft" size="2">
-                        <DownloadIcon style={{ marginRight: '4px' }} />
-                        {!isMobile && 'Export CSV'}
-                    </Button>
-                    <a href={`/petty-cash/export-pdf?loan_id=${loanId}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                        <Button variant="soft" size="2" color="blue" style={{ cursor: 'pointer' }}>
-                            <DownloadIcon style={{ marginRight: '4px' }} />
-                            {!isMobile && 'Export PDF'}
-                        </Button>
-                    </a>
-                </Flex>
-            </Flex>
-
-            {/* Filter Panel */}
-            {showFilters && (
-                <Panel tinted mb="4" style={{ padding: '16px' }}>
-                    <Flex direction="column" gap="3">
-                        {/* Search */}
-                        <TextField.Root
-                            placeholder="Search descriptions..."
-                            value={searchText}
-                            onChange={handleSearchChange}
-                        >
-                            <TextField.Slot>
-                                <MagnifyingGlassIcon />
-                            </TextField.Slot>
-                        </TextField.Root>
-
+            {/* Action Buttons & Toolbar */}
+            <PageToolbar
+                canExport
+                onExport={handleExport}
+                exportLabel={!isMobile ? 'Export CSV' : undefined}
+                mb="4"
+                leftSlot={
+                    <SearchFilterBar
+                        searchValue={searchText}
+                        onSearchChange={val => {
+                            setSearchText(val);
+                            clearTimeout(searchTimeout.current);
+                            searchTimeout.current = setTimeout(() => { setPage(1); }, 400);
+                        }}
+                        searchPlaceholder="Search descriptions..."
+                        showFilterToggle
+                        showFilters={showFilters}
+                        onToggleFilters={() => setShowFilters(p => !p)}
+                        activeFiltersCount={activeFilterChips.length}
+                        activeFilterChips={activeFilterChips}
+                        onClearFilters={hasActiveFilters ? clearFilters : null}
+                        mb="0"
+                    >
                         <Flex gap="3" wrap="wrap">
                             {/* Type filter */}
                             <Box style={{ minWidth: '150px' }}>
@@ -340,20 +322,31 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
                                 />
                             </Box>
                         </Flex>
-
-                        {hasActiveFilters && (
-                            <Flex justify="between" align="center">
-                                <Text size="1" color="gray">
-                                    Showing {transactionData.length} of {transactions.total || 0} transactions
-                                </Text>
-                                <Button variant="ghost" size="1" onClick={clearFilters} style={{ cursor: 'pointer' }}>
-                                    Clear all filters
-                                </Button>
-                            </Flex>
-                        )}
+                    </SearchFilterBar>
+                }
+                extraActions={
+                    <Flex gap="2" wrap="wrap">
+                        <Button onClick={() => setShowExpenseForm(true)} variant="solid" size="2">
+                            <PlusIcon />
+                            {!isMobile && 'Log Expense'}
+                        </Button>
+                        <Button onClick={() => setShowReimbursementForm(true)} variant="solid" color="green" size="2">
+                            <PlusIcon />
+                            {!isMobile && 'Receive Cash'}
+                        </Button>
+                        <Button onClick={() => setShowRepaymentForm(true)} variant="solid" color="blue" size="2">
+                            <PlusIcon />
+                            {!isMobile && 'Return Cash'}
+                        </Button>
+                        <a href={`/petty-cash/export-pdf?loan_id=${loanId}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                            <Button variant="soft" size="2" color="blue" style={{ cursor: 'pointer' }}>
+                                <DownloadIcon />
+                                {!isMobile && 'PDF'}
+                            </Button>
+                        </a>
                     </Flex>
-                </Panel>
-            )}
+                }
+            />
 
             {/* Transactions Table */}
             <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>

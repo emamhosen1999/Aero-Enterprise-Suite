@@ -9,6 +9,8 @@ import {
 import App from '@/Layouts/App.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import DateTimePicker from '@/Components/DateTimePicker';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
 
 const MONO = "'Roboto Mono', ui-monospace, monospace";
 const ROAD_KM = 48;
@@ -94,14 +96,18 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
                         {/* KPI band */}
-                        <Grid columns={{ initial: '2', sm: '3', md: '6' }} gap="3" mb="4">
-                            <Kpi label="Issued" value={stats.issued} tone="gray" />
-                            <Kpi label="Open" value={stats.open} tone="tomato" />
-                            <Kpi label="In process" value={stats.in_process} tone="amber" />
-                            <Kpi label="Under IE review" value={stats.under_review} tone="blue" />
-                            <Kpi label="RHD consent" value={stats.consent} tone="jade" />
-                            <Kpi label="Closed" value={stats.closed} tone="gray" />
-                        </Grid>
+                        <StatsCards
+                            stats={[
+                                { key: 'issued', title: 'Issued', value: stats.issued ?? 0, color: 'gray' },
+                                { key: 'open', title: 'Open', value: stats.open ?? 0, color: 'tomato' },
+                                { key: 'in_process', title: 'In process', value: stats.in_process ?? 0, color: 'amber' },
+                                { key: 'under_review', title: 'Under IE review', value: stats.under_review ?? 0, color: 'blue' },
+                                { key: 'consent', title: 'RHD consent', value: stats.consent ?? 0, color: 'jade' },
+                                { key: 'closed', title: 'Closed', value: stats.closed ?? 0, color: 'gray' },
+                            ]}
+                            columns={{ initial: '2', sm: '3', md: '6' }}
+                            mb="4"
+                        />
 
                         <Grid columns={{ initial: '1', md: '3' }} gap="3" mb="4">
                             <SeverityCard sev={stats.severity} />
@@ -110,9 +116,12 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
 
                         {/* Filters */}
                         <Flex align="center" gap="2" wrap="wrap" mb="3">
-                            <TextField.Root placeholder="Search ref, title, chainage…" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 240, flex: 1 }}>
-                                <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                            </TextField.Root>
+                            <SearchFilterBar
+                                searchValue={q}
+                                onSearchChange={setQ}
+                                searchPlaceholder="Search ref, title, chainage…"
+                                mb="0"
+                            />
                             <SelectFilter value={fStatus} onChange={setFStatus} placeholder="Status"
                                 items={[['all', 'All statuses'], ['open', 'Open (all)'], ...Object.entries(STATUS).map(([k, v]) => [k, v.label])]} />
                             <SelectFilter value={fSev} onChange={setFSev} placeholder="Severity"

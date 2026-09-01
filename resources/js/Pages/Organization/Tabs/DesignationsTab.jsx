@@ -12,23 +12,14 @@ import {
     PersonIcon, MagnifyingGlassIcon, PlusIcon, Cross2Icon
 } from '@radix-ui/react-icons';
 import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
 // Placeholder imports for next steps
 import DesignationTable from '../Tables/DesignationTable.jsx';
 import DesignationForm from '../Components/DesignationForm.jsx';
 import DeleteDesignationForm from '../Components/DeleteDesignationForm.jsx';
-
-const StatPill = ({ label, value, color = 'gray' }) => (
-    <Flex align="center" gap="2" px="3" py="2" style={{
-        background: 'var(--aero-surface, var(--color-background))',
-        border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-        borderRadius: 12,
-        boxShadow: 'none'
-    }}>
-        <Text weight="bold" size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{value}</Text>
-        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{label}</Text>
-    </Flex>
-);
 
 const DesignationsTab = ({ isActive }) => {
     const { auth, initialDesignations, departments, allDesignations, designationStats: initialStats } = usePage().props;
@@ -83,56 +74,72 @@ const DesignationsTab = ({ isActive }) => {
         refetch();
     };
 
+    const statPills = [
+        { key: 'total', label: 'Total', value: stats?.total || 0, color: 'blue' },
+        { key: 'active', label: 'Active', value: stats?.active || 0, color: 'green' },
+        { key: 'inactive', label: 'Inactive', value: stats?.inactive || 0, color: 'red' },
+        { key: 'parent', label: 'Top-Level', value: stats?.parent_designations || 0, color: 'purple' },
+    ];
+
+    const activeFilterChips = useMemo(() => {
+        const chips = [];
+        if (filters.search) chips.push({ label: 'Search', value: filters.search, onRemove: () => handleFilterChange('search', '') });
+        if (filters.department !== 'all') {
+            const dept = departments?.find(d => String(d.id) === String(filters.department));
+            chips.push({ label: 'Department', value: dept?.name || filters.department, onRemove: () => handleFilterChange('department', 'all') });
+        }
+        if (filters.status !== 'all') {
+            chips.push({ label: 'Status', value: filters.status === 'active' ? 'Active' : 'Inactive', onRemove: () => handleFilterChange('status', 'all') });
+        }
+        return chips;
+    }, [filters, departments]);
+
     return (
         <Box>
-            {/* Quick Stats */}
-            <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total" value={stats?.total || 0} color="blue" />
-                <StatPill label="Active" value={stats?.active || 0} color="green" />
-                <StatPill label="Inactive" value={stats?.inactive || 0} color="red" />
-                <StatPill label="Top-Level" value={stats?.parent_designations || 0} color="purple" />
-            </Flex>
+            {/* Quick Stats Pills */}
+            <StatsCards stats={statPills} variant="pill" mb="4" />
 
-            {/* Toolbar */}
-            <Flex gap="3" wrap="wrap" mb="5" align="end" justify="between">
-                <Flex gap="3" wrap="wrap" style={{ flex: 1 }}>
-                    <Box style={{ flexGrow: 1, minWidth: '250px' }}>
-                        <TextField.Root placeholder="Search designations..." value={filters.search} onChange={(e) => handleFilterChange('search', e.target.value)}>
-                            <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                            {filters.search && (
-                                <TextField.Slot side="right">
-                                    <IconButton size="1" variant="ghost" color="gray" onClick={() => handleFilterChange('search', '')}><Cross2Icon /></IconButton>
-                                </TextField.Slot>
-                            )}
-                        </TextField.Root>
-                    </Box>
-                    
-                    <Box style={{ minWidth: '200px' }}>
-                        <Select.Root value={filters.department} onValueChange={(v) => handleFilterChange('department', v)}>
-                            <Select.Trigger style={{ width: '100%' }} />
-                            <Select.Content>
-                                <Select.Item value="all">All Departments</Select.Item>
-                                {departments?.map(dept => <Select.Item key={dept.id} value={String(dept.id)}>{dept.name}</Select.Item>)}
-                            </Select.Content>
-                        </Select.Root>
-                    </Box>
+            {/* Toolbar & Search/Filter Bar */}
+            <PageToolbar
+                canAdd={canCreate}
+                onAdd={() => openModal('add_designation')}
+                addLabel={!isMobile ? 'Add Designation' : 'Add'}
+                leftSlot={
+                    <SearchFilterBar
+                        searchValue={filters.search}
+                        onSearchChange={(val) => handleFilterChange('search', val)}
+                        searchPlaceholder="Search designations..."
+                        showFilterToggle={false}
+                        activeFilterChips={activeFilterChips}
+                        onClearFilters={activeFilterChips.length > 0 ? clearFilters : null}
+                        mb="0"
+                        extraActions={
+                            <Flex gap="2" wrap="wrap">
+                                <Box style={{ minWidth: '180px' }}>
+                                    <Select.Root value={filters.department} onValueChange={(v) => handleFilterChange('department', v)}>
+                                        <Select.Trigger style={{ width: '100%' }} />
+                                        <Select.Content>
+                                            <Select.Item value="all">All Departments</Select.Item>
+                                            {departments?.map(dept => <Select.Item key={dept.id} value={String(dept.id)}>{dept.name}</Select.Item>)}
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
 
-                    <Box style={{ minWidth: '150px' }}>
-                        <Select.Root value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
-                            <Select.Trigger style={{ width: '100%' }} />
-                            <Select.Content>
-                                <Select.Item value="all">All Status</Select.Item>
-                                <Select.Item value="active">Active</Select.Item>
-                                <Select.Item value="inactive">Inactive</Select.Item>
-                            </Select.Content>
-                        </Select.Root>
-                    </Box>
-                </Flex>
-
-                <Flex gap="2">
-                    {canCreate && <Button color="indigo" onClick={() => openModal('add_designation')}><PlusIcon /> {!isMobile && "Add Designation"}</Button>}
-                </Flex>
-            </Flex>
+                                <Box style={{ minWidth: '140px' }}>
+                                    <Select.Root value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
+                                        <Select.Trigger style={{ width: '100%' }} />
+                                        <Select.Content>
+                                            <Select.Item value="all">All Status</Select.Item>
+                                            <Select.Item value="active">Active</Select.Item>
+                                            <Select.Item value="inactive">Inactive</Select.Item>
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
+                            </Flex>
+                        }
+                    />
+                }
+            />
 
             {/* Data Table */}
             <Box>

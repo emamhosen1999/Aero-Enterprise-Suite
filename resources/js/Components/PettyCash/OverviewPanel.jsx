@@ -11,6 +11,7 @@ import {
     PlusIcon, FileTextIcon
 } from '@radix-ui/react-icons';
 import axios from 'axios';
+import StatsCards from '@/Components/StatsCards';
 
 const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isMobile, onCreateLoan, onRefresh, onSelectFund }) => {
     const [closing, setClosing] = useState(false);
@@ -107,36 +108,48 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
         );
     }
 
-    const stats = [
+    const statItems = [
         {
-            label: 'ORIGINAL AMOUNT',
-            value: activeLoan.original_amount,
-            icon: DotsHorizontalIcon,
+            key: 'original',
+            title: 'Original Amount',
+            value: `৳${parseFloat(activeLoan.original_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: <DotsHorizontalIcon />,
             color: 'blue',
         },
         {
-            label: 'CURRENT BALANCE',
-            value: activeLoan.current_balance,
-            icon: DotsHorizontalIcon,
+            key: 'balance',
+            title: 'Current Balance',
+            value: `৳${parseFloat(activeLoan.current_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: <DotsHorizontalIcon />,
             color: activeLoan.current_balance > 0 ? 'green' : 'red',
         },
         {
-            label: 'TOTAL EXPENSES',
-            value: activeLoan.total_expenses,
-            icon: ArrowDownIcon,
+            key: 'expenses',
+            title: 'Total Expenses',
+            value: `৳${parseFloat(activeLoan.total_expenses).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: <ArrowDownIcon />,
             color: 'red',
         },
         {
-            label: 'TOTAL REIMBURSEMENTS',
-            value: activeLoan.total_reimbursements,
-            icon: ArrowUpIcon,
+            key: 'reimbursements',
+            title: 'Total Reimbursements',
+            value: `৳${parseFloat(activeLoan.total_reimbursements).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: <ArrowUpIcon />,
             color: 'green',
         },
         {
-            label: 'TOTAL REPAYMENTS',
-            value: activeLoan.total_repayments,
-            icon: CheckIcon,
+            key: 'repayments',
+            title: 'Total Repayments',
+            value: `৳${parseFloat(activeLoan.total_repayments).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: <CheckIcon />,
             color: 'blue',
+        },
+        {
+            key: 'transactions',
+            title: 'Total Transactions',
+            value: activeLoan.transaction_count ?? 0,
+            icon: <FileTextIcon />,
+            color: 'violet',
         },
     ];
 
@@ -184,40 +197,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
             <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
             {/* Stats Grid */}
-            <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4" mb="4">
-                {stats.map((stat, index) => {
-                    const Icon = stat.icon;
-                    const colorToken = stat.color === 'green' ? 'jade' : stat.color;
-                    return (
-                        <Panel key={index} tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                            <Flex direction="column" gap="2">
-                                <Flex align="center" gap="2">
-                                    <Box p="1" style={{ background: `var(--${colorToken}-a3)`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Icon style={{ width: 16, height: 16, color: `var(--${colorToken}-9)` }} />
-                                    </Box>
-                                    <Text size="1" weight="bold" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11 }}>
-                                        {stat.label}
-                                    </Text>
-                                </Flex>
-                                <Text size="6" weight="bold" style={{ color: `var(--${colorToken}-9)`, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                                    ৳{parseFloat(stat.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </Text>
-                            </Flex>
-                        </Panel>
-                    );
-                })}
-            </Grid>
-
-            {/* Transaction Count */}
-            <Panel tinted style={{ padding: '16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                <Flex align="center" justify="between">
-                    <Flex align="center" gap="2">
-                        <FileTextIcon style={{ width: 18, height: 18, color: 'var(--aero-color-subtle, var(--gray-9))' }} />
-                        <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>TOTAL TRANSACTIONS</Text>
-                    </Flex>
-                    <Text size="4" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{activeLoan.transaction_count}</Text>
-                </Flex>
-            </Panel>
+            <StatsCards stats={statItems} columns={{ initial: '1', sm: '2', md: '3' }} mb="4" />
         </Box>
     );
 };

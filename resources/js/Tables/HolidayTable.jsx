@@ -17,6 +17,8 @@ import { format, differenceInDays, isAfter, isBefore } from 'date-fns';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import TablePagination from '@/Components/TablePagination.jsx';
 import { TableLoadingSkeleton } from '@/Components/LoadingSkeleton';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
 const holidayTypes = {
     public: { label: 'Public', color: 'red', icon: '🏛️' },
@@ -240,154 +242,135 @@ const HolidayTable = ({
         </Badge>
     );
 
+    const activeFilterChips = useMemo(() => {
+        const chips = [];
+        if (filterValue) {
+            chips.push({ label: 'Search', value: filterValue, onRemove: () => setFilterValue('') });
+        }
+        typeFilter.forEach((type) => {
+            chips.push({
+                key: `type-${type}`,
+                label: 'Type',
+                value: `${holidayTypes[type]?.icon} ${holidayTypes[type]?.label}`,
+                onRemove: () => setTypeFilter((prev) => prev.filter((t) => t !== type)),
+            });
+        });
+        statusFilter.forEach((status) => {
+            chips.push({
+                key: `status-${status}`,
+                label: 'Status',
+                value: status.charAt(0).toUpperCase() + status.slice(1),
+                onRemove: () => setStatusFilter((prev) => prev.filter((s) => s !== status)),
+            });
+        });
+        yearFilter.forEach((year) => {
+            chips.push({
+                key: `year-${year}`,
+                label: 'Year',
+                value: year,
+                onRemove: () => setYearFilter((prev) => prev.filter((y) => y !== year)),
+            });
+        });
+        return chips;
+    }, [filterValue, typeFilter, statusFilter, yearFilter]);
+
+    const clearAllFilters = () => {
+        setFilterValue('');
+        setTypeFilter([]);
+        setStatusFilter([]);
+        setYearFilter([new Date().getFullYear().toString()]);
+        setPage(1);
+    };
+
     const topContent = (
-        <Flex direction="column" gap="4">
-            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3">
-                <Box style={{ flex: 1 }}>
-                    <TextField.Root
-                        size={isMobile ? '2' : '3'}
-                        placeholder="Search by title or description..."
-                        value={filterValue}
-                        onChange={(e) => setFilterValue(e.target.value)}
+        <Box mb="3">
+            <PageToolbar
+                perPage={rowsPerPage}
+                onPerPageChange={(n) => { setRowsPerPage(n); setPage(1); }}
+                perPageOptions={[5, 10, 15, 25]}
+                leftSlot={
+                    <SearchFilterBar
+                        searchValue={filterValue}
+                        onSearchChange={setFilterValue}
+                        searchPlaceholder="Search holiday title, description..."
+                        showFilterToggle
+                        showFilters={showFilters}
+                        onToggleFilters={() => setShowFilters((v) => !v)}
+                        activeFiltersCount={activeFilterChips.length}
+                        activeFilterChips={activeFilterChips}
+                        onClearFilters={activeFilterChips.length > 0 ? clearAllFilters : null}
+                        mb="0"
                     >
-                        <TextField.Slot>
-                            <MagnifyingGlassIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} />
-                        </TextField.Slot>
-                    </TextField.Root>
-                </Box>
-                <Button
-                    variant={showFilters ? 'solid' : 'outline'}
-                    color={showFilters ? 'blue' : 'gray'}
-                    onClick={() => setShowFilters(!showFilters)}
-                >
-                    <MixerHorizontalIcon style={{ width: 16, height: 16 }} />
-                    {!isMobile && <span style={{ marginLeft: 4 }}>Filters</span>}
-                </Button>
-            </Flex>
-
-            {showFilters && (
-                <Box>
-                    <Panel tinted p="4">
-                        <Text size="2" weight="medium" mb="2" as="div">
-                            Holiday Type
-                        </Text>
-                        <Flex gap="2" wrap="wrap" mb="4">
-                            {Object.entries(holidayTypes).map(([key, config]) => (
-                                <Badge
-                                    key={key}
-                                    color={config.color}
-                                    variant={typeFilter.includes(key) ? 'solid' : 'soft'}
-                                    size="1"
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => toggleInArray(setTypeFilter, key)}
-                                >
-                                    {config.icon} {config.label}
-                                </Badge>
-                            ))}
-                        </Flex>
-
-                        <Text size="2" weight="medium" mb="2" as="div">
-                            Status
-                        </Text>
-                        <Flex gap="2" wrap="wrap" mb="4">
-                            {statusOptions.map((opt) => (
-                                <Badge
-                                    key={opt.key}
-                                    color={opt.color}
-                                    variant={statusFilter.includes(opt.key) ? 'solid' : 'soft'}
-                                    size="1"
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => toggleInArray(setStatusFilter, opt.key)}
-                                >
-                                    <opt.icon style={{ width: 12, height: 12, marginRight: 4 }} /> {opt.label}
-                                </Badge>
-                            ))}
-                        </Flex>
-
-                        <Text size="2" weight="medium" mb="2" as="div">
-                            Year
-                        </Text>
-                        <Flex gap="2" wrap="wrap" mb="4">
-                            {yearOptions.map((year) => (
-                                <Badge
-                                    key={year}
-                                    variant={yearFilter.includes(year) ? 'solid' : 'soft'}
-                                    size="1"
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => toggleInArray(setYearFilter, year)}
-                                >
-                                    📅 {year}
-                                </Badge>
-                            ))}
-                        </Flex>
-
-                        <Text size="2" weight="medium" mb="2" as="div">
-                            Rows per page
-                        </Text>
-                        <Flex gap="2" wrap="wrap">
-                            {[5, 10, 15, 25].map((n) => (
-                                <Badge
-                                    key={n}
-                                    variant={rowsPerPage === n ? 'solid' : 'soft'}
-                                    size="1"
-                                    style={{ cursor: 'pointer' }}
-                                    onClick={() => setRowsPerPage(n)}
-                                >
-                                    {n}
-                                </Badge>
-                            ))}
-                        </Flex>
-
-                        {(filterValue ||
-                            typeFilter.length > 0 ||
-                            statusFilter.length > 0 ||
-                            yearFilter.length > 0) && (
-                                <Flex gap="2" wrap="wrap" mt="4" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
-                                    {filterValue && (
-                                        <FilterChip
-                                            label={`Search: ${filterValue}`}
-                                            onRemove={() => setFilterValue('')}
-                                        />
-                                    )}
-                                    {typeFilter.map((type) => (
-                                        <FilterChip
-                                            key={type}
-                                            label={`${holidayTypes[type]?.icon} ${holidayTypes[type]?.label}`}
-                                            onRemove={() =>
-                                                setTypeFilter((prev) => prev.filter((t) => t !== type))
-                                            }
-                                        />
-                                    ))}
-                                    {statusFilter.map((status) => (
-                                        <FilterChip
-                                            key={status}
-                                            label={status.charAt(0).toUpperCase() + status.slice(1)}
-                                            onRemove={() =>
-                                                setStatusFilter((prev) => prev.filter((s) => s !== status))
-                                            }
-                                        />
-                                    ))}
-                                    {yearFilter.map((year) => (
-                                        <FilterChip
-                                            key={year}
-                                            label={`📅 ${year}`}
-                                            onRemove={() =>
-                                                setYearFilter((prev) => prev.filter((y) => y !== year))
-                                            }
-                                        />
+                        <Flex direction="column" gap="3">
+                            <Box>
+                                <Text size="2" weight="medium" mb="2" as="div">
+                                    Holiday Type
+                                </Text>
+                                <Flex gap="2" wrap="wrap">
+                                    {Object.entries(holidayTypes).map(([key, config]) => (
+                                        <Badge
+                                            key={key}
+                                            color={config.color}
+                                            variant={typeFilter.includes(key) ? 'solid' : 'soft'}
+                                            size="1"
+                                            style={{ cursor: 'pointer', borderRadius: 8 }}
+                                            onClick={() => toggleInArray(setTypeFilter, key)}
+                                        >
+                                            {config.icon} {config.label}
+                                        </Badge>
                                     ))}
                                 </Flex>
-                            )}
-                    </Panel>
-                </Box>
-            )}
+                            </Box>
+
+                            <Box>
+                                <Text size="2" weight="medium" mb="2" as="div">
+                                    Status
+                                </Text>
+                                <Flex gap="2" wrap="wrap">
+                                    {statusOptions.map((opt) => (
+                                        <Badge
+                                            key={opt.key}
+                                            color={opt.color}
+                                            variant={statusFilter.includes(opt.key) ? 'solid' : 'soft'}
+                                            size="1"
+                                            style={{ cursor: 'pointer', borderRadius: 8 }}
+                                            onClick={() => toggleInArray(setStatusFilter, opt.key)}
+                                        >
+                                            <opt.icon style={{ width: 12, height: 12, marginRight: 4 }} /> {opt.label}
+                                        </Badge>
+                                    ))}
+                                </Flex>
+                            </Box>
+
+                            <Box>
+                                <Text size="2" weight="medium" mb="2" as="div">
+                                    Year
+                                </Text>
+                                <Flex gap="2" wrap="wrap">
+                                    {yearOptions.map((year) => (
+                                        <Badge
+                                            key={year}
+                                            variant={yearFilter.includes(year) ? 'solid' : 'soft'}
+                                            size="1"
+                                            style={{ cursor: 'pointer', borderRadius: 8 }}
+                                            onClick={() => toggleInArray(setYearFilter, year)}
+                                        >
+                                            📅 {year}
+                                        </Badge>
+                                    ))}
+                                </Flex>
+                            </Box>
+                        </Flex>
+                    </SearchFilterBar>
+                }
+            />
 
             <Text size="1" color="gray">
                 Total {filteredHolidays.length} holidays
                 {(typeFilter.length > 0 || statusFilter.length > 0 || filterValue) &&
                     ` (filtered from ${holidaysData.length})`}
             </Text>
-        </Flex>
+        </Box>
     );
 
     const MobileHolidayCard = ({ holiday }) => {

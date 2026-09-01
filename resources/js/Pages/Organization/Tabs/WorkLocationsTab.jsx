@@ -9,24 +9,15 @@ import {
     Cross2Icon, ReloadIcon
 } from '@radix-ui/react-icons';
 import * as useWorkLocationsQuery from '@/api/queries/useWorkLocationsQuery';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
 import WorkLocationsTable from '../Tables/WorkLocationsTable.jsx';
 import WorkLocationForm from '../Components/WorkLocationForm.jsx';
 import DeleteWorkLocationForm from '../Components/DeleteWorkLocationForm.jsx';
 
 const EMPTY_ARRAY = [];
-
-const StatPill = ({ label, value, color = 'gray' }) => (
-    <Flex align="center" gap="2" px="3" py="2" style={{
-        background: 'var(--aero-surface, var(--color-background))',
-        border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-        borderRadius: 12,
-        boxShadow: 'none'
-    }}>
-        <Text weight="bold" size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{value}</Text>
-        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{label}</Text>
-    </Flex>
-);
 
 const WorkLocationsTab = ({ isActive }) => {
     const { auth, users, attendanceTypes } = usePage().props;
@@ -72,45 +63,40 @@ const WorkLocationsTab = ({ isActive }) => {
         closeModal();
     };
 
+    const statPills = [
+        { key: 'total', label: 'Total Locations', value: allData?.length || 0, color: 'blue' },
+        { key: 'rules', label: 'With Rules Set', value: allData?.filter(d => d.attendance_type_id).length || 0, color: 'green' },
+    ];
+
+    const activeFilterChips = useMemo(() => {
+        if (!search) return [];
+        return [{ label: 'Search', value: search, onRemove: () => setSearch('') }];
+    }, [search]);
+
     return (
         <Box>
-            {/* Quick Stats */}
-            <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total Locations" value={allData?.length || 0} color="blue" />
-                <StatPill label="With Rules Set" value={allData?.filter(d => d.attendance_type_id).length || 0} color="green" />
-            </Flex>
+            {/* Quick Stats Pills */}
+            <StatsCards stats={statPills} variant="pill" mb="4" />
 
-            {/* Toolbar */}
-            <Flex gap="3" wrap="wrap" mb="5" align="center" justify="between">
-                <Flex gap="3" align="center" style={{ flex: 1, maxWidth: 400 }}>
-                    <TextField.Root 
-                        placeholder="Search locations..." 
-                        value={search} 
-                        onChange={(e) => setSearch(e.target.value)}
-                        style={{ width: '100%' }}
-                    >
-                        <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                        {search && (
-                            <TextField.Slot side="right">
-                                <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}>
-                                    <Cross2Icon />
-                                </IconButton>
-                            </TextField.Slot>
-                        )}
-                    </TextField.Root>
-                </Flex>
-
-                <Flex gap="2">
-                    <Button size="2" variant="soft" color="gray" onClick={() => refetch()}>
-                        <ReloadIcon />
-                    </Button>
-                    {canCreate && (
-                        <Button color="indigo" onClick={() => openModal('add')}>
-                            <PlusIcon /> {!isMobile && "Add Location"}
-                        </Button>
-                    )}
-                </Flex>
-            </Flex>
+            {/* Toolbar & Search Bar */}
+            <PageToolbar
+                onRefresh={() => refetch()}
+                refreshLoading={loading}
+                canAdd={canCreate}
+                onAdd={() => openModal('add')}
+                addLabel={!isMobile ? 'Add Location' : 'Add'}
+                leftSlot={
+                    <SearchFilterBar
+                        searchValue={search}
+                        onSearchChange={setSearch}
+                        searchPlaceholder="Search locations by name..."
+                        showFilterToggle={false}
+                        activeFilterChips={activeFilterChips}
+                        onClearFilters={search ? () => setSearch('') : null}
+                        mb="0"
+                    />
+                }
+            />
 
             {/* Data Table */}
             <Box>

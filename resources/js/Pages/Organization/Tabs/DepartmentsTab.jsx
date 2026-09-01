@@ -12,23 +12,13 @@ import {
 } from '@radix-ui/react-icons';
 import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
 import QueryState from '@/Components/Common/QueryState';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
 import DepartmentTable from '../Tables/DepartmentTable.jsx';
 import DepartmentForm from '../Components/DepartmentForm.jsx';
 import DeleteDepartmentForm from '../Components/DeleteDepartmentForm.jsx';
-
-/* ─── Stat Pill ─── */
-const StatPill = ({ label, value, color = 'gray' }) => (
-    <Flex align="center" gap="2" px="3" py="2" style={{
-        background: 'var(--aero-surface, var(--color-background))',
-        border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-        borderRadius: 12,
-        boxShadow: 'none'
-    }}>
-        <Text weight="bold" size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{value}</Text>
-        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{label}</Text>
-    </Flex>
-);
 
 /* ─── Grid Card Component ─── */
 const DepartmentCard = ({ department, onEdit, onView }) => {
@@ -124,77 +114,79 @@ const DepartmentsTab = ({ isActive }) => {
     const departmentRows = departmentsData?.data ?? [];
     const isEmpty = !loading && !isError && departmentRows.length === 0;
 
+    const statPills = [
+        { key: 'total', label: 'Total', value: stats?.total ?? 0, color: 'blue' },
+        { key: 'active', label: 'Active', value: stats?.active ?? 0, color: 'green' },
+        { key: 'inactive', label: 'Inactive', value: stats?.inactive ?? 0, color: 'red' },
+        { key: 'parent', label: 'Top-Level', value: stats?.parent_departments ?? 0, color: 'indigo' },
+    ];
+
+    const activeFilterChips = useMemo(() => {
+        const chips = [];
+        if (filters.search) chips.push({ label: 'Search', value: filters.search, onRemove: () => handleFilterChange('search', '') });
+        if (filters.status !== 'all') chips.push({ label: 'Status', value: filters.status === 'active' ? 'Active' : 'Inactive', onRemove: () => handleFilterChange('status', 'all') });
+        if (filters.parentDepartment !== 'all') {
+            const p = parentDepartments?.find(item => String(item.id) === String(filters.parentDepartment));
+            chips.push({ label: 'Parent Dept', value: filters.parentDepartment === 'none' ? 'Top-Level Only' : (p?.name || filters.parentDepartment), onRemove: () => handleFilterChange('parentDepartment', 'all') });
+        }
+        return chips;
+    }, [filters, parentDepartments]);
+
     return (
         <Box>
-            {/* Quick Stats */}
-            <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total" value={stats?.total ?? 0} color="blue" />
-                <StatPill label="Active" value={stats?.active ?? 0} color="jade" />
-                <StatPill label="Inactive" value={stats?.inactive ?? 0} color="red" />
-                <StatPill label="Top-Level" value={stats?.parent_departments ?? 0} color="indigo" />
-            </Flex>
+            {/* Quick Stats Pills */}
+            <StatsCards stats={statPills} variant="pill" mb="4" />
 
-            {/* Toolbar */}
-            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} mb="4" justify="between">
-                <Flex gap="3" align="center" wrap="wrap" style={{ flex: 1 }}>
-                    <Box style={{ flex: 1, maxWidth: 300 }}>
-                        <TextField.Root placeholder="Search departments..." value={filters.search} onChange={e => handleFilterChange('search', e.target.value)} size="2">
-                            <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                            {filters.search && (
-                                <TextField.Slot side="right">
-                                    <IconButton size="1" variant="ghost" color="gray" onClick={() => handleFilterChange('search', '')}><Cross2Icon /></IconButton>
-                                </TextField.Slot>
-                            )}
-                        </TextField.Root>
-                    </Box>
-                    <Button size="2" variant={viewMode === 'table' ? 'solid' : 'soft'} color={viewMode === 'table' ? undefined : 'gray'} onClick={() => setViewMode('table')}>
-                        <TableIcon />{!isMobile && 'Table'}
-                    </Button>
-                    <Button size="2" variant={viewMode === 'grid' ? 'solid' : 'soft'} color={viewMode === 'grid' ? undefined : 'gray'} onClick={() => setViewMode('grid')}>
-                        <StackIcon />{!isMobile && 'Grid'}
-                    </Button>
-                    <Button size="2" variant={showFilters ? 'solid' : 'surface'} color={showFilters ? 'indigo' : 'gray'} onClick={() => setShowFilters(v => !v)}>
-                        <MixerHorizontalIcon />{!isMobile && 'Filters'}
-                    </Button>
-                </Flex>
-                
-                <Flex gap="2">
-                    {canCreate && <Button size="2" color="blue" onClick={() => openModal('add_department')}><PlusIcon />{!isMobile && 'Add Department'}</Button>}
-                </Flex>
-            </Flex>
-
-            {/* Filter Panel */}
-            {showFilters && (
-                <Box p="4" mb="4" style={{ background: 'var(--aero-surface, var(--gray-2))', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                    <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4" align="end">
-                        <Box>
-                            <Text size="2" color="gray" mb="1" as="div">Status</Text>
-                            <Select.Root size="2" value={filters.status} onValueChange={v => handleFilterChange('status', v)}>
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    <Select.Item value="all">All Statuses</Select.Item>
-                                    <Select.Item value="active">Active Only</Select.Item>
-                                    <Select.Item value="inactive">Inactive Only</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                        <Box>
-                            <Text size="2" color="gray" mb="1" as="div">Parent Department</Text>
-                            <Select.Root size="2" value={filters.parentDepartment} onValueChange={v => handleFilterChange('parentDepartment', v)}>
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    <Select.Item value="all">All Parent Departments</Select.Item>
-                                    <Select.Item value="none">Top-Level Only</Select.Item>
-                                    {parentDepartments?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>)}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
-                        <Button size="2" variant="soft" color="red" disabled={!hasActiveFilters} onClick={clearFilters} style={{ width: '100%' }}>
-                            <Cross2Icon />Clear Filters
-                        </Button>
-                    </Grid>
-                </Box>
-            )}
+            {/* Toolbar & Search/Filter Bar */}
+            <PageToolbar
+                showViewToggle
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onRefresh={() => refetch()}
+                refreshLoading={loading}
+                canAdd={canCreate}
+                onAdd={() => openModal('add_department')}
+                addLabel={!isMobile ? 'Add Department' : 'Add'}
+                leftSlot={
+                    <SearchFilterBar
+                        searchValue={filters.search}
+                        onSearchChange={val => handleFilterChange('search', val)}
+                        searchPlaceholder="Search departments..."
+                        showFilterToggle
+                        showFilters={showFilters}
+                        onToggleFilters={() => setShowFilters(v => !v)}
+                        activeFiltersCount={activeFilterChips.length}
+                        activeFilterChips={activeFilterChips}
+                        onClearFilters={hasActiveFilters ? clearFilters : null}
+                        mb="0"
+                    >
+                        <Grid columns={{ initial: '1', sm: '2', lg: '2' }} gap="4" align="end">
+                            <Box>
+                                <Text size="2" color="gray" mb="1" as="div">Status</Text>
+                                <Select.Root size="2" value={filters.status} onValueChange={v => handleFilterChange('status', v)}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Statuses</Select.Item>
+                                        <Select.Item value="active">Active Only</Select.Item>
+                                        <Select.Item value="inactive">Inactive Only</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                            <Box>
+                                <Text size="2" color="gray" mb="1" as="div">Parent Department</Text>
+                                <Select.Root size="2" value={filters.parentDepartment} onValueChange={v => handleFilterChange('parentDepartment', v)}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Parent Departments</Select.Item>
+                                        <Select.Item value="none">Top-Level Only</Select.Item>
+                                        {parentDepartments?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>)}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                        </Grid>
+                    </SearchFilterBar>
+                }
+            />
 
             {/* Content Area */}
             <QueryState

@@ -15,6 +15,9 @@ import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { showToast } from '@/utils/toastUtils';
+import StatsCards from '@/Components/StatsCards';
+import PageToolbar from '@/Components/PageToolbar';
+import SearchFilterBar from '@/Components/SearchFilterBar';
 
 /* ── formatters ── */
 const parseDate = (value) => {
@@ -199,14 +202,18 @@ const ClientErrors = ({
               <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
               {/* ── fleet counters ── */}
-              <Grid columns={{ initial: '2', sm: '3', md: '6' }} gap="3" mb="4">
-                <Metric label="Error groups" value={summary.total_groups ?? 0} />
-                <Metric label="Unresolved" value={summary.unresolved ?? 0} color="orange" />
-                <Metric label="Fatal unresolved" value={summary.fatal_unresolved ?? 0} color="red" />
-                <Metric label="Mobile unresolved" value={summary.mobile_unresolved ?? 0} color="violet" />
-                <Metric label="Server unresolved" value={summary.server_unresolved ?? 0} color="cyan" />
-                <Metric label="Occurrences (24h)" value={summary.occurrences_last_24h ?? 0} color="blue" />
-              </Grid>
+              <StatsCards
+                stats={[
+                  { key: 'groups', title: 'Error groups', value: summary.total_groups ?? 0, color: 'gray' },
+                  { key: 'unresolved', title: 'Unresolved', value: summary.unresolved ?? 0, color: 'amber' },
+                  { key: 'fatal', title: 'Fatal unresolved', value: summary.fatal_unresolved ?? 0, color: 'red' },
+                  { key: 'mobile', title: 'Mobile unresolved', value: summary.mobile_unresolved ?? 0, color: 'violet' },
+                  { key: 'server', title: 'Server unresolved', value: summary.server_unresolved ?? 0, color: 'cyan' },
+                  { key: '24h', title: 'Occurrences (24h)', value: summary.occurrences_last_24h ?? 0, color: 'blue' },
+                ]}
+                columns={{ initial: '2', sm: '3', md: '6' }}
+                mb="4"
+              />
 
               {/* ── controls + table ── */}
               <Box mb="4" p="3" style={{ background: 'var(--aero-surface, var(--color-background))', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>

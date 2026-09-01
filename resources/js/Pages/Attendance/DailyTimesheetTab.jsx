@@ -23,6 +23,9 @@ import { useAttendanceStore } from '@/store/attendanceStore';
 import { RANGE_PRESETS, resolvePreset, isRangeMode } from './logRange';
 import { useDailyTimesheet, usePresentUsers, useAttendanceDayPartition, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet, useAttendanceLog, useExportAttendanceLog } from '@/api/queries/useAttendanceQuery';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
+import StatsCards from '@/Components/StatsCards';
+import SearchFilterBar from '@/Components/SearchFilterBar';
+import PageToolbar from '@/Components/PageToolbar';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
@@ -323,40 +326,16 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
 
 /* ── stat band ───────────────────────────────────────────────── */
 
-const STAT_META = [
-    { key: 'present',  label: 'Present',   color: 'var(--green-9)'  },
-    { key: 'absent',   label: 'Absent',    color: 'var(--red-9)'    },
-    { key: 'upcoming', label: 'Upcoming',  color: 'var(--indigo-9)' },
-    { key: 'off_leave',label: 'Off / Leave', color: 'var(--gray-8)' },
-    { key: 'total',    label: 'Total',     color: 'var(--accent-9)' },
-];
-
-const StatBand = ({ counts = {}, isLoading = false }) => (
-    <Flex gap="3" mb="4" wrap="wrap">
-        {STAT_META.map(({ key, label, color }) => (
-            <Box
-                key={key}
-                p="3"
-                style={{
-                    flex: '1 1 120px',
-                    minWidth: 120,
-                    borderRadius: 16,
-                    background: 'var(--aero-surface, var(--color-background))',
-                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
-                    boxShadow: 'none',
-                    transition: 'transform 80ms ease'
-                }}
-            >
-                <Text size="1" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--aero-color-subtle, var(--gray-9))', fontWeight: 600, fontSize: 11 }}>
-                    {label}
-                </Text>
-                {isLoading
-                    ? <Skeleton width="40px" height="24px" style={{ marginTop: 4 }} />
-                    : <Text size="6" weight="bold" style={{ display: 'block', lineHeight: 1.2, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)', marginTop: 2 }}>{counts[key] ?? 0}</Text>}
-            </Box>
-        ))}
-    </Flex>
-);
+const StatBand = ({ counts = {}, isLoading = false }) => {
+    const stats = [
+        { key: 'present', title: 'Present', value: counts.present ?? 0, color: 'green', icon: CheckCircledIcon, isLoading },
+        { key: 'absent', title: 'Absent', value: counts.absent ?? 0, color: 'red', icon: CrossCircledIcon, isLoading },
+        { key: 'upcoming', title: 'Upcoming', value: counts.upcoming ?? 0, color: 'indigo', icon: ClockIcon, isLoading },
+        { key: 'off_leave', title: 'Off / Leave', value: counts.off_leave ?? 0, color: 'gray', icon: CalendarIcon, isLoading },
+        { key: 'total', title: 'Total Roster', value: counts.total ?? 0, color: 'blue', icon: PersonIcon, isLoading },
+    ];
+    return <StatsCards stats={stats} columns={{ initial: '2', sm: '3', md: '5' }} mb="4" />;
+};
 
 /* ── empty state ─────────────────────────────────────────────── */
 

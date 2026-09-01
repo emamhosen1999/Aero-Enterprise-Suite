@@ -13,6 +13,7 @@ import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { showToast } from '@/utils/toastUtils';
+import StatsCards from '@/Components/StatsCards';
 
 /* Sentinel: Radix Select cannot hold an empty-string value, so "global" stands
    in for role === null across the whole form. */
@@ -32,13 +33,6 @@ const absolute = (value) => {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? '—' : format(parsed, 'dd MMM yyyy, HH:mm');
 };
-
-const Metric = ({ label, value, color = 'gray' }) => (
-  <Panel tinted>
-    <Text as="div" size="1" color="gray">{label}</Text>
-    <Heading size="6" color={color === 'gray' ? undefined : color} mt="1">{value}</Heading>
-  </Panel>
-);
 
 const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
   const [form, setForm] = useState(null);
@@ -91,28 +85,28 @@ const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
       setForm(null);
       router.reload({ preserveScroll: true });
     } catch (error) {
-      const responseErrors = error?.response?.data?.errors;
-
-      if (responseErrors) {
-        setErrors(responseErrors);
+      if (error.response?.status === 422) {
+        setErrors(error.response.data?.errors ?? {});
       } else {
-        showToast.error(error?.response?.data?.message ?? 'Failed to save this flag.');
+        showToast.error(error.response?.data?.message ?? 'Failed to save flag.');
       }
     } finally {
       setSaving(false);
     }
   }, [form]);
 
-  /* One-click on/off — the incident action, no editor round trip. */
-  const toggle = useCallback(async (flag) => {
+  const toggle = useCallback(async (flag, next) => {
     setBusyId(flag.id);
 
     try {
-      const { data } = await axios.post(route('admin.feature-flags.toggle', { flag: flag.id }));
-      showToast.success(data?.message ?? 'Flag updated.');
+      await axios.patch(route('admin.feature-flags.toggle', { flag: flag.id }), {
+        is_enabled: next,
+      });
+
+      showToast.success(`${flag.key} ${next ? 'enabled' : 'disabled'}.`);
       router.reload({ preserveScroll: true });
     } catch (error) {
-      showToast.error(error?.response?.data?.message ?? 'Failed to toggle this flag.');
+      showToast.error(error.response?.data?.message ?? 'Failed to update flag state.');
     } finally {
       setBusyId(null);
     }
@@ -121,21 +115,16 @@ const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
   const remove = useCallback(async () => {
     if (!target) return;
 
-    setBusyId(target.id);
-
     try {
-      const { data } = await axios.delete(route('admin.feature-flags.destroy', { flag: target.id }));
-      showToast.success(data?.message ?? 'Flag deleted.');
+      await axios.delete(route('admin.feature-flags.destroy', { flag: target.id }));
+      showToast.success('Flag deleted.');
       setTarget(null);
       router.reload({ preserveScroll: true });
     } catch (error) {
-      showToast.error(error?.response?.data?.message ?? 'Failed to delete this flag.');
-    } finally {
-      setBusyId(null);
+      showToast.error(error.response?.data?.message ?? 'Failed to delete flag.');
     }
   }, [target]);
 
-  /* Group by key so a global row and its role overrides read as one unit. */
   const grouped = useMemo(() => {
     const map = new Map();
 
@@ -148,6 +137,13 @@ const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
   }, [flags]);
 
   const firstError = (field) => (Array.isArray(errors[field]) ? errors[field][0] : errors[field]);
+
+  const statItems = [
+    { key: 'total', title: 'Total rows', value: summary.total ?? 0, color: 'gray' },
+    { key: 'enabled', title: 'Enabled', value: summary.enabled ?? 0, color: 'green' },
+    { key: 'disabled', title: 'Disabled', value: summary.disabled ?? 0, color: 'red' },
+    { key: 'scoped', title: 'Role-scoped', value: summary.role_scoped ?? 0, color: 'blue' },
+  ];
 
   return (
     <App>
@@ -185,24 +181,7 @@ const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
               <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
               {/* ── Counters ── */}
-              <Grid columns={{ initial: '2', md: '4' }} gap="3" mb="4">
-                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
-                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Total rows</Text>
-                  <Heading size="6" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.total ?? 0}</Heading>
-                </Panel>
-                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
-                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Enabled</Text>
-                  <Heading size="6" color="green" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.enabled ?? 0}</Heading>
-                </Panel>
-                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
-                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Disabled</Text>
-                  <Heading size="6" color="red" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.disabled ?? 0}</Heading>
-                </Panel>
-                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
-                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Role-scoped</Text>
-                  <Heading size="6" color="blue" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.role_scoped ?? 0}</Heading>
-                </Panel>
-              </Grid>
+              <StatsCards stats={statItems} columns={{ initial: '2', md: '4' }} mb="4" />
 
               <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                 <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>

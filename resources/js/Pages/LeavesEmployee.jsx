@@ -19,6 +19,8 @@ import { showToast } from '@/utils/toastUtils';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useLeavesQuery from '@/api/queries/useLeavesQuery';
 import LeaveBalanceCards from '@/Components/Leaves/LeaveBalanceCards.jsx';
+import PageToolbar from '@/Components/PageToolbar';
+import SearchFilterBar from '@/Components/SearchFilterBar';
 
 const LeavesEmployee = ({ title, allUsers }) => {
   const { auth } = usePage().props;
@@ -634,32 +636,30 @@ const LeavesEmployee = ({ title, allUsers }) => {
 
             <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-          <Panel tinted mb="5">
-            <Flex gap="3" align="end" wrap="wrap">
-            <Box style={{ minWidth: 120 }}>
-              <Text as="label" size="1" weight="bold" color="gray" style={{ display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Select Year</Text>
-              <select
-                value={String(filters.year)}
-                onChange={e => handleFilterChange('year', Number(e.target.value))}
-                style={{
-                  padding: '8px 12px', background: 'var(--color-surface)',
-                  border: '1px solid var(--gray-a7)', borderRadius: 'var(--radius-2)',
-                  color: 'var(--gray-12)', fontSize: 13, fontWeight: 500, width: '100%',
-                  outline: 'none', cursor: 'pointer'
-                }}
-              >
-                {yearOptions.map(y => (
-                  <option key={y.key} value={y.key}>{y.label}</option>
-                ))}
-              </select>
-            </Box>
-            <Box style={{ marginLeft: 'auto' }}>
-              <Button variant="soft" color="gray" onClick={refetch} disabled={isLoading} size="2" style={{ cursor: 'pointer' }}>
-                {isLoading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
-              </Button>
-            </Box>
-            </Flex>
-          </Panel>
+          <PageToolbar
+            mb="4"
+            onRefresh={refetch}
+            refreshLoading={isLoading}
+            leftSlot={
+              <Flex align="center" gap="2">
+                <Text size="2" color="gray" weight="medium">Year:</Text>
+                <select
+                  value={String(filters.year)}
+                  onChange={e => handleFilterChange('year', Number(e.target.value))}
+                  style={{
+                    padding: '6px 12px', background: 'var(--aero-surface, var(--color-background))',
+                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.1))', borderRadius: 10,
+                    color: 'var(--gray-12)', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer',
+                    fontFamily: `'Space Grotesk', system-ui, sans-serif`
+                  }}
+                >
+                  {yearOptions.map(y => (
+                    <option key={y.key} value={y.key}>{y.label}</option>
+                  ))}
+                </select>
+              </Flex>
+            }
+          />
 
           <Box mb="5">
             <Flex align="center" gap="2" mb="3">

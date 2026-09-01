@@ -4,6 +4,7 @@ import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog
 import { WrenchScrewdriverIcon, PlusIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
+import StatsCards from '@/Components/StatsCards';
 
 export default function MaintenanceWorkOrders({ auth, workOrders }) {
     const [openModal, setOpenModal] = useState(false);
@@ -31,6 +32,12 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
         });
     };
 
+    const statItems = [
+        { key: 'total', title: 'Total Work Orders', value: woData.length, color: 'blue' },
+        { key: 'in_progress', title: 'In Progress', value: woData.filter(w => w.status === 'in_progress').length, color: 'amber' },
+        { key: 'high', title: 'High Priority', value: woData.filter(w => w.priority === 'high').length, color: 'red' },
+    ];
+
     return (
         <App auth={auth}>
             <Head title="Maintenance Work Orders" />
@@ -56,6 +63,8 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
                         </Box>
 
                         <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
+
+                        <StatsCards stats={statItems} variant="pill" mb="4" />
 
                         <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                             <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
