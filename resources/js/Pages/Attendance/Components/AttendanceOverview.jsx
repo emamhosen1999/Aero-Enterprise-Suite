@@ -5,27 +5,27 @@ import { CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon, CalendarIc
 import axios from 'axios';
 
 const StatCard = ({ title, value, icon: Icon, color, loading }) => (
-    <Panel tinted style={{ height: '100%' }}>
+    <Panel tinted style={{ height: '100%', borderRadius: 16, padding: '20px 16px', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
         <Flex direction="column" gap="3">
             <Flex align="center" gap="3">
                 <Box style={{
                     padding: 8, 
-                    borderRadius: 'var(--radius-3)',
+                    borderRadius: 10,
                     background: `var(--${color}-a3)`,
                     border: `1px solid var(--${color}-a5)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
-                    <Icon style={{ color: `var(--${color}-9)`, width: 20, height: 20 }} />
+                    <Icon style={{ color: `var(--${color}-9)`, width: 18, height: 18 }} />
                 </Box>
-                <Heading size="2" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <Text size="1" weight="bold" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11 }}>
                     {title}
-                </Heading>
+                </Text>
             </Flex>
             {loading ? (
                 <Skeleton width="60px" height="32px" />
             ) : (
                 <Flex align="baseline" gap="2">
-                    <Text size="7" weight="bold" style={{ color: `var(--${color}-11)` }}>
+                    <Text size="7" weight="bold" style={{ color: 'var(--gray-12)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontSize: 28, lineHeight: 1 }}>
                         {value ?? 0}
                     </Text>
                 </Flex>

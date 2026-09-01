@@ -76,43 +76,45 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                             key={b.leave_type_id ?? b.type}
                             tinted
                             style={{
-                                background: cfg.bg,
+                                background: 'var(--aero-surface, var(--gray-2))',
+                                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                                borderRadius: 16,
+                                padding: '20px 16px',
                                 transition: 'all 0.25s ease',
                             }}
                         >
                             <Flex align="center" gap="2" mb="3" justify="between">
                                 <Flex align="center" gap="2" style={{ minWidth: 0 }}>
                                     <Text size="4" style={{ lineHeight: 1 }}>{cfg.icon}</Text>
-                                    <Text weight="bold" size="2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--gray-12)' }}>
+                                    <Text weight="bold" size="2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--gray-12)', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
                                         {b.type}
                                     </Text>
                                 </Flex>
                                 {Number(b.carried) > 0 && (
-                                    <Badge color="indigo" variant="soft" size="1">+{b.carried} carried</Badge>
+                                    <Badge color="blue" variant="soft" size="1" style={{ borderRadius: 999 }}>+{b.carried} carried</Badge>
                                 )}
                             </Flex>
-                            <Flex justify="between" align="center" mb="3">
+                            <Flex justify="between" align="center" mb="3" style={{ background: 'var(--color-background)', padding: '12px 8px', borderRadius: 12, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                                 <Box style={{ textAlign: 'center', flex: 1 }}>
-                                    <Text size="1" color="gray" weight="medium">Taken</Text>
-                                    <Text size="5" weight="bold" color="red" style={{ display: 'block', mt: 1 }}>{taken}</Text>
+                                    <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }} weight="bold">Taken</Text>
+                                    <Text size="6" weight="bold" color="red" style={{ display: 'block', mt: 1, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{taken}</Text>
                                 </Box>
                                 <Separator orientation="vertical" size="2" />
                                 <Box style={{ textAlign: 'center', flex: 1 }}>
-                                    <Text size="1" color="gray" weight="medium">Remaining</Text>
-                                    <Text size="5" weight="bold" color="green" style={{ display: 'block', mt: 1 }}>{b.remaining}</Text>
+                                    <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }} weight="bold">Remaining</Text>
+                                    <Text size="6" weight="bold" color="green" style={{ display: 'block', mt: 1, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{b.remaining}</Text>
                                 </Box>
                             </Flex>
-                            <Text size="1" color="gray" as="div" mb="2" weight="medium" style={{ opacity: 0.85 }}>
+                            <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-8))', opacity: 0.9, marginTop: 4, display: 'block' }} weight="medium">
                                 Entitled {b.entitled}{Number(b.accrued) > 0 ? ` · Accrued ${b.accrued}` : ''}
                             </Text>
                             {total > 0 && (
-                                <Box style={{ height: 6, borderRadius: 'var(--radius-full)', background: 'var(--gray-a4)', overflow: 'hidden' }}>
+                                <Box style={{ height: 6, borderRadius: 999, background: 'var(--gray-a4)', overflow: 'hidden', marginTop: 8 }}>
                                     <Box style={{ 
                                         height: '100%', 
                                         width: `${pct}%`, 
-                                        background: cfg.accent, 
-                                        borderRadius: 'var(--radius-full)',
-                                        boxShadow: cfg.accentGlow,
+                                        background: 'var(--aero-accent, var(--accent-9))', 
+                                        borderRadius: 999,
                                     }} />
                                 </Box>
                             )}
@@ -147,35 +149,37 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                         key={type}
                         tinted
                         style={{
-                            background: cfg.bg,
+                            background: 'var(--aero-surface, var(--gray-2))',
+                            border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                            borderRadius: 16,
+                            padding: '20px 16px',
                             transition: 'all 0.25s ease',
                         }}
                     >
                         <Flex align="center" gap="2" mb="3">
                             <Text size="4" style={{ lineHeight: 1 }}>{cfg.icon}</Text>
-                            <Text weight="bold" size="2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--gray-12)' }}>
+                            <Text weight="bold" size="2" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--gray-12)', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
                                 {type}
                             </Text>
                         </Flex>
-                        <Flex justify="between" align="center" mb="3">
+                        <Flex justify="between" align="center" mb="3" style={{ background: 'var(--color-background)', padding: '12px 8px', borderRadius: 12, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                             <Box style={{ textAlign: 'center', flex: 1 }}>
-                                <Text size="1" color="gray" weight="medium">Used</Text>
-                                <Text size="5" weight="bold" color="red" style={{ display: 'block', mt: 1 }}>{usedDays}</Text>
+                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }} weight="bold">Used</Text>
+                                <Text size="6" weight="bold" color="red" style={{ display: 'block', mt: 1, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{usedDays}</Text>
                             </Box>
                             <Separator orientation="vertical" size="2" />
                             <Box style={{ textAlign: 'center', flex: 1 }}>
-                                <Text size="1" color="gray" weight="medium">Remaining</Text>
-                                <Text size="5" weight="bold" color="green" style={{ display: 'block', mt: 1 }}>{remainingDays}</Text>
+                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }} weight="bold">Remaining</Text>
+                                <Text size="6" weight="bold" color="green" style={{ display: 'block', mt: 1, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{remainingDays}</Text>
                             </Box>
                         </Flex>
                         {totalDays > 0 && (
-                            <Box style={{ height: 6, borderRadius: 'var(--radius-full)', background: 'var(--gray-a4)', overflow: 'hidden' }}>
+                            <Box style={{ height: 6, borderRadius: 999, background: 'var(--gray-a4)', overflow: 'hidden', marginTop: 8 }}>
                                 <Box style={{ 
                                     height: '100%', 
                                     width: `${pct}%`, 
-                                    background: cfg.accent, 
-                                    borderRadius: 'var(--radius-full)',
-                                    boxShadow: cfg.accentGlow,
+                                    background: 'var(--aero-accent, var(--accent-9))', 
+                                    borderRadius: 999,
                                 }} />
                             </Box>
                         )}

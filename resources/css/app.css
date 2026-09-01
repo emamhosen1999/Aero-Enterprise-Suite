@@ -214,3 +214,89 @@ font[style] {
   border-radius: 12px;
 }
 
+/* ─── Mobile-App-Aligned Tables ────────────────────────────────────── */
+.rt-TableRoot {
+  border-radius: 16px !important;
+  border: 1px solid var(--dl-border-color, rgba(0,0,0,0.08)) !important;
+  background: var(--aero-surface, var(--color-background)) !important;
+  overflow: hidden !important;
+}
+
+.rt-TableColumnHeaderCell {
+  font-family: var(--heading-font-family) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--aero-color-subtle, var(--gray-9)) !important;
+  border-bottom: 1px solid var(--dl-border-color, rgba(0,0,0,0.08)) !important;
+  background: var(--aero-surface, var(--gray-2)) !important;
+  padding: 12px 14px !important;
+}
+
+.rt-TableCell {
+  border-bottom: 1px solid var(--dl-border-color, rgba(0,0,0,0.05)) !important;
+  font-size: 13px !important;
+  padding: 12px 14px !important;
+  vertical-align: middle !important;
+}
+
+.rt-TableRow:last-child .rt-TableCell {
+  border-bottom: none !important;
+}
+
+/* ─── Mobile-App-Aligned Dialogs & Sheets ──────────────────────────── */
+.rt-DialogContent,
+.rt-AlertDialogContent {
+  background: var(--color-background) !important;
+  border: 1px solid var(--aero-surface-border, rgba(0,0,0,0.12)) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35) !important;
+}
+
+.rt-DialogTitle,
+.rt-AlertDialogTitle {
+  font-family: var(--heading-font-family) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* ─── Mobile-App-Aligned Segment Tabs ──────────────────────────────── */
+.rt-TabsList {
+  background: var(--aero-surface, var(--gray-3)) !important;
+  border-radius: 12px !important;
+  padding: 3px !important;
+  gap: 2px !important;
+  border: 1px solid var(--aero-surface-border, rgba(0,0,0,0.06)) !important;
+}
+
+.rt-TabsTrigger {
+  border-radius: 9px !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  transition: all 140ms ease !important;
+  color: var(--aero-color-subtle, var(--gray-10)) !important;
+}
+
+.rt-TabsTrigger[data-state="active"] {
+  background: var(--color-background) !important;
+  color: var(--aero-accent, var(--accent-11)) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12) !important;
+}
+
+/* ─── Ultra-Sleek Mobile Scrollbars ────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gray-a4);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-a6);
+}
+

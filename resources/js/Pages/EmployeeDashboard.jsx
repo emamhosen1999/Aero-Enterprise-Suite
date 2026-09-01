@@ -118,12 +118,12 @@ export default function EmployeeDashboard() {
                             </ErrorBoundary>
 
                             {/* Today's Shift/Roster Card */}
-                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px 16px' }}>
                                 <Flex align="center" gap="2" mb="3">
-                                    <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                                    <Text size="3" weight="bold">Shift Schedule</Text>
+                                    <CalendarIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 18, height: 18 }} />
+                                    <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Shift Schedule</Text>
                                 </Flex>
-                                <Text size="1" color="gray">Today's Shift:</Text>
+                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Today's Shift:</Text>
                                 {todaySchedule?.is_working === false ? (
                                     <>
                                         <Heading size="4" mb="2" mt="1">Day off</Heading>
@@ -131,12 +131,12 @@ export default function EmployeeDashboard() {
                                     </>
                                 ) : (
                                     <>
-                                        <Heading size="4" mb="2" mt="1">
+                                        <Heading size="4" mb="2" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>
                                             {todaySchedule
                                                 ? `${todaySchedule.start} – ${todaySchedule.end} (${todaySchedule.label})`
                                                 : '—'}
                                         </Heading>
-                                        <Badge color={todaySchedule?.source === 'roster' ? 'indigo' : 'jade'} variant="soft">
+                                        <Badge color={todaySchedule?.source === 'roster' ? 'blue' : 'jade'} variant="soft">
                                             {todaySchedule?.source === 'roster' ? 'Rostered shift' : 'Company default hours'}
                                         </Badge>
                                     </>
@@ -144,11 +144,11 @@ export default function EmployeeDashboard() {
                             </Panel>
 
                             {/* Assigned Daily Works & Tasks Widget */}
-                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px 16px' }}>
                                 <Flex justify="between" align="center" mb="3">
                                     <Flex align="center" gap="2">
-                                        <CheckCircledIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                                        <Text size="3" weight="bold">Assigned Daily Tasks</Text>
+                                        <CheckCircledIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 18, height: 18 }} />
+                                        <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Assigned Daily Tasks</Text>
                                     </Flex>
                                 </Flex>
 
@@ -182,34 +182,34 @@ export default function EmployeeDashboard() {
                         <Flex direction="column" gap="4">
 
                             {/* Quick Actions Panel */}
-                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px 16px' }}>
                                 <Flex align="center" gap="2" mb="3">
-                                    <LightningBoltIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                                    <Text size="3" weight="bold">Quick Workspace Actions</Text>
+                                    <LightningBoltIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 18, height: 18 }} />
+                                    <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Quick Workspace Actions</Text>
                                 </Flex>
                                 <Grid columns="2" gap="3">
-                                    <Button size="2" variant="soft" color="indigo" onClick={() => setSwapOpen(true)} style={{ cursor: 'pointer' }}>
+                                    <Button size="2" variant="soft" color="blue" onClick={() => setSwapOpen(true)} style={{ cursor: 'pointer', borderRadius: 12 }}>
                                         <ShadowIcon style={{ marginRight: 6 }} /> Request Shift Swap
                                     </Button>
-                                    <Button size="2" variant="soft" color="orange" onClick={() => setRegOpen(true)} style={{ cursor: 'pointer' }}>
+                                    <Button size="2" variant="soft" color="orange" onClick={() => setRegOpen(true)} style={{ cursor: 'pointer', borderRadius: 12 }}>
                                         <PlusIcon style={{ marginRight: 6 }} /> Regularize Punch
                                     </Button>
-                                    <Button size="2" variant="soft" color="amber" onClick={() => setOtOpen(true)} style={{ cursor: 'pointer' }}>
+                                    <Button size="2" variant="soft" color="amber" onClick={() => setOtOpen(true)} style={{ cursor: 'pointer', borderRadius: 12 }}>
                                         <PlusIcon style={{ marginRight: 6 }} /> Request Overtime
                                     </Button>
-                                    <Button asChild size="2" variant="soft" color="teal" style={{ cursor: 'pointer' }}>
+                                    <Button asChild size="2" variant="soft" color="teal" style={{ cursor: 'pointer', borderRadius: 12 }}>
                                         <Link href={route('leaves-employee')}>
-                                            <ArrowRightIcon style={{ marginRight: 6 }} /> Apply for Leave
+                                             <ArrowRightIcon style={{ marginRight: 6 }} /> Apply for Leave
                                         </Link>
                                     </Button>
                                 </Grid>
                             </Panel>
                             
                             {/* Leave Balances Widget */}
-                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px 16px' }}>
                                 <Flex align="center" gap="2" mb="3">
-                                    <BackpackIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                                    <Text size="3" weight="bold">Time Off Summary</Text>
+                                    <BackpackIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 18, height: 18 }} />
+                                    <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Time Off Summary</Text>
                                 </Flex>
 
                                 <Grid columns="3" gap="3">
@@ -217,7 +217,7 @@ export default function EmployeeDashboard() {
                                         title="Casual Leave"
                                         used={leaveStats?.balances?.casual?.used || 4}
                                         total={leaveStats?.balances?.casual?.total || 12}
-                                        color="indigo"
+                                        color="blue"
                                     />
                                     <LeaveTrackerItem
                                         title="Sick Leave"
@@ -235,10 +235,10 @@ export default function EmployeeDashboard() {
                             </Panel>
 
                             {/* My Requests (Swaps, Regularizations, Overtime) */}
-                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px 16px' }}>
                                 <Flex align="center" gap="2" mb="3">
-                                    <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                                    <Text size="3" weight="bold">My Requests</Text>
+                                    <CalendarIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 18, height: 18 }} />
+                                    <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>My Requests</Text>
                                 </Flex>
                                 <ErrorBoundary>
                                     <MyRequests />
@@ -263,32 +263,32 @@ export default function EmployeeDashboard() {
 function LeaveTrackerItem({ title, used, total, color }) {
     const pct = Math.min(100, (used / total) * 100);
     return (
-        <Panel size="1" style={{ background: 'var(--gray-a2)' }}>
-            <Text size="1" color="gray" weight="medium">{title}</Text>
-            <Heading size="4" mt="1" style={{ color: `var(--${color}-11)` }}>
-                {total - used} <Text size="1" color="gray">left</Text>
+        <Box p="3" style={{ background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', borderRadius: 12 }}>
+            <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11 }}>{title}</Text>
+            <Heading size="4" mt="1" style={{ color: 'var(--gray-12)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
+                {total - used} <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-8))', fontWeight: 'normal' }}>left</Text>
             </Heading>
-            <Progress mt="2" value={pct} color={color} size="1" />
-            <Text size="1" color="gray" mt="1" style={{ fontSize: 10, display: 'block' }}>
+            <Progress mt="2" value={pct} color={color} size="1" style={{ borderRadius: 999 }} />
+            <Text size="1" style={{ fontSize: 10, display: 'block', color: 'var(--aero-color-faint, var(--gray-8))', marginTop: 4 }}>
                 {used} / {total} days used
             </Text>
-        </Panel>
+        </Box>
     );
 }
 
 function TaskListItem({ title, id, status, date }) {
     const isCompleted = status === 'Completed';
     return (
-        <Flex justify="between" align="center" p="2" style={{ borderBottom: '1px solid var(--gray-a3)' }}>
+        <Flex justify="between" align="center" p="2" style={{ borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))' }}>
             <Box>
-                <Text size="2" weight="medium" style={{ textDecoration: isCompleted ? 'line-through' : 'none', color: isCompleted ? 'var(--gray-10)' : 'inherit' }}>
+                <Text size="2" weight="medium" style={{ textDecoration: isCompleted ? 'line-through' : 'none', color: isCompleted ? 'var(--gray-9)' : 'var(--gray-12)' }}>
                     {title}
                 </Text>
-                <Text size="1" color="gray" style={{ display: 'block', fontFamily: 'monospace' }}>
+                <Text size="1" style={{ display: 'block', color: 'var(--aero-color-subtle, var(--gray-8))', fontVariantNumeric: 'tabular-nums' }}>
                     {id} · {date}
                 </Text>
             </Box>
-            <Badge color={isCompleted ? 'jade' : 'amber'}>
+            <Badge color={isCompleted ? 'jade' : 'amber'} variant="soft">
                 {status}
             </Badge>
         </Flex>

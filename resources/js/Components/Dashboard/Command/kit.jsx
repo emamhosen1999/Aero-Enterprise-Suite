@@ -39,17 +39,29 @@ export const SERIES = {
 export const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US'));
 export const fmtCr = (n) => (n == null ? '—' : '৳' + Number(n).toLocaleString('en-US') + ' Cr');
 export const chLabel = (km) => `Ch ${km}+000`;
-export const MONO = "'Roboto Mono', ui-monospace, 'Cascadia Code', monospace";
+export const MONO = "'Space Grotesk', system-ui, -apple-system, sans-serif";
 
 /* ── command card (card with a header) ─────────────────────────────── */
 export function CommandCard({ title, sub, right, children, style, minHeight }) {
     return (
-        <Box className="cc-card" style={{ display: 'flex', flexDirection: 'column', minHeight, ...style }}>
+        <Box
+            className="cc-card"
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight,
+                borderRadius: 16,
+                background: 'var(--aero-surface, var(--gray-2))',
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                padding: '20px 16px',
+                ...style,
+            }}
+        >
             {(title || right) && (
                 <Flex align="center" justify="between" gap="3" mb="3" style={{ flexShrink: 0 }}>
                     <Box style={{ minWidth: 0 }}>
-                        {title && <Heading size="3" style={{ letterSpacing: '-0.01em' }}>{title}</Heading>}
-                        {sub && <Text size="1" color="gray" style={{ fontFamily: MONO }}>{sub}</Text>}
+                        {title && <Heading size="3" style={{ letterSpacing: '-0.01em', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>{title}</Heading>}
+                        {sub && <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>{sub}</Text>}
                     </Box>
                     {right && <Box style={{ flexShrink: 0 }}>{right}</Box>}
                 </Flex>
@@ -61,10 +73,10 @@ export function CommandCard({ title, sub, right, children, style, minHeight }) {
 
 export function SectionLabel({ children, right }) {
     return (
-        <Flex align="center" gap="3" style={{ gridColumn: '1 / -1', margin: '10px 2px 0' }}>
-            <Text size="1" style={{ fontFamily: MONO, letterSpacing: '0.14em', textTransform: 'uppercase',
-                color: 'var(--gray-11)', fontWeight: 600, whiteSpace: 'nowrap' }}>{children}</Text>
-            <Box style={{ flex: 1, height: 1, background: 'var(--gray-a4)' }} />
+        <Flex align="center" gap="3" style={{ gridColumn: '1 / -1', margin: '12px 2px 2px' }}>
+            <Text size="1" style={{ letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: 'var(--aero-color-subtle, var(--gray-10))', fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap' }}>{children}</Text>
+            <Box style={{ flex: 1, height: 1, background: 'var(--dl-border-color, rgba(0,0,0,0.08))' }} />
             {right}
         </Flex>
     );
@@ -74,17 +86,25 @@ export function SectionLabel({ children, right }) {
 export function Kpi({ icon, label, value, unit, foot, tone = 'accent', spark }) {
     const t = TONE[tone] ?? TONE.accent;
     return (
-        <Box className="cc-card cc-kpi">
+        <Box
+            className="cc-card cc-kpi"
+            style={{
+                borderRadius: 16,
+                background: 'var(--aero-surface, var(--gray-2))',
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                padding: '18px 16px',
+            }}
+        >
             <Flex direction="column" gap="2" style={{ height: '100%' }}>
                 <Flex align="center" gap="2">
-                    <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: 8,
+                    <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: 10,
                         background: t.soft, color: t.text, flexShrink: 0 }}>{icon}</Flex>
-                    <Text size="1" style={{ fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.06em',
-                        color: 'var(--gray-11)', lineHeight: 1.2 }}>{label}</Text>
+                    <Text size="1" style={{ textTransform: 'uppercase', letterSpacing: '0.08em',
+                        color: 'var(--aero-color-subtle, var(--gray-10))', fontWeight: 700, fontSize: 11, lineHeight: 1.2 }}>{label}</Text>
                 </Flex>
                 <Flex align="baseline" gap="1">
-                    <Text style={{ fontFamily: MONO, fontWeight: 700, fontSize: 26, letterSpacing: '-0.03em',
-                        lineHeight: 1 }}>{value}</Text>
+                    <Text style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, fontSize: 26, letterSpacing: '-0.03em',
+                        fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: 'var(--gray-12)' }}>{value}</Text>
                     {unit && <Text size="2" color="gray" weight="medium">{unit}</Text>}
                 </Flex>
                 <Flex align="center" gap="2" style={{ marginTop: 'auto' }}>

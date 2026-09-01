@@ -45,36 +45,36 @@ export default function Dashboard({ auth }) {
                         <SectionLabel>Operations &amp; Traffic Control (TMC / ITS)</SectionLabel>
                         <Box className="cc-span-8">
                             <ErrorBoundary>
-                                <Panel style={{ padding: 18, height: '100%' }}>
+                                <Panel tinted style={{ padding: 20, height: '100%', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                                     <Flex align="center" justify="between" mb="3">
                                         <Box>
-                                            <Heading size="3">Expressway Traffic Flow &amp; Density (Ch 0+000 - Ch 48+000)</Heading>
-                                            <Text size="1" color="gray">Live speed sensors, VMS broadcast panels &amp; weigh-in-motion</Text>
+                                            <Heading size="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Expressway Traffic Flow &amp; Density (Ch 0+000 - Ch 48+000)</Heading>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Live speed sensors, VMS broadcast panels &amp; weigh-in-motion</Text>
                                         </Box>
-                                        <Button size="1" variant="soft" onClick={() => window.location.href = '/om/traffic-monitoring'}>
+                                        <Button size="1" variant="soft" color="blue" onClick={() => window.location.href = '/om/traffic-monitoring'} style={{ borderRadius: 10 }}>
                                             View TMC Console
                                         </Button>
                                     </Flex>
                                     <Grid columns={{ initial: '1', sm: '2' }} gap="3">
-                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
-                                            <Text size="1" color="gray">Ch 0-10 Joydevpur - Bhulta</Text>
-                                            <Text size="3" weight="bold" color="green" as="div">FREE FLOW (78.5 km/h)</Text>
-                                            <Text size="1" color="gray">1,840 veh/h · 1 WIM Overload</Text>
+                                        <Box style={{ padding: 14, borderRadius: 12, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Ch 0-10 Joydevpur - Bhulta</Text>
+                                            <Text size="3" weight="bold" color="green" as="div" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, marginTop: 2, marginBottom: 2 }}>FREE FLOW (78.5 km/h)</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-8))' }}>1,840 veh/h · 1 WIM Overload</Text>
                                         </Box>
-                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
-                                            <Text size="1" color="gray">Ch 10-20 Bhulta - Kanchan</Text>
-                                            <Text size="3" weight="bold" color="amber" as="div">MODERATE (68.2 km/h)</Text>
-                                            <Text size="1" color="gray">2,420 veh/h · 4 WIM Overload</Text>
+                                        <Box style={{ padding: 14, borderRadius: 12, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Ch 10-20 Bhulta - Kanchan</Text>
+                                            <Text size="3" weight="bold" color="amber" as="div" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, marginTop: 2, marginBottom: 2 }}>MODERATE (68.2 km/h)</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-8))' }}>2,420 veh/h · 4 WIM Overload</Text>
                                         </Box>
-                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
-                                            <Text size="1" color="gray">Ch 20-35 Kanchan - Debogram</Text>
-                                            <Text size="3" weight="bold" color="green" as="div">FREE FLOW (74.0 km/h)</Text>
-                                            <Text size="1" color="gray">1,950 veh/h · 2 WIM Overload</Text>
+                                        <Box style={{ padding: 14, borderRadius: 12, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Ch 20-35 Kanchan - Debogram</Text>
+                                            <Text size="3" weight="bold" color="green" as="div" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, marginTop: 2, marginBottom: 2 }}>FREE FLOW (74.0 km/h)</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-8))' }}>1,950 veh/h · 2 WIM Overload</Text>
                                         </Box>
-                                        <Box style={{ padding: 12, borderRadius: 8, background: 'var(--gray-a2)' }}>
-                                            <Text size="1" color="gray">Ch 35-48 Debogram - Madanpur</Text>
-                                            <Text size="3" weight="bold" color="red" as="div">CONGESTED (52.0 km/h)</Text>
-                                            <Text size="1" color="gray">2,890 veh/h · 9 WIM Overload</Text>
+                                        <Box style={{ padding: 14, borderRadius: 12, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Ch 35-48 Debogram - Madanpur</Text>
+                                            <Text size="3" weight="bold" color="red" as="div" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, marginTop: 2, marginBottom: 2 }}>CONGESTED (52.0 km/h)</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-8))' }}>2,890 veh/h · 9 WIM Overload</Text>
                                         </Box>
                                     </Grid>
                                 </Panel>
@@ -82,26 +82,26 @@ export default function Dashboard({ auth }) {
                         </Box>
                         <Box className="cc-span-4">
                             <ErrorBoundary>
-                                <Panel style={{ padding: 18, height: '100%' }}>
+                                <Panel tinted style={{ padding: 20, height: '100%', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                                     <Flex align="center" justify="between" mb="3">
                                         <Box>
-                                            <Heading size="3">Emergency Patrol</Heading>
-                                            <Text size="1" color="gray">3 active dispatches</Text>
+                                            <Heading size="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Emergency Patrol</Heading>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>3 active dispatches</Text>
                                         </Box>
-                                        <Badge color="amber">SLA 11.8m</Badge>
+                                        <Badge color="amber" variant="soft" style={{ borderRadius: 999 }}>SLA 11.8m</Badge>
                                     </Flex>
                                     <Flex direction="column" gap="2">
-                                        <Box style={{ padding: 8, borderRadius: 6, background: 'var(--gray-a2)' }}>
+                                        <Box style={{ padding: 12, borderRadius: 10, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                                             <Text size="1" weight="bold" color="blue">INC-2026-001 · Stalled Truck</Text>
-                                            <Text size="1" color="gray" as="div">Ch 14+200 SB · Patrol Unit 2</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-8))', marginTop: 2 }} as="div">Ch 14+200 SB · Patrol Unit 2</Text>
                                         </Box>
-                                        <Box style={{ padding: 8, borderRadius: 6, background: 'var(--gray-a2)' }}>
+                                        <Box style={{ padding: 12, borderRadius: 10, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                                             <Text size="1" weight="bold" color="amber">INC-2026-002 · Debris on Road</Text>
-                                            <Text size="1" color="gray" as="div">Ch 28+500 NB · Patrol Unit 1</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-8))', marginTop: 2 }} as="div">Ch 28+500 NB · Patrol Unit 1</Text>
                                         </Box>
-                                        <Box style={{ padding: 8, borderRadius: 6, background: 'var(--gray-a2)' }}>
+                                        <Box style={{ padding: 12, borderRadius: 10, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                                             <Text size="1" weight="bold" color="red">INC-2026-003 · Overload Alert</Text>
-                                            <Text size="1" color="gray" as="div">Ch 39+800 SB · Weighbridge Unit 3</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-8))', marginTop: 2 }} as="div">Ch 39+800 SB · Weighbridge Unit 3</Text>
                                         </Box>
                                     </Flex>
                                 </Panel>

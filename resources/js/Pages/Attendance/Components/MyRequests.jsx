@@ -17,17 +17,18 @@ function statusColor(status) {
 
 function RegularizationList({ requests }) {
     if (!requests?.length) {
-        return <Text size="2" color="gray">No regularization requests yet.</Text>;
+        return <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-8))' }}>No regularization requests yet.</Text>;
     }
     return (
         <Flex direction="column" gap="2">
             {requests.map(r => (
-                <Flex key={r.id} justify="between" align="center" gap="2" wrap="wrap">
+                <Flex key={r.id} justify="between" align="center" gap="2" wrap="wrap"
+                    style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                     <Box>
-                        <Text size="2" weight="medium">{dayjs(r.date).format('DD MMM YYYY')}</Text>
-                        <Text size="1" color="gray" as="div">{r.type?.replace(/_/g, ' ')}</Text>
+                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>{dayjs(r.date).format('DD MMM YYYY')}</Text>
+                        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', textTransform: 'capitalize' }} as="div">{r.type?.replace(/_/g, ' ')}</Text>
                     </Box>
-                    <Badge color={statusColor(r.status)} variant="soft" size="1">
+                    <Badge color={statusColor(r.status)} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700 }}>
                         {r.status}
                     </Badge>
                 </Flex>
@@ -38,17 +39,18 @@ function RegularizationList({ requests }) {
 
 function OvertimeList({ requests }) {
     if (!requests?.length) {
-        return <Text size="2" color="gray">No overtime requests yet.</Text>;
+        return <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-8))' }}>No overtime requests yet.</Text>;
     }
     return (
         <Flex direction="column" gap="2">
             {requests.map(r => (
-                <Flex key={r.id} justify="between" align="center" gap="2" wrap="wrap">
+                <Flex key={r.id} justify="between" align="center" gap="2" wrap="wrap"
+                    style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                     <Box>
-                        <Text size="2" weight="medium">{dayjs(r.date).format('DD MMM YYYY')}</Text>
-                        <Text size="1" color="gray" as="div">{r.requested_minutes} min</Text>
+                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>{dayjs(r.date).format('DD MMM YYYY')}</Text>
+                        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }} as="div">{r.requested_minutes} min</Text>
                     </Box>
-                    <Badge color={statusColor(r.status)} variant="soft" size="1">
+                    <Badge color={statusColor(r.status)} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700 }}>
                         {r.status}
                     </Badge>
                 </Flex>
@@ -69,7 +71,7 @@ function swapStatusLabel(s) {
 
 function SwapList({ requests }) {
     if (!requests?.length) {
-        return <Text size="2" color="gray">No swap requests yet.</Text>;
+        return <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-8))' }}>No swap requests yet.</Text>;
     }
     return (
         <Flex direction="column" gap="2">
@@ -80,12 +82,13 @@ function SwapList({ requests }) {
                     ? `Give ${dayjs(s.requester_date).format('DD MMM')} ↔ take ${dayjs(s.counterparty_date).format('DD MMM')} · ${who}`
                     : `Cover ${dayjs(s.requester_date).format('DD MMM')} · ${who}`;
                 return (
-                    <Flex key={s.id} justify="between" align="center" gap="2" wrap="wrap">
+                    <Flex key={s.id} justify="between" align="center" gap="2" wrap="wrap"
+                        style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                         <Box>
-                            <Text size="2" weight="medium" style={{ textTransform: 'capitalize' }}>{s.type}</Text>
-                            <Text size="1" color="gray" as="div">{detail}</Text>
+                            <Text size="2" weight="bold" style={{ textTransform: 'capitalize', color: 'var(--gray-12)' }}>{s.type}</Text>
+                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }} as="div">{detail}</Text>
                         </Box>
-                        <Badge color={lbl.color} variant="soft" size="1">{lbl.text}</Badge>
+                        <Badge color={lbl.color} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700 }}>{lbl.text}</Badge>
                     </Flex>
                 );
             })}
