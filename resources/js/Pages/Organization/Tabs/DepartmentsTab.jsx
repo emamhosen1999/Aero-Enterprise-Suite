@@ -13,32 +13,31 @@ import {
 import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
 import QueryState from '@/Components/Common/QueryState';
 
-// Placeholder imports for next steps
 import DepartmentTable from '../Tables/DepartmentTable.jsx';
 import DepartmentForm from '../Components/DepartmentForm.jsx';
 import DeleteDepartmentForm from '../Components/DeleteDepartmentForm.jsx';
 
 /* ─── Stat Pill ─── */
 const StatPill = ({ label, value, color = 'gray' }) => (
-    <Badge size="2" variant="soft" color={color} radius="full">
-        <Text weight="bold">{value}</Text>
-        <Text color={color} style={{ opacity: 0.7 }}> {label}</Text>
+    <Badge size="2" variant="soft" color={color} style={{ borderRadius: 999, padding: '4px 10px' }}>
+        <Text weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{value}</Text>
+        <Text color={color} style={{ opacity: 0.8, marginLeft: 4 }}>{label}</Text>
     </Badge>
 );
 
 /* ─── Grid Card Component ─── */
 const DepartmentCard = ({ department, onEdit, onView }) => {
     return (
-        <Panel size="2" style={{ cursor: 'pointer', transition: 'border-color 0.2s' }} onClick={() => onView(department)}>
+        <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', cursor: 'pointer', transition: 'border-color 0.2s' }} onClick={() => onView(department)}>
             <Flex direction="column" gap="3">
                 <Flex align="start" justify="between">
                     <Flex gap="3" align="center">
-                        <Box p="2" style={{ background: 'var(--blue-a3)', borderRadius: 'var(--radius-2)' }}>
-                            <HomeIcon style={{ color: 'var(--blue-9)', width: 20, height: 20 }} />
+                        <Box p="2" style={{ background: 'var(--blue-a3)', border: '1px solid var(--blue-a5)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <HomeIcon style={{ color: 'var(--blue-9)', width: 18, height: 18 }} />
                         </Box>
                         <Box>
-                            <Text weight="bold" size="2" as="div" style={{ lineHeight: 1.2 }}>{department.name}</Text>
-                            <Text size="1" color="gray">{department.code || 'No Code'}</Text>
+                            <Text weight="bold" size="2" as="div" style={{ lineHeight: 1.2, fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>{department.name}</Text>
+                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>{department.code || 'No Code'}</Text>
                         </Box>
                     </Flex>
                     <IconButton size="1" variant="ghost" color="gray" onClick={(e) => { e.stopPropagation(); onEdit(department); }}>
@@ -46,26 +45,26 @@ const DepartmentCard = ({ department, onEdit, onView }) => {
                     </IconButton>
                 </Flex>
                 
-                <Separator size="4" />
+                <Separator size="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
                 
                 <Flex direction="column" gap="2">
                     {department.location && (
                         <Flex align="center" gap="2">
-                            <SewingPinIcon color="var(--gray-9)" />
-                            <Text size="1" color="gray">{department.location}</Text>
+                            <SewingPinIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', width: 14, height: 14 }} />
+                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{department.location}</Text>
                         </Flex>
                     )}
                     <Flex align="center" gap="2">
-                        <PersonIcon color="var(--gray-9)" />
-                        <Text size="1" color="gray">{department.employee_count || 0} Employees</Text>
+                        <PersonIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', width: 14, height: 14 }} />
+                        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>{department.employee_count || 0} Employees</Text>
                     </Flex>
                 </Flex>
                 
-                <Flex gap="2" wrap="wrap" mt="2">
-                    <Badge color={department.is_active ? 'green' : 'red'} variant="soft" size="1">
+                <Flex gap="2" wrap="wrap" mt="1">
+                    <Badge color={department.is_active ? 'jade' : 'red'} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700 }}>
                         {department.is_active ? 'Active' : 'Inactive'}
                     </Badge>
-                    {department.parent && <Badge color="indigo" variant="soft" size="1">{department.parent.name}</Badge>}
+                    {department.parent && <Badge color="blue" variant="soft" size="1" style={{ borderRadius: 999 }}>{department.parent.name}</Badge>}
                 </Flex>
             </Flex>
         </Panel>
@@ -84,9 +83,9 @@ const DepartmentsTab = ({ isActive }) => {
     const [filters, setFilters] = useState({ search: '', status: 'all', parentDepartment: 'all' });
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10 });
 
-    const canCreate = auth.permissions?.includes('departments.create') || false;
-    const canEdit = auth.permissions?.includes('departments.update') || false;
-    const canDelete = auth.permissions?.includes('departments.delete') || false;
+    const canCreate = auth?.permissions?.includes('departments.create') || false;
+    const canEdit = auth?.permissions?.includes('departments.update') || false;
+    const canDelete = auth?.permissions?.includes('departments.delete') || false;
 
     // React Query hooks
     const { data: departmentsData, isLoading: loading, isError, error, refetch } = useDepartmentsQuery.useDepartmentsList({
@@ -125,7 +124,7 @@ const DepartmentsTab = ({ isActive }) => {
             {/* Quick Stats */}
             <Flex wrap="wrap" gap="2" mb="4">
                 <StatPill label="Total" value={stats?.total ?? 0} color="blue" />
-                <StatPill label="Active" value={stats?.active ?? 0} color="green" />
+                <StatPill label="Active" value={stats?.active ?? 0} color="jade" />
                 <StatPill label="Inactive" value={stats?.inactive ?? 0} color="red" />
                 <StatPill label="Top-Level" value={stats?.parent_departments ?? 0} color="indigo" />
             </Flex>
@@ -155,13 +154,13 @@ const DepartmentsTab = ({ isActive }) => {
                 </Flex>
                 
                 <Flex gap="2">
-                    {canCreate && <Button size="2" color="indigo" onClick={() => openModal('add_department')}><PlusIcon />{!isMobile && 'Add Department'}</Button>}
+                    {canCreate && <Button size="2" color="blue" onClick={() => openModal('add_department')}><PlusIcon />{!isMobile && 'Add Department'}</Button>}
                 </Flex>
             </Flex>
 
             {/* Filter Panel */}
             {showFilters && (
-                <Box p="4" mb="4" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-3)', border: '1px solid var(--gray-a4)' }}>
+                <Box p="4" mb="4" style={{ background: 'var(--aero-surface, var(--gray-2))', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                     <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4" align="end">
                         <Box>
                             <Text size="2" color="gray" mb="1" as="div">Status</Text>

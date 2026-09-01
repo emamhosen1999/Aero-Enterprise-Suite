@@ -45,8 +45,8 @@ const STICKY_HEAD = {
     position: 'sticky',
     top: 0,
     zIndex: 2,
-    background: 'var(--color-panel-solid)',
-    boxShadow: 'inset 0 -1px 0 var(--gray-a5)',
+    background: 'var(--aero-surface, var(--gray-2))',
+    boxShadow: 'inset 0 -1px 0 var(--dl-border-color, rgba(0,0,0,0.08))',
 };
 
 /* ── table cell renderer ─────────────────────────────────────── */

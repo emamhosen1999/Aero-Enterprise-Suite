@@ -19,9 +19,9 @@ import DesignationForm from '../Components/DesignationForm.jsx';
 import DeleteDesignationForm from '../Components/DeleteDesignationForm.jsx';
 
 const StatPill = ({ label, value, color = 'gray' }) => (
-    <Badge size="2" variant="soft" color={color} radius="full">
-        <Text weight="bold">{value}</Text>
-        <Text color={color} style={{ opacity: 0.7 }}> {label}</Text>
+    <Badge size="2" variant="soft" color={color} style={{ borderRadius: 999, padding: '4px 10px' }}>
+        <Text weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{value}</Text>
+        <Text color={color} style={{ opacity: 0.8, marginLeft: 4 }}>{label}</Text>
     </Badge>
 );
 

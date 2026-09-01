@@ -23,19 +23,19 @@ const TablePagination = ({
             justify="between"
             pt="3"
             mt="2"
-            style={{ borderTop: '1px solid var(--gray-a4)' }}
+            style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.06))' }}
             wrap="wrap"
             gap="3"
         >
             {/* Rows per page */}
             <Flex align="center" gap="2">
-                <Text size="1" color="gray">Rows per page</Text>
+                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Rows per page</Text>
                 <Select.Root
                     size="1"
                     value={String(perPage)}
                     onValueChange={(v) => onRowsPerPageChange?.(parseInt(v))}
                 >
-                    <Select.Trigger />
+                    <Select.Trigger style={{ borderRadius: 8 }} />
                     <Select.Content>
                         {[10, 20, 30, 50, 100].map(n => (
                             <Select.Item key={n} value={String(n)}>{n}</Select.Item>
@@ -46,7 +46,7 @@ const TablePagination = ({
 
             {/* Info + nav */}
             <Flex align="center" gap="3">
-                <Text size="1" color="gray">
+                <Text size="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--aero-color-subtle, var(--gray-9))' }}>
                     {startRow}–{endRow} of {total}
                 </Text>
                 <Flex gap="1">
@@ -57,6 +57,7 @@ const TablePagination = ({
                         disabled={currentPage <= 1}
                         onClick={() => onPageChange?.(currentPage - 1)}
                         aria-label="Previous page"
+                        style={{ borderRadius: 8 }}
                     >
                         <ChevronLeftIcon />
                     </IconButton>
@@ -77,8 +78,9 @@ const TablePagination = ({
                                 key={page}
                                 size="1"
                                 variant={page === currentPage ? 'solid' : 'soft'}
-                                color={page === currentPage ? 'indigo' : 'gray'}
+                                color={page === currentPage ? 'blue' : 'gray'}
                                 onClick={() => onPageChange?.(page)}
+                                style={{ borderRadius: 8, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}
                             >
                                 {page}
                             </Button>
@@ -91,6 +93,7 @@ const TablePagination = ({
                         disabled={currentPage >= totalPages}
                         onClick={() => onPageChange?.(currentPage + 1)}
                         aria-label="Next page"
+                        style={{ borderRadius: 8 }}
                     >
                         <ChevronRightIcon />
                     </IconButton>

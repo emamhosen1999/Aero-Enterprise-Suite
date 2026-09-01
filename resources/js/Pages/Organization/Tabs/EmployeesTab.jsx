@@ -21,9 +21,9 @@ import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
 
 /* ─── stat pill component ─── */
 const StatPill = ({ label, value, color = 'gray' }) => (
-    <Badge size="2" variant="soft" color={color} radius="full">
-        <Text weight="bold">{value}</Text>
-        <Text color={color} style={{ opacity: 0.7 }}> {label}</Text>
+    <Badge size="2" variant="soft" color={color} style={{ borderRadius: 999, padding: '4px 10px' }}>
+        <Text weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{value}</Text>
+        <Text color={color} style={{ opacity: 0.8, marginLeft: 4 }}>{label}</Text>
     </Badge>
 );
 
@@ -34,40 +34,46 @@ const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
     const attendanceType = attendanceTypes?.find(a => a.id === user.attendance_type_id);
 
     return (
-        <Box p="3" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', cursor: 'pointer' }} onClick={() => router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true })}>
+        <Box p="4" style={{
+            background: 'var(--aero-surface, var(--color-background))',
+            border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+            borderRadius: 16,
+            cursor: 'pointer',
+            transition: 'transform 80ms ease, border-color 140ms ease'
+        }} onClick={() => router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true })}>
             <Flex direction="column" gap="3">
-                <Flex align="start" gap="3">
+                <Flex align="center" gap="3">
                     <Box style={{ flexShrink: 0 }}>
                         <ProfileAvatar src={user?.profile_image_url || user?.profile_image} name={user?.name} size="md" />
                     </Box>
                     <Box style={{ minWidth: 0, flex: 1 }}>
-                        <Text weight="bold" size="2" as="div" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <Text weight="bold" size="2" as="div" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>
                             {user?.name}
                         </Text>
-                        <Text size="1" color="gray">ID: {user?.employee_id || 'N/A'}</Text>
+                        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>ID: {user?.employee_id || 'N/A'}</Text>
                     </Box>
                     <IconButton size="1" variant="ghost" color="gray" style={{ flexShrink: 0 }} onClick={e => { e.stopPropagation(); router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true }); }}>
                         <Pencil1Icon />
                     </IconButton>
                 </Flex>
-                <Separator size="4" />
+                <Separator size="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
                 <Flex direction="column" gap="1">
                     <Flex align="center" gap="2">
-                        <EnvelopeClosedIcon style={{ color: 'var(--gray-9)', flexShrink: 0 }} />
-                        <Text size="1" color="gray" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</Text>
+                        <EnvelopeClosedIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', flexShrink: 0, width: 14, height: 14 }} />
+                        <Text size="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--aero-color-subtle, var(--gray-9))' }}>{user?.email}</Text>
                     </Flex>
                     {user?.phone && (
                         <Flex align="center" gap="2">
-                            <MobileIcon style={{ color: 'var(--gray-9)', flexShrink: 0 }} />
-                            <Text size="1" color="gray">{user?.phone}</Text>
+                            <MobileIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', flexShrink: 0, width: 14, height: 14 }} />
+                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>{user?.phone}</Text>
                         </Flex>
                     )}
                 </Flex>
-                <Separator size="4" />
+                <Separator size="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
                 <Flex gap="1" wrap="wrap">
-                    {department && <Badge color="blue" variant="soft" size="1">{department.name}</Badge>}
-                    {designation && <Badge color="violet" variant="soft" size="1">{designation.title}</Badge>}
-                    {attendanceType && <Badge color="gray" variant="outline" size="1">{attendanceType.name}</Badge>}
+                    {department && <Badge color="blue" variant="soft" size="1" style={{ borderRadius: 999 }}>{department.name}</Badge>}
+                    {designation && <Badge color="violet" variant="soft" size="1" style={{ borderRadius: 999 }}>{designation.title}</Badge>}
+                    {attendanceType && <Badge color="gray" variant="outline" size="1" style={{ borderRadius: 999 }}>{attendanceType.name}</Badge>}
                 </Flex>
             </Flex>
         </Box>
