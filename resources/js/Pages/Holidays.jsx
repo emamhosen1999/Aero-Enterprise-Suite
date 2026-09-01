@@ -100,7 +100,7 @@ const Holidays = ({ title }) => {
 
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
                         {/* ── Page Header ── */}
                         <Box mb="4">
                             <Flex
@@ -111,16 +111,16 @@ const Holidays = ({ title }) => {
                             >
                                 <Flex align="center" gap="3">
                                     <Box p="3" style={{
-                                        background: 'var(--accent-a3)',
-                                        borderRadius: 'var(--radius-2)',
-                                        border: '1px solid var(--accent-a6)',
+                                        background: 'var(--blue-a3)',
+                                        borderRadius: 12,
+                                        border: '1px solid var(--blue-a5)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
-                                        <CalendarIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
+                                        <CalendarIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size="5">Company holidays</Heading>
-                                        <Text size="2" color="gray">
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Company Holidays</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
                                             Manage company holidays and observances
                                         </Text>
                                     </Box>
@@ -128,19 +128,19 @@ const Holidays = ({ title }) => {
 
                                 {/* Header Actions */}
                                 <Flex gap="2" align="center" wrap="wrap">
-                                    <Button variant="soft" color="gray" onClick={() => handleModalOpen('copy_year')}>
+                                    <Button variant="soft" color="gray" onClick={() => handleModalOpen('copy_year')} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                         <CopyIcon style={{ width: 16, height: 16 }} />
-                                        {!isMobile && 'Copy year'}
+                                        {!isMobile && 'Copy Year'}
                                     </Button>
-                                    <Button onClick={() => handleModalOpen('add_holiday')}>
+                                    <Button color="blue" onClick={() => handleModalOpen('add_holiday')} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                         <PlusIcon style={{ width: 16, height: 16 }} />
-                                        {!isMobile && 'Add holiday'}
+                                        {!isMobile && 'Add Holiday'}
                                     </Button>
                                 </Flex>
                             </Flex>
                         </Box>
 
-                        <Separator size="4" mb="4" />
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
                         {/* ── Content Area ── */}
                         <Box>
@@ -150,10 +150,10 @@ const Holidays = ({ title }) => {
                                 </ErrorBoundary>
                             </Box>
 
-                            <Heading size="3" mb="3">
+                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>
                                 <Flex align="center" gap="2">
-                                    <BarChartIcon style={{ width: 18, height: 18 }} />
-                                    Holiday management
+                                    <BarChartIcon style={{ width: 18, height: 18, color: 'var(--blue-9)' }} />
+                                    Holiday Management
                                 </Flex>
                             </Heading>
 

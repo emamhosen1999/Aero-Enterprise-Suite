@@ -43,20 +43,20 @@ const isWeekendDay = (date, weekendDays) => {
 const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, weekendDays, loading }) => {
     return (
         <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 320px)' }}>
-            <Table.Root size="2" variant="surface" style={{ minWidth: Math.max(900, 200 + days.length * 38 + (leaveTypes?.length || 0) * 64) }}>
+            <Table.Root size="2" style={{ minWidth: Math.max(900, 200 + days.length * 38 + (leaveTypes?.length || 0) * 64) }}>
                 <Table.Header>
                     <Table.Row>
                         {/* sticky employee col */}
                         <Table.ColumnHeaderCell
                             style={{
                                 position: 'sticky', left: 0, zIndex: 3,
-                                background: 'var(--gray-2)',
+                                background: 'var(--aero-surface, var(--gray-2))',
                                 minWidth: 180, maxWidth: 220,
                             }}
                         >
-                            <Flex align="center" gap="1">
-                                <PersonIcon style={{ width: 13 }} />
-                                <Text size="2">Employee</Text>
+                            <Flex align="center" gap="2">
+                                <PersonIcon style={{ width: 14, height: 14, color: 'var(--aero-color-subtle, var(--gray-9))' }} />
+                                <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Employee</Text>
                             </Flex>
                         </Table.ColumnHeaderCell>
 
@@ -73,7 +73,7 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                                     }}
                                 >
                                     <Flex direction="column" align="center" gap="0">
-                                        <Text size="1" weight="medium">{d}</Text>
+                                        <Text size="1" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{d}</Text>
                                         <Text size="1" color={wknd ? 'amber' : 'gray'} style={{ fontSize: 10 }}>
                                             {date.format('dd')}
                                         </Text>
@@ -84,7 +84,7 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
 
                         {/* leave type columns */}
                         {(leaveTypes || []).map(t => (
-                            <Table.ColumnHeaderCell key={t.type} style={{ width: 60, textAlign: 'center' }}>
+                            <Table.ColumnHeaderCell key={t.type} style={{ width: 60, textAlign: 'center', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
                                 <Text size="1">{t.type}</Text>
                             </Table.ColumnHeaderCell>
                         ))}
@@ -95,15 +95,15 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                     {loading
                         ? [...Array(7)].map((_, i) => (
                             <Table.Row key={i}>
-                                <Table.Cell style={{ position: 'sticky', left: 0, background: 'var(--color-surface)' }}>
+                                <Table.Cell style={{ position: 'sticky', left: 0, background: 'var(--color-background)' }}>
                                     <Flex align="center" gap="2">
-                                        <Skeleton width="28px" height="28px" style={{ borderRadius: '50%' }} />
+                                        <Skeleton width="28px" height="28px" style={{ borderRadius: 999 }} />
                                         <Skeleton width="100px" height="14px" />
                                     </Flex>
                                 </Table.Cell>
                                 {days.map(d => (
                                     <Table.Cell key={d} style={{ textAlign: 'center' }}>
-                                        <Skeleton width="20px" height="20px" style={{ borderRadius: '50%', margin: 'auto' }} />
+                                        <Skeleton width="20px" height="20px" style={{ borderRadius: 999, margin: 'auto' }} />
                                     </Table.Cell>
                                 ))}
                                 {(leaveTypes || []).map(t => (
@@ -118,8 +118,8 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                                 <Table.Row>
                                     <Table.Cell colSpan={days.length + 1 + (leaveTypes?.length || 0)}>
                                         <Flex direction="column" align="center" py="9" gap="3">
-                                            <CalendarIcon style={{ color: 'var(--gray-7)', width: 36, height: 36 }} />
-                                            <Text size="2" color="gray">No attendance data for this month</Text>
+                                            <CalendarIcon style={{ width: 32, height: 32, color: 'var(--gray-7)' }} />
+                                            <Text size="2" color="gray">No attendance records found for this period</Text>
                                         </Flex>
                                     </Table.Cell>
                                 </Table.Row>
@@ -130,7 +130,7 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                                     <Table.Cell
                                         style={{
                                             position: 'sticky', left: 0, zIndex: 1,
-                                            background: 'var(--color-surface)',
+                                            background: 'var(--color-background)',
                                             whiteSpace: 'nowrap',
                                             minWidth: 180, maxWidth: 220,
                                         }}
@@ -143,7 +143,8 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                                             />
                                             <Text
                                                 size="2"
-                                                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                weight="medium"
+                                                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--gray-12)' }}
                                             >
                                                 {row.name || 'Unknown'}
                                             </Text>
@@ -181,13 +182,14 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                                                 >
                                                     <Box
                                                         style={{
-                                                            width: 24, height: 24, borderRadius: '50%',
+                                                            width: 22, height: 22, borderRadius: 999,
                                                             background: st.bg,
+                                                            border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                             margin: 'auto', cursor: 'default',
                                                         }}
                                                     >
-                                                        <Text size="1" style={{ color: `var(--${st.color}-11)`, fontWeight: 700, lineHeight: 1 }}>
+                                                        <Text size="1" style={{ color: `var(--${st.color}-11)`, fontWeight: 800, lineHeight: 1, fontSize: 10 }}>
                                                             {rawSt === '√' ? '✓' : rawSt === '▼' ? '✗' : rawSt === '#' ? 'H' : rawSt === '·' ? '–' : 'L'}
                                                         </Text>
                                                     </Box>

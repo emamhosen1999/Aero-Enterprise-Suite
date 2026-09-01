@@ -258,26 +258,26 @@ const EmployeeTable = ({
 
     return (
         <Box style={{ position: 'relative', overflow: 'hidden' }}>
-            <Box style={{ overflowX: 'auto' }}>
-                <Table.Root variant="surface" size={isMobile ? '1' : '2'}>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <Table.Root size={isMobile ? '1' : '2'} style={{ minWidth: isMobile ? 900 : 1480, width: '100%' }}>
                     <Table.Header>
                         <Table.Row>
-                            <Table.ColumnHeaderCell style={{ width: 48 }}>#</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
-                            {!isMobile && <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>}
-                            <Table.ColumnHeaderCell>Department</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Designation</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Role</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ width: 44, textAlign: 'center' }}>#</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 190 }}>Employee</Table.ColumnHeaderCell>
+                            {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Contact</Table.ColumnHeaderCell>}
+                            <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Department</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 170 }}>Designation</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Role</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell style={{ width: 90 }}>Status</Table.ColumnHeaderCell>
-                            {!isMobile && !isTablet && <Table.ColumnHeaderCell>Work Location</Table.ColumnHeaderCell>}
-                            {!isMobile && !isTablet && <Table.ColumnHeaderCell>Attendance Type</Table.ColumnHeaderCell>}
-                            {!isMobile && <Table.ColumnHeaderCell>Reports To</Table.ColumnHeaderCell>}
+                            {!isMobile && !isTablet && <Table.ColumnHeaderCell style={{ minWidth: 170 }}>Work Location</Table.ColumnHeaderCell>}
+                            {!isMobile && !isTablet && <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Attendance Type</Table.ColumnHeaderCell>}
+                            {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 150 }}>Reports To</Table.ColumnHeaderCell>}
                             <Table.ColumnHeaderCell style={{ width: 56, textAlign: 'center' }}>Actions</Table.ColumnHeaderCell>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
                         {allUsers.length === 0 && !loading ? (
-                            <Table.Row><Table.Cell colSpan={8}><Flex justify="center" py="8"><Text color="gray">No employees found.</Text></Flex></Table.Cell></Table.Row>
+                            <Table.Row><Table.Cell colSpan={11}><Flex justify="center" py="8"><Text color="gray">No employees found.</Text></Flex></Table.Cell></Table.Row>
                         ) : allUsers.map((user, idx) => {
                             const filtDesignations = designations?.filter(d => d.department_id === parseInt(user.department_id)) || [];
                             const selectedAttType = attendanceTypes?.find(t => t.id === parseInt(user.attendance_type_id));
@@ -287,18 +287,18 @@ const EmployeeTable = ({
                             const biometricDevices = selectedAttType?.biometric_devices || user.attendance_type_devices || [];
                             return (
                                 <Table.Row key={user.id} style={user.deleted_at ? { opacity: 0.65 } : undefined}>
-                                    <Table.Cell><Text size="1" color="gray" weight="medium">{startRow + idx}</Text></Table.Cell>
+                                    <Table.Cell style={{ textAlign: 'center' }}><Text size="1" color="gray" weight="medium" style={{ fontVariantNumeric: 'tabular-nums' }}>{startRow + idx}</Text></Table.Cell>
                                     <Table.Cell>
-                                        <Flex align="center" gap="3">
-                                            <Box style={{ cursor: 'pointer' }} onClick={() => setProfilePictureModal({ isOpen: true, employee: user })}>
+                                        <Flex align="center" gap="3" style={{ minWidth: 180, maxWidth: 220 }}>
+                                            <Box style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setProfilePictureModal({ isOpen: true, employee: user })}>
                                                 <ProfileAvatar src={user?.profile_image_url || user?.profile_image} name={user?.name} size={isMobile ? 'sm' : 'md'} />
                                             </Box>
-                                            <Box>
-                                                <Text weight="bold" size="2" as="div" style={{ whiteSpace: 'nowrap' }}>{user?.name}</Text>
-                                                <Text size="1" color="gray" as="div" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                                            <Box style={{ minWidth: 0, flex: 1 }}>
+                                                <Text weight="bold" size="2" as="div" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>{user?.name}</Text>
+                                                <Text size="1" color="gray" as="div" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
                                                     ID: {user?.employee_id || 'N/A'}
                                                     {user?.single_device_login_enabled && (
-                                                        <Badge color="amber" size="1" variant="soft">
+                                                        <Badge color="amber" size="1" variant="soft" style={{ borderRadius: 999 }}>
                                                             <LockClosedIcon style={{ width: 10, height: 10 }} /> Locked
                                                         </Badge>
                                                     )}
@@ -308,40 +308,60 @@ const EmployeeTable = ({
                                     </Table.Cell>
                                     {!isMobile && (
                                         <Table.Cell>
-                                            <Flex direction="column" gap="1">
-                                                <Flex align="center" gap="2"><EnvelopeClosedIcon color="var(--gray-9)" /><Text size="1" color="gray">{user?.email}</Text></Flex>
-                                                {user?.phone && <Flex align="center" gap="2"><MobileIcon color="var(--gray-9)" /><Text size="1" color="gray">{user.phone}</Text></Flex>}
+                                            <Flex direction="column" gap="1" style={{ minWidth: 170, maxWidth: 210 }}>
+                                                <Flex align="center" gap="2" style={{ overflow: 'hidden' }}>
+                                                    <EnvelopeClosedIcon color="var(--gray-9)" style={{ flexShrink: 0, width: 13, height: 13 }} />
+                                                    <Text size="1" color="gray" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</Text>
+                                                </Flex>
+                                                {user?.phone && (
+                                                    <Flex align="center" gap="2" style={{ overflow: 'hidden' }}>
+                                                        <MobileIcon color="var(--gray-9)" style={{ flexShrink: 0, width: 13, height: 13 }} />
+                                                        <Text size="1" color="gray" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{user.phone}</Text>
+                                                    </Flex>
+                                                )}
                                             </Flex>
                                         </Table.Cell>
                                     )}
                                     <Table.Cell>
-                                        <DropdownMenu.Root>
-                                            <DropdownMenu.Trigger>
-                                                <Button size="1" variant="surface" color="gray" style={{ width: '100%', minWidth: 140, justifyContent: 'space-between' }}>
-                                                    <Flex align="center" gap="1"><HomeIcon /><Text size="1">{user.department_name || 'Select…'}</Text></Flex><Text size="1" color="gray">▾</Text>
-                                                </Button>
-                                            </DropdownMenu.Trigger>
-                                            <DropdownMenu.Content size="1">
-                                                {departments?.map(dept => <DropdownMenu.Item key={dept.id} onSelect={() => handleDepartmentChange(user.id, dept.id)}>{dept.name}</DropdownMenu.Item>)}
-                                            </DropdownMenu.Content>
-                                        </DropdownMenu.Root>
+                                        <Box style={{ minWidth: 150, maxWidth: 180 }}>
+                                            <DropdownMenu.Root>
+                                                <DropdownMenu.Trigger>
+                                                    <Button size="1" variant="surface" color="gray" style={{ width: '100%', justifyContent: 'space-between', borderRadius: 8 }}>
+                                                        <Flex align="center" gap="1" style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
+                                                            <HomeIcon style={{ flexShrink: 0, width: 13, height: 13 }} />
+                                                            <Text size="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.department_name || 'Select…'}</Text>
+                                                        </Flex>
+                                                        <Text size="1" color="gray" style={{ flexShrink: 0, marginLeft: 2 }}>▾</Text>
+                                                    </Button>
+                                                </DropdownMenu.Trigger>
+                                                <DropdownMenu.Content size="1">
+                                                    {departments?.map(dept => <DropdownMenu.Item key={dept.id} onSelect={() => handleDepartmentChange(user.id, dept.id)}>{dept.name}</DropdownMenu.Item>)}
+                                                </DropdownMenu.Content>
+                                            </DropdownMenu.Root>
+                                        </Box>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <DropdownMenu.Root>
-                                            <DropdownMenu.Trigger>
-                                                <Button size="1" variant="surface" color="gray" disabled={!user.department_id} style={{ width: '100%', minWidth: 140, justifyContent: 'space-between' }}>
-                                                    <Flex align="center" gap="1"><BackpackIcon /><Text size="1">{!user.department_id ? 'Select dept first' : (user.designation_name || 'Select…')}</Text></Flex>
-                                                </Button>
-                                            </DropdownMenu.Trigger>
-                                            <DropdownMenu.Content size="1">
-                                                {filtDesignations.map(desig => <DropdownMenu.Item key={desig.id} onSelect={() => handleDesignationChange(user.id, desig.id)}>{desig.title}</DropdownMenu.Item>)}
-                                            </DropdownMenu.Content>
-                                        </DropdownMenu.Root>
+                                        <Box style={{ minWidth: 155, maxWidth: 190 }}>
+                                            <DropdownMenu.Root>
+                                                <DropdownMenu.Trigger>
+                                                    <Button size="1" variant="surface" color="gray" disabled={!user.department_id} style={{ width: '100%', justifyContent: 'space-between', borderRadius: 8 }}>
+                                                        <Flex align="center" gap="1" style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
+                                                            <BackpackIcon style={{ flexShrink: 0, width: 13, height: 13 }} />
+                                                            <Text size="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{!user.department_id ? 'Select dept first' : (user.designation_name || 'Select…')}</Text>
+                                                        </Flex>
+                                                        <Text size="1" color="gray" style={{ flexShrink: 0, marginLeft: 2 }}>▾</Text>
+                                                    </Button>
+                                                </DropdownMenu.Trigger>
+                                                <DropdownMenu.Content size="1">
+                                                    {filtDesignations.map(desig => <DropdownMenu.Item key={desig.id} onSelect={() => handleDesignationChange(user.id, desig.id)}>{desig.title}</DropdownMenu.Item>)}
+                                                </DropdownMenu.Content>
+                                            </DropdownMenu.Root>
+                                        </Box>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Flex gap="1" wrap="wrap" style={{ minWidth: 110 }}>
+                                        <Flex gap="1" wrap="wrap" style={{ minWidth: 100, maxWidth: 130 }}>
                                             {(user.roles || []).map(r => (
-                                                <Badge key={r.id || r.name} size="1" variant="soft" color="violet" radius="full">
+                                                <Badge key={r.id || r.name} size="1" variant="soft" color="blue" style={{ borderRadius: 999, padding: '2px 8px' }}>
                                                     {r.name}
                                                 </Badge>
                                             ))}
@@ -351,71 +371,83 @@ const EmployeeTable = ({
                                         </Flex>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Badge size="1" variant="soft" color={!user.deleted_at ? 'green' : 'red'}>
+                                        <Badge size="1" variant="soft" color={!user.deleted_at ? 'jade' : 'red'} style={{ borderRadius: 999, fontWeight: 700, padding: '2px 8px' }}>
                                             {!user.deleted_at ? 'Active' : 'Inactive'}
                                         </Badge>
                                     </Table.Cell>
                                     {!isMobile && !isTablet && (
                                         <Table.Cell>
-                                            <Select.Root size="1" value={user.work_location_id ? String(user.work_location_id) : 'none'} onValueChange={(v) => handleWorkLocationChange(user.id, v === 'none' ? null : parseInt(v))}>
-                                                <Select.Trigger style={{ width: '100%', minWidth: 150 }} placeholder="Unassigned" />
-                                                <Select.Content>
-                                                    <Select.Item value="none">Unassigned / Remote</Select.Item>
-                                                    {workLocations?.map(loc => <Select.Item key={loc.id} value={String(loc.id)}>{loc.name}</Select.Item>)}
-                                                </Select.Content>
-                                            </Select.Root>
-                                            {!user.has_attendance_override && user.work_location_attendance_type_name && (
-                                                <Text size="1" color="gray" mt="1" as="div" style={{ fontStyle: 'italic' }}>
-                                                    Inherits: {user.work_location_attendance_type_name}
-                                                </Text>
-                                            )}
+                                            <Box style={{ minWidth: 160, maxWidth: 190 }}>
+                                                <Select.Root size="1" value={user.work_location_id ? String(user.work_location_id) : 'none'} onValueChange={(v) => handleWorkLocationChange(user.id, v === 'none' ? null : parseInt(v))}>
+                                                    <Select.Trigger style={{ width: '100%', borderRadius: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} placeholder="Unassigned" />
+                                                    <Select.Content>
+                                                        <Select.Item value="none">Unassigned / Remote</Select.Item>
+                                                        {workLocations?.map(loc => <Select.Item key={loc.id} value={String(loc.id)}>{loc.name}</Select.Item>)}
+                                                    </Select.Content>
+                                                </Select.Root>
+                                                {!user.has_attendance_override && user.work_location_attendance_type_name && (
+                                                    <Text size="1" color="gray" mt="1" as="div" style={{ fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 10 }}>
+                                                        Inherits: {user.work_location_attendance_type_name}
+                                                    </Text>
+                                                )}
+                                            </Box>
                                         </Table.Cell>
                                     )}
                                     {!isMobile && !isTablet && (
                                         <Table.Cell>
-                                            <DropdownMenu.Root>
-                                                <DropdownMenu.Trigger>
-                                                    <Button size="1" variant="surface" color="gray" style={{ width: '100%', minWidth: 160, justifyContent: 'space-between' }}>
-                                                        <Flex align="center" gap="1"><ClockIcon /><Text size="1">{user.attendance_type_name || (user.has_attendance_override ? 'Select…' : (user.work_location_attendance_type_name ? `${user.work_location_attendance_type_name} (inherited)` : 'Select…'))}</Text></Flex>
-                                                    </Button>
-                                                </DropdownMenu.Trigger>
-                                                <DropdownMenu.Content size="1">
-                                                    <DropdownMenu.Item onSelect={() => handleAttendanceTypeChange(user.id, null)}>
-                                                        <Flex align="center" gap="1">
-                                                            <SewingPinIcon />
-                                                            Inherit from work location
-                                                            {user.work_location_attendance_type_name ? ` (${user.work_location_attendance_type_name})` : ''}
-                                                        </Flex>
-                                                    </DropdownMenu.Item>
-                                                    <DropdownMenu.Separator />
-                                                    {groupedAttendanceTypes.map((cat, ci) => (
-                                                        <React.Fragment key={cat.slug}>
-                                                            {ci > 0 && <DropdownMenu.Separator />}<DropdownMenu.Label>{cat.label}</DropdownMenu.Label>
-                                                            {cat.types.map(type => <DropdownMenu.Item key={type.id} onSelect={() => handleAttendanceTypeChange(user.id, type.id)}>{type.name}</DropdownMenu.Item>)}
-                                                        </React.Fragment>
-                                                    ))}
-                                                </DropdownMenu.Content>
-                                            </DropdownMenu.Root>
-                                            {isBiometricSelected && (
-                                                <Box mt="1">
-                                                    <Select.Root size="1" value={user.biometric_device_id ? String(user.biometric_device_id) : ''} onValueChange={(v) => handleBiometricDeviceChange(user.id, v ? parseInt(v) : null)}>
-                                                        <Select.Trigger style={{ width: '100%' }} placeholder={biometricDevices.length ? 'Select device…' : 'No devices configured'} />
-                                                        <Select.Content>
-                                                            {biometricDevices.map(device => <Select.Item key={device.id} value={String(device.id)}>{device.name}</Select.Item>)}
-                                                        </Select.Content>
-                                                    </Select.Root>
-                                                </Box>
-                                            )}
+                                            <Box style={{ minWidth: 170, maxWidth: 200 }}>
+                                                <DropdownMenu.Root>
+                                                    <DropdownMenu.Trigger>
+                                                        <Button size="1" variant="surface" color="gray" style={{ width: '100%', justifyContent: 'space-between', borderRadius: 8 }}>
+                                                            <Flex align="center" gap="1" style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
+                                                                <ClockIcon style={{ flexShrink: 0, width: 13, height: 13 }} />
+                                                                <Text size="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {user.attendance_type_name || (user.has_attendance_override ? 'Select…' : (user.work_location_attendance_type_name ? `${user.work_location_attendance_type_name} (inherited)` : 'Select…'))}
+                                                                </Text>
+                                                            </Flex>
+                                                            <Text size="1" color="gray" style={{ flexShrink: 0, marginLeft: 2 }}>▾</Text>
+                                                        </Button>
+                                                    </DropdownMenu.Trigger>
+                                                    <DropdownMenu.Content size="1">
+                                                        <DropdownMenu.Item onSelect={() => handleAttendanceTypeChange(user.id, null)}>
+                                                            <Flex align="center" gap="1">
+                                                                <SewingPinIcon />
+                                                                Inherit from work location
+                                                                {user.work_location_attendance_type_name ? ` (${user.work_location_attendance_type_name})` : ''}
+                                                            </Flex>
+                                                        </DropdownMenu.Item>
+                                                        <DropdownMenu.Separator />
+                                                        {groupedAttendanceTypes.map((cat, ci) => (
+                                                            <React.Fragment key={cat.slug}>
+                                                                {ci > 0 && <DropdownMenu.Separator />}<DropdownMenu.Label>{cat.label}</DropdownMenu.Label>
+                                                                {cat.types.map(type => <DropdownMenu.Item key={type.id} onSelect={() => handleAttendanceTypeChange(user.id, type.id)}>{type.name}</DropdownMenu.Item>)}
+                                                            </React.Fragment>
+                                                        ))}
+                                                    </DropdownMenu.Content>
+                                                </DropdownMenu.Root>
+                                                {isBiometricSelected && (
+                                                    <Box mt="1">
+                                                        <Select.Root size="1" value={user.biometric_device_id ? String(user.biometric_device_id) : ''} onValueChange={(v) => handleBiometricDeviceChange(user.id, v ? parseInt(v) : null)}>
+                                                            <Select.Trigger style={{ width: '100%', borderRadius: 8, fontSize: 11 }} placeholder={biometricDevices.length ? 'Select device…' : 'No devices configured'} />
+                                                            <Select.Content>
+                                                                {biometricDevices.map(device => <Select.Item key={device.id} value={String(device.id)}>{device.name}</Select.Item>)}
+                                                            </Select.Content>
+                                                        </Select.Root>
+                                                    </Box>
+                                                )}
+                                            </Box>
                                         </Table.Cell>
                                     )}
                                     {!isMobile && (
                                         <Table.Cell>
-                                            <Select.Root size="1" value={user.report_to ? String(user.report_to) : ''} onValueChange={(v) => debouncedUpdateReportTo(user.id, v ? parseInt(v) : null)}>
-                                                <Select.Trigger style={{ width: '100%', minWidth: 140 }} placeholder={user.reports_to?.name || 'Select manager…'} />
-                                                <Select.Content>
-                                                    {getEligibleManagers(user, user.report_to).map(mgr => <Select.Item key={mgr.id} value={String(mgr.id)}>{mgr.name}</Select.Item>)}
-                                                </Select.Content>
-                                            </Select.Root>
+                                            <Box style={{ minWidth: 145, maxWidth: 175 }}>
+                                                <Select.Root size="1" value={user.report_to ? String(user.report_to) : ''} onValueChange={(v) => debouncedUpdateReportTo(user.id, v ? parseInt(v) : null)}>
+                                                    <Select.Trigger style={{ width: '100%', borderRadius: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} placeholder={user.reports_to?.name || 'Select manager…'} />
+                                                    <Select.Content>
+                                                        {getEligibleManagers(user, user.report_to).map(mgr => <Select.Item key={mgr.id} value={String(mgr.id)}>{mgr.name}</Select.Item>)}
+                                                    </Select.Content>
+                                                </Select.Root>
+                                            </Box>
                                         </Table.Cell>
                                     )}
                                     <Table.Cell>

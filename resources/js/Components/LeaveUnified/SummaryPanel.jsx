@@ -24,17 +24,20 @@ function StatPill({ label, value, color = 'gray', icon: Icon, loading = false })
         <Panel tinted style={{
             minWidth: '150px',
             flex: '1 1 auto',
-            background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
+            borderRadius: 16,
+            border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+            padding: '14px 16px',
+            background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--aero-surface, var(--color-surface)) 100%)`,
         }}>
-            <Flex align="center" gap="3" p="1">
-                <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Flex align="center" gap="3">
+                <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, border: `1px solid var(--${color}-a5)`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {Icon ? <Icon style={{ color: `var(--${color}-9)`, width: 16, height: 16 }} /> : <TableIcon style={{ color: `var(--${color}-9)`, width: 16, height: 16 }} />}
                 </Box>
                 <Box>
                     <Skeleton loading={loading}>
-                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1, color: 'var(--gray-12)' }}>{value}</Text>
+                        <Text size="5" weight="bold" style={{ display: 'block', lineHeight: 1, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{value}</Text>
                     </Skeleton>
-                    <Text size="1" color="gray" weight="medium" style={{ display: 'block', marginTop: 4 }}>{label}</Text>
+                    <Text size="1" style={{ display: 'block', marginTop: 4, color: 'var(--aero-color-subtle, var(--gray-9))' }}>{label}</Text>
                 </Box>
             </Flex>
         </Panel>

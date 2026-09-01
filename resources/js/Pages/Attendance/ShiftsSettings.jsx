@@ -107,10 +107,10 @@ export default function ShiftsSettings() {
                 <Tabs.Content value="shifts">
                     <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
                         <Flex align="center" gap="2">
-                            <LayersIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                            <Text size="3" weight="bold">Manage Shifts</Text>
+                            <LayersIcon style={{ color: 'var(--blue-9)', width: 18, height: 18 }} />
+                            <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Manage Shifts</Text>
                         </Flex>
-                        <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
+                        <Button size="2" color="blue" onClick={() => { setEditing(null); setOpen(true); }} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                             <PlusIcon /> Add shift
                         </Button>
                     </Flex>
@@ -124,7 +124,7 @@ export default function ShiftsSettings() {
                         </Flex>
                     ) : (
                         <Box>
-                            <Table.Root size="2" variant="surface">
+                            <Table.Root size="2">
                                 <Table.Header>
                                     <Table.Row>
                                         <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
@@ -139,24 +139,26 @@ export default function ShiftsSettings() {
                                     {paginatedShifts.map(s => (
                                         <Table.Row key={s.id}>
                                             <Table.Cell>
-                                                <Text size="2" weight="medium">{s.name}</Text>
+                                                <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>{s.name}</Text>
                                             </Table.Cell>
                                             <Table.Cell>
-                                                <Badge style={{ background: s.color || undefined, color: s.color ? '#fff' : undefined }}>
+                                                <Badge style={{ background: s.color || undefined, color: s.color ? '#fff' : undefined, borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>
                                                     {s.code}
                                                 </Badge>
                                             </Table.Cell>
                                             <Table.Cell>
-                                                <Text size="2" color="gray">
+                                                <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>
                                                     {s.start_time}–{s.end_time}{s.crosses_midnight ? ' (+1)' : ''}
                                                 </Text>
                                             </Table.Cell>
                                             <Table.Cell>
-                                                {s.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
+                                                <Badge color={s.is_active ? 'jade' : 'gray'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
+                                                    {s.is_active ? 'Active' : 'Inactive'}
+                                                </Badge>
                                             </Table.Cell>
                                             {isGlobalUser && (
                                                 <Table.Cell>
-                                                    <Text size="2" color="gray">{s.creator?.name || 'System'}</Text>
+                                                    <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{s.creator?.name || 'System'}</Text>
                                                 </Table.Cell>
                                             )}
                                             <Table.Cell>
@@ -191,10 +193,10 @@ export default function ShiftsSettings() {
                 <Tabs.Content value="patterns">
                     <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
                         <Flex align="center" gap="2">
-                            <SymbolIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                            <Text size="3" weight="bold">Rotation Patterns</Text>
+                            <SymbolIcon style={{ color: 'var(--blue-9)', width: 18, height: 18 }} />
+                            <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Rotation Patterns</Text>
                         </Flex>
-                        <Button size="2" onClick={() => { setEditingPattern(null); setPatternOpen(true); }}>
+                        <Button size="2" color="blue" onClick={() => { setEditingPattern(null); setPatternOpen(true); }} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                             <PlusIcon /> Add pattern
                         </Button>
                     </Flex>
@@ -202,13 +204,13 @@ export default function ShiftsSettings() {
                     {patternsLoading ? (
                         <Text size="2" color="gray">Loading rotation patterns…</Text>
                     ) : patterns.length === 0 ? (
-                        <Flex direction="column" align="center" py="5" gap="2" style={{ border: '1px dashed var(--gray-6)', borderRadius: 'var(--radius-3)' }}>
+                        <Flex direction="column" align="center" py="5" gap="2" style={{ border: '1px dashed var(--dl-border-color, rgba(0,0,0,0.1))', borderRadius: 14 }}>
                             <Text size="2" color="gray">No rotation patterns yet.</Text>
                             <Text size="1" color="gray">Click Add pattern above to create one.</Text>
                         </Flex>
                     ) : (
                         <Box>
-                            <Table.Root size="2" variant="surface">
+                            <Table.Root size="2">
                                 <Table.Header>
                                     <Table.Row>
                                         <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
@@ -224,13 +226,13 @@ export default function ShiftsSettings() {
                                     {paginatedPatterns.map(p => (
                                         <Table.Row key={p.id}>
                                             <Table.Cell>
-                                                <Text size="2" weight="medium">{p.name}</Text>
+                                                <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>{p.name}</Text>
                                             </Table.Cell>
                                             <Table.Cell>
-                                                <Badge color="blue">{p.code}</Badge>
+                                                <Badge color="blue" variant="soft" style={{ borderRadius: 999 }}>{p.code}</Badge>
                                             </Table.Cell>
                                             <Table.Cell>
-                                                <Text size="2">{p.cycle_length_days} days</Text>
+                                                <Text size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{p.cycle_length_days} days</Text>
                                             </Table.Cell>
                                             <Table.Cell>
                                                 <Flex gap="1" wrap="wrap" align="center">
@@ -238,11 +240,13 @@ export default function ShiftsSettings() {
                                                 </Flex>
                                             </Table.Cell>
                                             <Table.Cell>
-                                                {p.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
+                                                <Badge color={p.is_active ? 'jade' : 'gray'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
+                                                    {p.is_active ? 'Active' : 'Inactive'}
+                                                </Badge>
                                             </Table.Cell>
                                             {isGlobalUser && (
                                                 <Table.Cell>
-                                                    <Text size="2" color="gray">{p.creator?.name || 'System'}</Text>
+                                                    <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{p.creator?.name || 'System'}</Text>
                                                 </Table.Cell>
                                             )}
                                             <Table.Cell>

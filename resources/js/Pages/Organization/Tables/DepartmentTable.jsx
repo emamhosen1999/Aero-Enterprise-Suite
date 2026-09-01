@@ -39,18 +39,18 @@ const DepartmentTable = ({
     }
 
     return (
-        <Box style={{ overflowX: 'auto' }}>
-            <Table.Root variant="surface" size={isMobile ? '1' : '2'}>
+        <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <Table.Root size={isMobile ? '1' : '2'} style={{ minWidth: isMobile ? 700 : 1050, width: '100%' }}>
                 <Table.Header>
                     <Table.Row>
-                        <Table.ColumnHeaderCell>Department</Table.ColumnHeaderCell>
-                        {!isMobile && <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>}
-                        <Table.ColumnHeaderCell>Manager</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Employees</Table.ColumnHeaderCell>
-                        {!isMobile && <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>}
-                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                        {!isMobile && !isTablet && <Table.ColumnHeaderCell>Established</Table.ColumnHeaderCell>}
-                        <Table.ColumnHeaderCell justify="end">Actions</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Department</Table.ColumnHeaderCell>
+                        {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 90 }}>Code</Table.ColumnHeaderCell>}
+                        <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Manager</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Employees</Table.ColumnHeaderCell>
+                        {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Location</Table.ColumnHeaderCell>}
+                        <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Status</Table.ColumnHeaderCell>
+                        {!isMobile && !isTablet && <Table.ColumnHeaderCell style={{ minWidth: 130 }}>Established</Table.ColumnHeaderCell>}
+                        <Table.ColumnHeaderCell justify="end" style={{ width: 80, textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
@@ -66,12 +66,12 @@ const DepartmentTable = ({
                                 {/* Name */}
                                 <Table.Cell>
                                     <Flex align="center" gap="3">
-                                        <Box p="2" style={{ background: 'var(--blue-a3)', borderRadius: 'var(--radius-2)' }}>
-                                            <HomeIcon style={{ color: 'var(--blue-9)' }} />
+                                        <Box p="2" style={{ background: 'var(--blue-a3)', border: '1px solid var(--blue-a5)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <HomeIcon style={{ color: 'var(--blue-9)', width: 16, height: 16 }} />
                                         </Box>
-                                        <Box>
-                                            <Text weight="bold" size="2" as="div">{department.name}</Text>
-                                            <Text size="1" color="gray">
+                                        <Box style={{ minWidth: 0 }}>
+                                            <Text weight="bold" size="2" as="div" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)', whiteSpace: 'nowrap' }}>{department.name}</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', whiteSpace: 'nowrap' }}>
                                                 {department.parent ? department.parent.name : 'Top-level'}
                                             </Text>
                                         </Box>
@@ -82,7 +82,7 @@ const DepartmentTable = ({
                                 {!isMobile && (
                                     <Table.Cell>
                                         {department.code ? (
-                                            <Badge color="blue" variant="soft" size="1">{department.code}</Badge>
+                                            <Badge color="blue" variant="soft" size="1" style={{ borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{department.code}</Badge>
                                         ) : <Text color="gray" size="2">—</Text>}
                                     </Table.Cell>
                                 )}
@@ -92,10 +92,10 @@ const DepartmentTable = ({
                                     {department.manager ? (
                                         <Flex align="center" gap="2">
                                             <ProfileAvatar src={department.manager.profile_image_url || department.manager.profile_image} name={department.manager.name} size="1" />
-                                            <Box>
-                                                <Text size="2" weight="medium" as="div">{department.manager.name}</Text>
+                                            <Box style={{ minWidth: 0 }}>
+                                                <Text size="2" weight="medium" as="div" style={{ whiteSpace: 'nowrap' }}>{department.manager.name}</Text>
                                                 {!isMobile && department.manager.email && (
-                                                    <Text size="1" color="gray">{department.manager.email}</Text>
+                                                    <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', whiteSpace: 'nowrap' }}>{department.manager.email}</Text>
                                                 )}
                                             </Box>
                                         </Flex>
@@ -107,8 +107,8 @@ const DepartmentTable = ({
                                 {/* Employees */}
                                 <Table.Cell>
                                     <Flex align="center" gap="2">
-                                        <PersonIcon color="var(--gray-9)" />
-                                        <Text size="2">{department.employee_count || 0}</Text>
+                                        <PersonIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', width: 14, height: 14 }} />
+                                        <Text size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{department.employee_count || 0}</Text>
                                     </Flex>
                                 </Table.Cell>
 
@@ -117,8 +117,8 @@ const DepartmentTable = ({
                                     <Table.Cell>
                                         {department.location ? (
                                             <Flex align="center" gap="2">
-                                                <SewingPinIcon color="var(--gray-9)" />
-                                                <Text size="2">{department.location}</Text>
+                                                <SewingPinIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', width: 14, height: 14 }} />
+                                                <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', whiteSpace: 'nowrap' }}>{department.location}</Text>
                                             </Flex>
                                         ) : <Text color="gray" size="2">—</Text>}
                                     </Table.Cell>
@@ -126,8 +126,7 @@ const DepartmentTable = ({
 
                                 {/* Status */}
                                 <Table.Cell>
-                                    <Badge color={department.is_active ? 'green' : 'red'} variant={department.is_active ? 'solid' : 'soft'} size="1">
-                                        {department.is_active ? <CheckCircledIcon /> : <CrossCircledIcon />}
+                                    <Badge color={department.is_active ? 'jade' : 'red'} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700, padding: '2px 8px' }}>
                                         {department.is_active ? 'Active' : 'Inactive'}
                                     </Badge>
                                 </Table.Cell>
@@ -137,8 +136,8 @@ const DepartmentTable = ({
                                     <Table.Cell>
                                         {department.established_date ? (
                                             <Flex align="center" gap="2">
-                                                <CalendarIcon color="var(--gray-9)" />
-                                                <Text size="2">{dayjs(department.established_date).format('MMM D, YYYY')}</Text>
+                                                <CalendarIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', width: 14, height: 14 }} />
+                                                <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{dayjs(department.established_date).format('MMM D, YYYY')}</Text>
                                             </Flex>
                                         ) : <Text color="gray" size="2">—</Text>}
                                     </Table.Cell>

@@ -7,7 +7,7 @@ import { resolveWorkedDotState, packShiftIntervals } from '../rosterChipLayout';
 const NAME_W = 168;
 const CELL_W = 144; // Width of each day cell
 const HEADER_H = 56; // Header height to fit date and hourly labels
-const LINE = '1px solid var(--gray-a5)';
+const LINE = '1px solid var(--dl-border-color, rgba(0,0,0,0.06))';
 
 // Small worked/missed indicator painted top-right of a shift chip. Absolute,
 // ~7px, bordered in the panel background for contrast against any chip
@@ -23,7 +23,7 @@ const StatusDot = ({ state }) => {
                 width: 7,
                 height: 7,
                 borderRadius: '50%',
-                background: state === 'worked' ? 'var(--green-9)' : 'var(--red-9)',
+                background: state === 'worked' ? 'var(--jade-9, var(--green-9))' : 'var(--red-9)',
                 border: '1.5px solid var(--color-panel-background)',
                 zIndex: 3,
                 pointerEvents: 'none',
@@ -58,7 +58,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
     const gridWidth = NAME_W + days.length * CELL_W;
 
-    const nameCell = (children, { header = false, zIndex = 2, bg = 'var(--color-panel-background)' } = {}) => (
+    const nameCell = (children, { header = false, zIndex = 2, bg = 'var(--aero-surface, var(--gray-2))' } = {}) => (
         <Box
             style={{
                 minWidth: NAME_W, width: NAME_W,
@@ -75,11 +75,11 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
     );
 
     return (
-        <Box style={{ overflowX: 'auto', border: LINE, borderRadius: 8 }}>
+        <Box style={{ overflowX: 'auto', border: LINE, borderRadius: 16 }}>
             <Box style={{ minWidth: gridWidth }}>
                 {/* ── Day header ─────────────────────────────── */}
-                <Flex style={{ background: 'var(--gray-3)' }}>
-                    {nameCell(<Text size="2" weight="bold">Employee</Text>, { header: true, zIndex: 5, bg: 'var(--gray-3)' })}
+                <Flex style={{ background: 'var(--aero-surface, var(--gray-2))' }}>
+                    {nameCell(<Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>Employee</Text>, { header: true, zIndex: 5, bg: 'var(--aero-surface, var(--gray-2))' })}
                     {days.map((d) => {
                         const wd = dayjs(d).day(); // 0 Sun … 6 Sat
                         const weekend = wd === 5 || wd === 6; // Fri/Sat (local week)

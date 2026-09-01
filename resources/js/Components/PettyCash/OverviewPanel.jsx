@@ -145,16 +145,16 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
             {/* Fund Name + Status Badge */}
             <Flex align="center" justify="between" mb="4" wrap="wrap" gap="2">
                 <Flex align="center" gap="2">
-                    <Text size="4" weight="bold" style={{ color: 'var(--accent-9)' }}>
+                    <Text size="4" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>
                         {activeLoan.fund_name || 'General Fund'}
                     </Text>
-                    <Badge color={activeLoan.status === 'active' ? 'green' : 'gray'} variant="soft">
+                    <Badge color={activeLoan.status === 'active' ? 'jade' : 'gray'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
                         {activeLoan.status.toUpperCase()}
                     </Badge>
                 </Flex>
 
                 <Flex align="center" gap="4">
-                    <Text size="2" color="gray">
+                    <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>
                         SINCE: {new Date(activeLoan.loan_date).toLocaleDateString()}
                     </Text>
                     <Button
@@ -163,7 +163,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
                         variant="soft"
                         onClick={handleCloseLoan}
                         disabled={closing}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'pointer', borderRadius: 8, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}
                     >
                         {closing ? 'Closing...' : 'Close Fund'}
                     </Button>
@@ -172,7 +172,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
 
             {/* Approval info */}
             {activeLoan.approver_name && (
-                <Box mb="3" p="2" style={{ background: 'var(--green-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--green-a4)' }}>
+                <Box mb="3" p="2" style={{ background: 'var(--green-a2)', borderRadius: 10, border: '1px solid var(--green-a4)' }}>
                     <Text size="1" color="green">
                         ✓ Approved by <strong>{activeLoan.approver_name}</strong>
                         {activeLoan.approved_at && ` on ${new Date(activeLoan.approved_at).toLocaleDateString()}`}
@@ -181,22 +181,25 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
                 </Box>
             )}
 
-            <Separator size="4" mb="4" />
+            <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
             {/* Stats Grid */}
             <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4" mb="4">
                 {stats.map((stat, index) => {
                     const Icon = stat.icon;
+                    const colorToken = stat.color === 'green' ? 'jade' : stat.color;
                     return (
-                        <Panel key={index} tinted style={{ padding: '16px' }}>
+                        <Panel key={index} tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                             <Flex direction="column" gap="2">
                                 <Flex align="center" gap="2">
-                                    <Icon style={{ width: 20, height: 20, color: `var(--${stat.color}-9)` }} />
-                                    <Text size="1" weight="bold" color="gray">
+                                    <Box p="1" style={{ background: `var(--${colorToken}-a3)`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Icon style={{ width: 16, height: 16, color: `var(--${colorToken}-9)` }} />
+                                    </Box>
+                                    <Text size="1" weight="bold" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11 }}>
                                         {stat.label}
                                     </Text>
                                 </Flex>
-                                <Text size="6" weight="bold" style={{ color: `var(--${stat.color}-9)` }}>
+                                <Text size="6" weight="bold" style={{ color: `var(--${colorToken}-9)`, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                                     ৳{parseFloat(stat.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </Text>
                             </Flex>
@@ -206,13 +209,13 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
             </Grid>
 
             {/* Transaction Count */}
-            <Panel tinted style={{ padding: '16px' }}>
+            <Panel tinted style={{ padding: '16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                 <Flex align="center" justify="between">
                     <Flex align="center" gap="2">
-                        <FileTextIcon style={{ width: 20, height: 20, color: 'var(--gray-9)' }} />
-                        <Text size="2" weight="bold">TOTAL TRANSACTIONS</Text>
+                        <FileTextIcon style={{ width: 18, height: 18, color: 'var(--aero-color-subtle, var(--gray-9))' }} />
+                        <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>TOTAL TRANSACTIONS</Text>
                     </Flex>
-                    <Text size="4" weight="bold">{activeLoan.transaction_count}</Text>
+                    <Text size="4" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{activeLoan.transaction_count}</Text>
                 </Flex>
             </Panel>
         </Box>

@@ -256,7 +256,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     };
 
     return (
-        <Panel>
+        <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px 18px' }}>
             {/* Toolbar */}
             <Flex justify="between" align="center" mb="4" wrap="wrap" gap="3">
                 {/* Left: Month Nav, Search, Department */}

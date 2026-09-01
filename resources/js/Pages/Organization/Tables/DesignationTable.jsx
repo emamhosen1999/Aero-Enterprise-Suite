@@ -35,16 +35,16 @@ const DesignationTable = ({
     }
 
     return (
-        <Box style={{ overflowX: 'auto' }}>
-            <Table.Root variant="surface">
+        <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <Table.Root size={isMobile ? '1' : '2'} style={{ minWidth: isMobile ? 650 : 950, width: '100%' }}>
                 <Table.Header>
                     <Table.Row>
-                        <Table.ColumnHeaderCell>TITLE</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>DEPARTMENT</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>HIERARCHY</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>EMPLOYEES</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>STATUS</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell justify="end">ACTIONS</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Title</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Department</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Hierarchy</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Employees</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Status</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell justify="end" style={{ width: 80, textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
                     </Table.Row>
                 </Table.Header>
 
@@ -53,29 +53,28 @@ const DesignationTable = ({
                         <Table.Row key={designation.id} align="center">
                             
                             <Table.Cell>
-                                <Text weight="bold" size="2">{designation.title}</Text>
+                                <Text weight="bold" size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)', whiteSpace: 'nowrap' }}>{designation.title}</Text>
                             </Table.Cell>
 
                             <Table.Cell>
-                                <Text color="gray" size="2">{designation.department_name || '—'}</Text>
+                                <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', whiteSpace: 'nowrap' }}>{designation.department_name || '—'}</Text>
                             </Table.Cell>
 
                             <Table.Cell>
-                                <Badge color={getLevelColor(designation.hierarchy_level)} variant="soft" size="1">
+                                <Badge color={getLevelColor(designation.hierarchy_level)} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700 }}>
                                     Level {designation.hierarchy_level || 1}
                                 </Badge>
                             </Table.Cell>
 
                             <Table.Cell>
                                 <Flex align="center" gap="2">
-                                    <PersonIcon color="var(--gray-9)" />
-                                    <Text size="2">{designation.employee_count || 0}</Text>
+                                    <PersonIcon style={{ color: 'var(--aero-color-subtle, var(--gray-9))', width: 14, height: 14 }} />
+                                    <Text size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{designation.employee_count || 0}</Text>
                                 </Flex>
                             </Table.Cell>
 
                             <Table.Cell>
-                                <Badge color={designation.is_active ? 'green' : 'red'} variant={designation.is_active ? 'solid' : 'soft'} size="1">
-                                    {designation.is_active ? <CheckCircledIcon /> : <CrossCircledIcon />}
+                                <Badge color={designation.is_active ? 'jade' : 'red'} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700, padding: '2px 8px' }}>
                                     {designation.is_active ? 'Active' : 'Inactive'}
                                 </Badge>
                             </Table.Cell>

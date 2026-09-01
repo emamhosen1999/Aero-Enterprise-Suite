@@ -40,16 +40,16 @@ const WorkLocationsTable = ({
     }
 
     return (
-        <Box style={{ overflowX: 'auto' }}>
-            <Table.Root variant="surface">
+        <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <Table.Root size={isMobile ? '1' : '2'} style={{ minWidth: isMobile ? 650 : 900, width: '100%' }}>
                 <Table.Header>
                     <Table.Row>
-                        <Table.ColumnHeaderCell>Location Name</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Attendance Methods</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Employees</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 200 }}>Location Name</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Attendance Methods</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Employees</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 90 }}>Status</Table.ColumnHeaderCell>
                         {(hasEditPermission || hasDeletePermission) && (
-                            <Table.ColumnHeaderCell justify="end">Actions</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell justify="end" style={{ width: 80, textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
                         )}
                     </Table.Row>
                 </Table.Header>
@@ -61,18 +61,18 @@ const WorkLocationsTable = ({
                             {/* Location Name */}
                             <Table.Cell>
                                 <Flex align="center" gap="2">
-                                    <Box p="1" style={{ background: 'var(--amber-a3)', borderRadius: 'var(--radius-2)' }}>
-                                        <SewingPinIcon style={{ color: 'var(--amber-9)' }} />
+                                    <Box p="1" style={{ background: 'var(--amber-a3)', border: '1px solid var(--amber-a5)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <SewingPinIcon style={{ color: 'var(--amber-9)', width: 14, height: 14 }} />
                                     </Box>
-                                    <Box>
+                                    <Box style={{ minWidth: 0 }}>
                                         <Flex align="center" gap="2">
-                                            <Text weight="bold" size="2">{location.name}</Text>
+                                            <Text weight="bold" size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)', whiteSpace: 'nowrap' }}>{location.name}</Text>
                                             {location.code && (
-                                                <Badge color="gray" variant="soft" size="1">{location.code}</Badge>
+                                                <Badge color="gray" variant="soft" size="1" style={{ borderRadius: 999 }}>{location.code}</Badge>
                                             )}
                                         </Flex>
                                         {location.address && (
-                                            <Text size="1" color="gray" as="div">{location.address}</Text>
+                                            <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', whiteSpace: 'nowrap' }} as="div">{location.address}</Text>
                                         )}
                                     </Box>
                                 </Flex>
@@ -86,7 +86,7 @@ const WorkLocationsTable = ({
                                             ? location.attendance_types
                                             : [location.attendance_type]
                                         ).map(t => (
-                                            <Badge key={t.id} color="violet" variant="soft" size="1">{t.name}</Badge>
+                                            <Badge key={t.id} color="blue" variant="soft" size="1" style={{ borderRadius: 999 }}>{t.name}</Badge>
                                         ))}
                                     </Flex>
                                 ) : (
@@ -96,15 +96,15 @@ const WorkLocationsTable = ({
 
                             {/* Employee count */}
                             <Table.Cell>
-                                <Badge color={location.employees_count > 0 ? 'blue' : 'gray'} variant="soft" size="2">
+                                <Badge color={location.employees_count > 0 ? 'blue' : 'gray'} variant="soft" size="2" style={{ borderRadius: 999, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
                                     {location.employees_count ?? 0}
                                 </Badge>
                             </Table.Cell>
 
                             {/* Status */}
                             <Table.Cell>
-                                <Badge color={location.is_active === false ? 'gray' : 'green'} variant="soft" size="2">
-                                    {location.is_active === false ? 'Inactive' : 'Active'}
+                                <Badge color={location.is_active ? 'jade' : 'red'} variant="soft" size="1" style={{ borderRadius: 999, fontWeight: 700, padding: '2px 8px' }}>
+                                    {location.is_active ? 'Active' : 'Inactive'}
                                 </Badge>
                             </Table.Cell>
 
