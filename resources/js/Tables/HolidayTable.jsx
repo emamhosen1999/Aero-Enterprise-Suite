@@ -396,10 +396,10 @@ const HolidayTable = ({
         const days = differenceInDays(new Date(holiday.to_date), new Date(holiday.from_date)) + 1;
 
         return (
-            <Panel tinted mb="2">
+            <Panel tinted mb="2" style={{ borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '16px' }}>
                 <Flex justify="between" align="start" gap="2" mb="3">
                     <Box style={{ flex: 1 }}>
-                        <Text size="3" weight="bold">
+                        <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>
                             {holiday.title}
                         </Text>
                         {holiday.description && (
@@ -414,7 +414,7 @@ const HolidayTable = ({
                         )}
                     </Box>
                     <Flex align="center" gap="2">
-                        <Badge color={statusConfig.color} variant="outline" size="1">
+                        <Badge color={statusConfig.color} variant="soft" size="1" style={{ borderRadius: 999 }}>
                             <StatusIcon style={{ width: 12, height: 12, marginRight: 4 }} />
                             {statusConfig.label}
                         </Badge>
@@ -426,7 +426,7 @@ const HolidayTable = ({
                         <Text size="1" color="gray" mb="1" as="div">
                             Type
                         </Text>
-                        <Badge color={typeConfig.color} variant="soft" size="1">
+                        <Badge color={typeConfig.color} variant="soft" size="1" style={{ borderRadius: 999 }}>
                             {typeConfig.icon} {typeConfig.label}
                         </Badge>
                     </Box>
@@ -434,7 +434,7 @@ const HolidayTable = ({
                         <Text size="1" color="gray" mb="1" as="div">
                             Duration
                         </Text>
-                        <Text size="2" weight="bold">
+                        <Text size="2" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
                             {days} {days === 1 ? 'day' : 'days'}
                         </Text>
                     </Box>
@@ -442,7 +442,7 @@ const HolidayTable = ({
                         <Text size="1" color="gray" mb="1" as="div">
                             Start Date
                         </Text>
-                        <Text size="2" weight="medium">
+                        <Text size="2" weight="medium" style={{ fontVariantNumeric: 'tabular-nums' }}>
                             {format(new Date(holiday.from_date), 'MMM dd, yyyy')}
                         </Text>
                     </Box>
@@ -451,7 +451,7 @@ const HolidayTable = ({
                             <Text size="1" color="gray" mb="1" as="div">
                                 End Date
                             </Text>
-                            <Text size="2" weight="medium">
+                            <Text size="2" weight="medium" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                 {format(new Date(holiday.to_date), 'MMM dd, yyyy')}
                             </Text>
                         </Box>
@@ -463,9 +463,9 @@ const HolidayTable = ({
 
     if (holidaysData.length === 0) {
         return (
-            <Panel tinted style={{ padding: 48, textAlign: 'center' }}>
+            <Panel tinted style={{ padding: 48, textAlign: 'center', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                 <CalendarIcon style={{ width: 64, height: 64, color: 'var(--gray-8)', margin: '0 auto 16px auto' }} />
-                <Text size="4" weight="bold" mb="2" as="div">
+                <Text size="4" weight="bold" mb="2" as="div" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
                     No Holidays Found
                 </Text>
                 <Text size="2" color="gray">
@@ -479,19 +479,17 @@ const HolidayTable = ({
         return (
             <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {topContent}
-                <ScrollArea type="auto" scrollbars="horizontal">
-                    <Box style={{ minWidth: 320 }}>
-                        {isLoading ? (
-                            <Flex justify="center" py="8">
-                                <Spinner size="3" />
-                            </Flex>
-                        ) : (
-                            items.map((holiday) => (
-                                <MobileHolidayCard key={holiday.id} holiday={holiday} />
-                            ))
-                        )}
-                    </Box>
-                </ScrollArea>
+                <Box style={{ minWidth: 320 }}>
+                    {isLoading ? (
+                        <Flex justify="center" py="8">
+                            <Spinner size="3" />
+                        </Flex>
+                    ) : (
+                        items.map((holiday) => (
+                            <MobileHolidayCard key={holiday.id} holiday={holiday} />
+                        ))
+                    )}
+                </Box>
                 {filteredHolidays.length > rowsPerPage && (
                     <TablePagination
                         pagination={{
@@ -510,22 +508,34 @@ const HolidayTable = ({
     return (
         <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {topContent}
-            <ScrollArea type="auto" scrollbars="horizontal" style={{ maxHeight: '70vh' }}>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                 {isLoading ? (
                     <Flex justify="center" py="8" align="center">
                         <Spinner size="3" />
                         <Text ml="2">Loading holidays...</Text>
                     </Flex>
                 ) : (
-                    <Table.Root variant="surface" style={{ minWidth: 720 }}>
-                        <Table.Header>
+                    <Table.Root size="2" style={{ minWidth: 840, width: '100%', opacity: isLoading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                        <Table.Header style={{
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 2,
+                            background: 'var(--aero-surface, var(--color-background))',
+                            backdropFilter: 'blur(8px)',
+                            boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                        }}>
                             <Table.Row>
                                 {columns.map((col) => (
                                     <Table.ColumnHeaderCell
                                         key={col.uid}
                                         justify={col.uid === 'actions' ? 'end' : 'start'}
+                                        style={{
+                                            minWidth: col.uid === 'title' ? 260 : col.uid === 'duration' ? 120 : col.uid === 'type' ? 130 : col.uid === 'status' ? 130 : 80,
+                                            whiteSpace: 'nowrap',
+                                            background: 'inherit'
+                                        }}
                                     >
-                                        {col.name}
+                                        <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{col.name}</Text>
                                     </Table.ColumnHeaderCell>
                                 ))}
                             </Table.Row>
@@ -533,7 +543,7 @@ const HolidayTable = ({
                         <Table.Body>
                             {items.length === 0 ? (
                                 <Table.Row>
-                                    <Table.Cell colSpan={columns.length}>
+                                    <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>
                                         <Flex direction="column" align="center" py="6" gap="2">
                                             <CalendarIcon
                                                 style={{ width: 48, height: 48, color: 'var(--gray-8)' }}
@@ -549,7 +559,7 @@ const HolidayTable = ({
                                 </Table.Row>
                             ) : (
                                 items.map((item) => (
-                                    <Table.Row key={item.id}>
+                                    <Table.Row key={item.id} align="center">
                                         {columns.map((col) => (
                                             <Table.Cell key={col.uid}>
                                                 {renderCell(item, col.uid)}
@@ -561,7 +571,7 @@ const HolidayTable = ({
                         </Table.Body>
                     </Table.Root>
                 )}
-            </ScrollArea>
+            </Box>
             {filteredHolidays.length > rowsPerPage && (
                 <TablePagination
                     pagination={{

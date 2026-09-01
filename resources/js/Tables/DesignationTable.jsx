@@ -52,20 +52,42 @@ const DesignationTable = ({
 
     return (
         <Box>
-            <Table.Root variant="surface">
-                <Table.Header>
-                    <Table.Row>
-                        <Table.ColumnHeaderCell>TITLE</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>DEPARTMENT</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>HIERARCHY</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>EMPLOYEES</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>STATUS</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell justify="end">ACTIONS</Table.ColumnHeaderCell>
-                    </Table.Row>
-                </Table.Header>
+            <Box style={{ 
+                overflowX: 'auto', 
+                WebkitOverflowScrolling: 'touch', 
+                borderRadius: 16, 
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                position: 'relative'
+            }}>
+                <Table.Root size="2" style={{ minWidth: 840, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
+                        <Table.Row>
+                            <Table.ColumnHeaderCell style={{ minWidth: 200, background: 'inherit' }}><Text size="1" weight="bold">TITLE</Text></Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}><Text size="1" weight="bold">DEPARTMENT</Text></Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 130, background: 'inherit' }}><Text size="1" weight="bold">HIERARCHY</Text></Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}><Text size="1" weight="bold">EMPLOYEES</Text></Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}><Text size="1" weight="bold">STATUS</Text></Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell justify="end" style={{ minWidth: 80, background: 'inherit' }}><Text size="1" weight="bold">ACTIONS</Text></Table.ColumnHeaderCell>
+                        </Table.Row>
+                    </Table.Header>
 
-                <Table.Body>
-                    {designations.data?.map((designation) => (
+                    <Table.Body>
+                        {loading && (!designations?.data || designations.data.length === 0) ? (
+                            <Table.Row>
+                                <Table.Cell colSpan={6} style={{ textAlign: 'center', padding: '32px' }}>
+                                    <Flex justify="center" py="6" align="center" gap="2">
+                                        <Text size="2" color="gray">Loading designations...</Text>
+                                    </Flex>
+                                </Table.Cell>
+                            </Table.Row>
+                        ) : designations.data?.map((designation) => (
                         <Table.Row key={designation.id} align="center">
                             
                             {/* Title */}
@@ -168,6 +190,7 @@ const DesignationTable = ({
                     ))}
                 </Table.Body>
             </Table.Root>
+            </Box>
 
             {/* Pagination */}
             <TablePagination

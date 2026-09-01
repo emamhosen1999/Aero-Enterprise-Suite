@@ -431,18 +431,25 @@ const LeaveEmployeeTable = React.forwardRef(({
         <Box>
             {bulkBar}
             <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                <Table.Root size="2" style={{ minWidth: isAdminView ? 960 : 780, width: '100%' }}>
-                    <Table.Header>
+                <Table.Root size="2" style={{ minWidth: isAdminView ? 960 : 780, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
                         <Table.Row>
                             {columns.map(col => (
-                                <Table.ColumnHeaderCell key={col.key} style={{ minWidth: col.key === 'select' ? 36 : col.key === 'employee' ? 170 : col.key === 'leave_type' ? 120 : col.key === 'from_date' || col.key === 'to_date' ? 120 : col.key === 'status' ? 130 : col.key === 'reason' ? 160 : 80 }}>
+                                <Table.ColumnHeaderCell key={col.key} style={{ minWidth: col.key === 'select' ? 36 : col.key === 'employee' ? 170 : col.key === 'leave_type' ? 120 : col.key === 'from_date' || col.key === 'to_date' ? 120 : col.key === 'status' ? 130 : col.key === 'reason' ? 160 : 80, background: 'inherit' }}>
                                     {col.key === 'select' ? (
                                         <input type="checkbox" checked={allSelected}
                                             onChange={toggleAll} style={{ cursor: 'pointer' }} />
                                     ) : (
                                         <Flex align="center" gap="1">
                                             {col.icon && React.createElement(col.icon, { style: { width: 12, height: 12 } })}
-                                            <Text size="1" weight="medium" style={{ whiteSpace: 'nowrap' }}>{col.label}</Text>
+                                            <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{col.label}</Text>
                                         </Flex>
                                     )}
                                 </Table.ColumnHeaderCell>
@@ -452,7 +459,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                     <Table.Body>
                         {leaves.length === 0 ? (
                             <Table.Row>
-                                <Table.Cell colSpan={columns.length}>{emptyState}</Table.Cell>
+                                <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>{emptyState}</Table.Cell>
                             </Table.Row>
                         ) : leaves.map(leave => (
                             <Table.Row key={leave.id}
@@ -466,13 +473,12 @@ const LeaveEmployeeTable = React.forwardRef(({
                     </Table.Body>
                 </Table.Root>
             </Box>
-            {totalRows > perPage && (
-                <TablePagination
-                    pagination={{ currentPage, perPage, total: totalRows }}
-                    onPageChange={handlePageChange}
-                    onRowsPerPageChange={onRowsPerPageChange}
-                />
-            )}
+            <TablePagination
+                pagination={{ currentPage, perPage, total: totalRows }}
+                onPageChange={handlePageChange}
+                onRowsPerPageChange={onRowsPerPageChange}
+                loading={loading}
+            />
         </Box>
     );
 });

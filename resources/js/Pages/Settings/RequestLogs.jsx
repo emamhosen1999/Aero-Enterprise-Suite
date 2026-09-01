@@ -450,9 +450,16 @@ const RequestLogs = ({ title }) => {
                             ) : (
                                 <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                                     <Table.Root size="2" style={{ minWidth: 920, width: '100%' }}>
-                                        <Table.Header>
+                                        <Table.Header style={{
+                                            position: 'sticky',
+                                            top: 0,
+                                            zIndex: 2,
+                                            background: 'var(--aero-surface, var(--color-background))',
+                                            backdropFilter: 'blur(8px)',
+                                            boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                                        }}>
                                             <Table.Row>
-                                                <Table.ColumnHeaderCell style={{ width: 36, paddingRight: 0 }}>
+                                                <Table.ColumnHeaderCell style={{ width: 36, paddingRight: 0, background: 'inherit' }}>
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedLogs.size > 0 && selectedLogs.size === logs.length}
@@ -463,14 +470,14 @@ const RequestLogs = ({ title }) => {
                                                         style={{ cursor: 'pointer' }}
                                                     />
                                                 </Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 130, whiteSpace: 'nowrap' }}>IP Address</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 90, whiteSpace: 'nowrap' }}>Method</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 240 }}>URL</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell style={{ minWidth: 90, whiteSpace: 'nowrap' }}>Status</Table.ColumnHeaderCell>
-                                                {!isTablet && <Table.ColumnHeaderCell style={{ minWidth: 130 }}>User</Table.ColumnHeaderCell>}
-                                                <Table.ColumnHeaderCell style={{ minWidth: 100, whiteSpace: 'nowrap' }}>Duration</Table.ColumnHeaderCell>
-                                                {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 160, whiteSpace: 'nowrap' }}>Time</Table.ColumnHeaderCell>}
-                                                <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 80 }}>Actions</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 130, whiteSpace: 'nowrap', background: 'inherit' }}>IP Address</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 90, whiteSpace: 'nowrap', background: 'inherit' }}>Method</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>URL</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ minWidth: 90, whiteSpace: 'nowrap', background: 'inherit' }}>Status</Table.ColumnHeaderCell>
+                                                {!isTablet && <Table.ColumnHeaderCell style={{ minWidth: 130, background: 'inherit' }}>User</Table.ColumnHeaderCell>}
+                                                <Table.ColumnHeaderCell style={{ minWidth: 100, whiteSpace: 'nowrap', background: 'inherit' }}>Duration</Table.ColumnHeaderCell>
+                                                {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 160, whiteSpace: 'nowrap', background: 'inherit' }}>Time</Table.ColumnHeaderCell>}
+                                                <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 80, background: 'inherit' }}>Actions</Table.ColumnHeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>

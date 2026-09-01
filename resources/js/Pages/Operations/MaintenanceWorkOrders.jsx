@@ -55,15 +55,22 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
                     </Box>
                     <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                         <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
-                            <Table.Header>
+                            <Table.Header style={{
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 2,
+                                background: 'var(--aero-surface, var(--color-background))',
+                                backdropFilter: 'blur(8px)',
+                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                            }}>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>WO #</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 240 }}>Title</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Category</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 150 }}>Location</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Priority</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150 }}>Assigned Crew</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>WO #</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Title</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Category</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 150, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Priority</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150, background: 'inherit' }}>Assigned Crew</Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>

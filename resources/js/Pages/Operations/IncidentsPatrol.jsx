@@ -70,15 +70,22 @@ export default function IncidentsPatrol({ auth, metrics, incidents }) {
                     </Box>
                     <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                         <Table.Root size="2" style={{ minWidth: 920, width: '100%' }}>
-                            <Table.Header>
+                            <Table.Header style={{
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 2,
+                                background: 'var(--aero-surface, var(--color-background))',
+                                backdropFilter: 'blur(8px)',
+                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                            }}>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Incident #</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 220 }}>Title</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Location</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Severity</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 150 }}>Dispatched Unit</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120 }}>Response Time</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Incident #</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 220, background: 'inherit' }}>Title</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Severity</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 150, background: 'inherit' }}>Dispatched Unit</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120, background: 'inherit' }}>Response Time</Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>

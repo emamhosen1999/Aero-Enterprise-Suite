@@ -255,26 +255,45 @@ const DepartmentTable = ({
 
     return (
         <Box className="w-full">
-            <ScrollArea type="auto" scrollbars={isMobile ? 'horizontal' : 'vertical'} style={{ maxHeight: isMobile ? undefined : '70vh' }}>
-                <Table.Root variant="surface" style={{ minWidth: isMobile ? 640 : undefined }}>
-                    <Table.Header>
+            <Box style={{ 
+                overflowX: 'auto', 
+                WebkitOverflowScrolling: 'touch', 
+                borderRadius: 16, 
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                position: 'relative'
+            }}>
+                <Table.Root size="2" style={{ minWidth: 880, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
                         <Table.Row>
                             {columns.map((col) => (
                                 <Table.ColumnHeaderCell
                                     key={col.uid}
                                     justify={col.uid === 'actions' ? 'end' : 'start'}
+                                    style={{
+                                        minWidth: col.uid === 'name' ? 220 : col.uid === 'manager' ? 180 : col.uid === 'employees' ? 120 : col.uid === 'location' ? 160 : col.uid === 'status' ? 110 : 90,
+                                        whiteSpace: 'nowrap',
+                                        background: 'inherit'
+                                    }}
                                 >
-                                    {col.name}
+                                    <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{col.name}</Text>
                                 </Table.ColumnHeaderCell>
                             ))}
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                        {loading ? (
+                        {loading && (!departments?.data || departments.data.length === 0) ? (
                             <Table.Row>
-                                <Table.Cell colSpan={columns.length}>
-                                    <Flex justify="center" py="6">
+                                <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>
+                                    <Flex justify="center" py="6" align="center" gap="2">
                                         <Spinner size="3" />
+                                        <Text size="2" color="gray">Loading departments...</Text>
                                     </Flex>
                                 </Table.Cell>
                             </Table.Row>
@@ -289,7 +308,7 @@ const DepartmentTable = ({
                         )}
                     </Table.Body>
                 </Table.Root>
-            </ScrollArea>
+            </Box>
 
             <TablePagination
                 pagination={{

@@ -32,14 +32,21 @@ export default function ShiftHandoverLogs({ auth, shiftLogs }) {
                     </Box>
                     <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                         <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
-                            <Table.Header>
+                            <Table.Header style={{
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 2,
+                                background: 'var(--aero-surface, var(--color-background))',
+                                backdropFilter: 'blur(8px)',
+                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                            }}>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Shift Date</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Shift Type</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Duty Operator</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Open Incidents</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 260 }}>Handover Notes</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120 }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Shift Date</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Shift Type</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Duty Operator</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Open Incidents</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 260, background: 'inherit' }}>Handover Notes</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>

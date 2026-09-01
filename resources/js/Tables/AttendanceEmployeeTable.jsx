@@ -268,7 +268,7 @@ const AttendanceEmployeeTable = ({
   return (
     <Box style={{ width: '100%' }}>
       {error ? (
-        <Panel tinted style={{ background: 'var(--red-a2)' }}>
+        <Panel tinted style={{ background: 'var(--red-a2)', borderRadius: 16, border: '1px solid var(--red-a4)' }}>
           <Flex align="center" gap="3">
             <ExclamationTriangleIcon style={{ width: 20, height: 20, color: 'var(--red-9)' }} />
             <Text size="2" color="red">{error}</Text>
@@ -276,28 +276,49 @@ const AttendanceEmployeeTable = ({
         </Panel>
       ) : (
         <>
-          <ScrollArea
-            type="auto"
-            scrollbars={isMobile ? 'horizontal' : 'vertical'}
-            style={{ maxHeight: '70vh' }}
-          >
-            {!isLoaded ? (
-              <Flex justify="center" py="8">
+          <Box style={{ 
+            overflowX: 'auto', 
+            WebkitOverflowScrolling: 'touch', 
+            borderRadius: 16, 
+            border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+            position: 'relative'
+          }}>
+            {!isLoaded && attendances.length === 0 ? (
+              <Flex justify="center" py="8" align="center" gap="2">
                 <Spinner size="3" />
+                <Text size="2" color="gray">Loading attendance records...</Text>
               </Flex>
             ) : (
               <Table.Root
-                variant="surface"
                 size="2"
-                style={{ minWidth: isMobile ? 720 : '100%' }}
+                style={{ 
+                  minWidth: 840, 
+                  width: '100%',
+                  opacity: !isLoaded ? 0.6 : 1,
+                  transition: 'opacity 0.2s ease',
+                }}
               >
-                <Table.Header>
+                <Table.Header style={{
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  background: 'var(--aero-surface, var(--color-background))',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                }}>
                   <Table.Row>
                     {columns.map((column) => (
-                      <Table.ColumnHeaderCell key={column.uid}>
+                      <Table.ColumnHeaderCell 
+                        key={column.uid}
+                        style={{
+                          minWidth: column.uid === 'employee' ? 220 : column.uid === 'date' ? 140 : column.uid === 'in_time' || column.uid === 'out_time' ? 120 : column.uid === 'duration' ? 110 : column.uid === 'status' ? 120 : 130,
+                          whiteSpace: 'nowrap',
+                          background: 'inherit'
+                        }}
+                      >
                         <Flex align="center" gap="2">
-                          {column.icon && <column.icon style={{ width: 16, height: 16, flexShrink: 0 }} />}
-                          <Text size="2" weight="medium">{column.name}</Text>
+                          {column.icon && <column.icon style={{ width: 14, height: 14, flexShrink: 0 }} />}
+                          <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{column.name}</Text>
                         </Flex>
                       </Table.ColumnHeaderCell>
                     ))}
@@ -307,13 +328,13 @@ const AttendanceEmployeeTable = ({
                 <Table.Body>
                   {attendances.length === 0 ? (
                     <Table.Row>
-                      <Table.Cell colSpan={columns.length}>
+                      <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>
                         {emptyState}
                       </Table.Cell>
                     </Table.Row>
                   ) : (
                     attendances.map((attendance) => (
-                      <Table.Row key={attendance.id || attendance.user_id}>
+                      <Table.Row key={attendance.id || attendance.user_id} align="center">
                         {columns.map((col) => (
                           <Table.Cell key={col.uid}>
                             {renderCell(attendance, col.uid)}
@@ -325,16 +346,14 @@ const AttendanceEmployeeTable = ({
                 </Table.Body>
               </Table.Root>
             )}
-          </ScrollArea>
+          </Box>
           
-          {totalRows > perPage && (
-            <Box mt="4">
-              <TablePagination
-                pagination={{ currentPage, perPage, total: totalRows }}
-                onPageChange={handlePageChange}
-              />
-            </Box>
-          )}
+          <TablePagination
+            pagination={{ currentPage, perPage, total: totalRows }}
+            onPageChange={(p) => { setCurrentPage(p); }}
+            onRowsPerPageChange={(n) => { setPerPage(n); setCurrentPage(1); }}
+            loading={!isLoaded}
+          />
         </>
       )}
     </Box>

@@ -63,14 +63,21 @@ export default function TollOperations({ auth, summary, tollRecords }) {
                     </Box>
                     <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                         <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
-                            <Table.Header>
+                            <Table.Header style={{
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 2,
+                                background: 'var(--aero-surface, var(--color-background))',
+                                backdropFilter: 'blur(8px)',
+                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                            }}>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Plaza</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Lane</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 180 }}>Vehicle Class</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 130 }}>Payment Method</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Toll Amount</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150 }}>Time</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Plaza</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Lane</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Vehicle Class</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 130, background: 'inherit' }}>Payment Method</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Toll Amount</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150, background: 'inherit' }}>Time</Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>

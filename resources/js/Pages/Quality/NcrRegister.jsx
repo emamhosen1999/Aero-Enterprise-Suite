@@ -110,15 +110,22 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
                 <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                     <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                         <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
-                            <Table.Header>
+                            <Table.Header style={{
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 2,
+                                background: 'var(--aero-surface, var(--color-background))',
+                                backdropFilter: 'blur(8px)',
+                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                            }}>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Ref</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 240 }}>Non-conformity</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Severity</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 140 }}>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Chainage</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110 }}>Detected</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 70 }}></Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Ref</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Non-conformity</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Severity</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Chainage</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Detected</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 70, background: 'inherit' }}></Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>

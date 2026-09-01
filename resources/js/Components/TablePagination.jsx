@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flex, Text, Select, Button, IconButton } from '@radix-ui/themes';
+import { Flex, Text, Select, Button, IconButton, Spinner } from '@radix-ui/themes';
 import { ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
 
 const TablePagination = ({ 
@@ -8,13 +8,13 @@ const TablePagination = ({
     onRowsPerPageChange,
     loading = false 
 }) => {
-    if (!pagination || loading || pagination.total <= 0) {
+    if (!pagination || pagination.total <= 0) {
         return null;
     }
 
     const { currentPage, perPage, total } = pagination;
-    const totalPages = Math.ceil(total / perPage);
-    const startRow = ((currentPage - 1) * perPage) + 1;
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const startRow = Math.min(((currentPage - 1) * perPage) + 1, total);
     const endRow = Math.min(currentPage * perPage, total);
 
     return (
@@ -23,30 +23,37 @@ const TablePagination = ({
             justify="between"
             pt="3"
             mt="2"
-            style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.06))' }}
+            style={{ 
+                borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.06))',
+                opacity: loading ? 0.75 : 1,
+                pointerEvents: loading ? 'none' : 'auto',
+                transition: 'opacity 0.2s ease',
+            }}
             wrap="wrap"
             gap="3"
         >
             {/* Rows per page */}
             <Flex align="center" gap="2">
-                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Rows per page</Text>
+                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', whiteSpace: 'nowrap' }}>Rows per page</Text>
                 <Select.Root
                     size="1"
+                    disabled={loading}
                     value={String(perPage)}
                     onValueChange={(v) => onRowsPerPageChange?.(parseInt(v))}
                 >
                     <Select.Trigger style={{ borderRadius: 8 }} />
                     <Select.Content>
-                        {[10, 20, 30, 50, 100].map(n => (
+                        {[5, 10, 15, 20, 25, 30, 50, 100].map(n => (
                             <Select.Item key={n} value={String(n)}>{n}</Select.Item>
                         ))}
                     </Select.Content>
                 </Select.Root>
+                {loading && <Spinner size="1" style={{ marginLeft: 4 }} />}
             </Flex>
 
             {/* Info + nav */}
             <Flex align="center" gap="3">
-                <Text size="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                <Text size="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--aero-color-subtle, var(--gray-9))', whiteSpace: 'nowrap' }}>
                     {startRow}–{endRow} of {total}
                 </Text>
                 <Flex gap="1">
@@ -54,7 +61,7 @@ const TablePagination = ({
                         size="1"
                         variant="soft"
                         color="gray"
-                        disabled={currentPage <= 1}
+                        disabled={loading || currentPage <= 1}
                         onClick={() => onPageChange?.(currentPage - 1)}
                         aria-label="Previous page"
                         style={{ borderRadius: 8 }}
@@ -77,6 +84,7 @@ const TablePagination = ({
                             <Button
                                 key={page}
                                 size="1"
+                                disabled={loading}
                                 variant={page === currentPage ? 'solid' : 'soft'}
                                 color={page === currentPage ? 'blue' : 'gray'}
                                 onClick={() => onPageChange?.(page)}
@@ -90,7 +98,7 @@ const TablePagination = ({
                         size="1"
                         variant="soft"
                         color="gray"
-                        disabled={currentPage >= totalPages}
+                        disabled={loading || currentPage >= totalPages}
                         onClick={() => onPageChange?.(currentPage + 1)}
                         aria-label="Next page"
                         style={{ borderRadius: 8 }}

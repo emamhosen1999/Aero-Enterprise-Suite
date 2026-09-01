@@ -93,14 +93,21 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                     </Box>
                     <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                         <Table.Root size="2" style={{ minWidth: 860, width: '100%' }}>
-                            <Table.Header>
+                            <Table.Header style={{
+                                position: 'sticky',
+                                top: 0,
+                                zIndex: 2,
+                                background: 'var(--aero-surface, var(--color-background))',
+                                backdropFilter: 'blur(8px)',
+                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                            }}>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120 }}>Board Code</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 160 }}>Location</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 240 }}>Active Display Line 1</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 200 }}>Display Line 2</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 100 }}>Type</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120 }}>Action</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Board Code</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Active Display Line 1</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 200, background: 'inherit' }}>Display Line 2</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Type</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 120, background: 'inherit' }}>Action</Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>

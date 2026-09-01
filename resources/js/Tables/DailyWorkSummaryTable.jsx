@@ -332,7 +332,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
     }, []);
 
     if (isMobile) {
-        if (loading) return <MobileLoadingSkeleton />;
+        if (loading && (!filteredData || filteredData.length === 0)) return <MobileLoadingSkeleton />;
         return (
             <Box>
                 {onRefresh && (
@@ -342,13 +342,13 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                         </Button>
                     </Flex>
                 )}
-                <ScrollArea style={{ maxHeight: '70vh' }}>
+                <Box>
                     {filteredData?.length > 0 ? (
                         filteredData.map((summary, index) => (
                             <MobileSummaryCard key={index} summary={summary} />
                         ))
                     ) : (
-                        <Panel>
+                        <Panel style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
                             <Flex direction="column" align="center" p="8" gap="2">
                                 <ActivityLogIcon style={{ width: 48, height: 48, color: 'var(--gray-8)', opacity: 0.5 }} />
                                 <Text size="4" weight="medium" color="gray">No summary data found</Text>
@@ -356,18 +356,25 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                             </Flex>
                         </Panel>
                     )}
-                </ScrollArea>
+                </Box>
             </Box>
         );
     }
 
-    if (loading) return <DesktopLoadingSkeleton />;
+    if (loading && (!paginatedData || paginatedData.length === 0)) return <DesktopLoadingSkeleton />;
 
     return (
         <Box>
-            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                <RadixTable.Root size="2" style={{ minWidth: 1240, width: '100%' }}>
-                    <RadixTable.Header>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', position: 'relative' }}>
+                <RadixTable.Root size="2" style={{ minWidth: 1240, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                    <RadixTable.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
                         <RadixTable.Row>
                             {columns.map((column) => (
                                 <RadixTable.ColumnHeaderCell
@@ -376,7 +383,8 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                                         minWidth: column.uid === 'date' ? 128
                                             : column.uid === 'completionPercentage' || column.uid === 'rfiSubmissionPercentage' ? 180
                                             : 100,
-                                        whiteSpace: 'nowrap'
+                                        whiteSpace: 'nowrap',
+                                        background: 'inherit'
                                     }}
                                 >
                                     <Flex align="center" gap="1" justify={column.uid === 'date' ? 'start' : 'center'}>
@@ -400,7 +408,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                             ))
                         ) : (
                             <RadixTable.Row>
-                                <RadixTable.Cell colSpan={columns.length}>
+                                <RadixTable.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>
                                     <Flex direction="column" align="center" justify="center" py="8" gap="2">
                                         <ActivityLogIcon style={{ width: 48, height: 48, color: 'var(--gray-8)', opacity: 0.5 }} />
                                         <Text size="3" weight="medium" color="gray">No summary data found</Text>

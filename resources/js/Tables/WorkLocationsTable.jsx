@@ -263,25 +263,44 @@ const WorkLocationsTable = ({
     }
 
     return (
-        <Box style={{ maxHeight: '84vh', overflowY: 'auto' }}>
+        <Box style={{ width: '100%' }}>
             {headerBar}
-            <ScrollArea type="auto" scrollbars="horizontal" style={{ maxHeight: '70vh' }}>
-                {loading ? (
-                    <Flex justify="center" py="8">
+            <Box style={{ 
+                overflowX: 'auto', 
+                WebkitOverflowScrolling: 'touch', 
+                borderRadius: 16, 
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                position: 'relative'
+            }}>
+                {loading && (!allData || allData.length === 0) ? (
+                    <Flex justify="center" py="8" align="center" gap="2">
                         <Spinner size="3" />
+                        <Text size="2" color="gray">Loading work locations...</Text>
                     </Flex>
                 ) : (
-                    <Table.Root variant="surface" style={{ minWidth: 800 }}>
-                        <Table.Header>
+                    <Table.Root size="2" style={{ minWidth: 840, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                        <Table.Header style={{
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 2,
+                            background: 'var(--aero-surface, var(--color-background))',
+                            backdropFilter: 'blur(8px)',
+                            boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                        }}>
                             <Table.Row>
                                 {columns.map((column) => (
                                     <Table.ColumnHeaderCell
                                         key={column.uid}
                                         justify={column.uid === 'actions' ? 'center' : 'start'}
+                                        style={{
+                                            minWidth: column.uid === 'location' ? 220 : column.uid === 'start_chainage' || column.uid === 'end_chainage' ? 140 : column.uid === 'incharge' ? 180 : column.uid === 'status' ? 110 : column.uid === 'created_at' ? 130 : 80,
+                                            whiteSpace: 'nowrap',
+                                            background: 'inherit'
+                                        }}
                                     >
                                         <Flex align="center" gap="1">
                                             {column.icon && <column.icon className="w-3 h-3" />}
-                                            <Text size="1" weight="bold">{column.name}</Text>
+                                            <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{column.name}</Text>
                                         </Flex>
                                     </Table.ColumnHeaderCell>
                                 ))}
@@ -290,13 +309,13 @@ const WorkLocationsTable = ({
                         <Table.Body>
                             {!allData || allData.length === 0 ? (
                                 <Table.Row>
-                                    <Table.Cell colSpan={columns.length}>
+                                    <Table.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '32px' }}>
                                         <Text size="2" color="gray">No work locations found</Text>
                                     </Table.Cell>
                                 </Table.Row>
                             ) : (
                                 allData.map((location) => (
-                                    <Table.Row key={location.id}>
+                                    <Table.Row key={location.id} align="center">
                                         {columns.map((col) => (
                                             <Table.Cell key={col.uid}>
                                                 {renderCell(location, col.uid)}
@@ -308,7 +327,7 @@ const WorkLocationsTable = ({
                         </Table.Body>
                     </Table.Root>
                 )}
-            </ScrollArea>
+            </Box>
         </Box>
     );
 };

@@ -252,9 +252,16 @@ const LettersTable = ({
     return (
         <Box className="w-full">
             {loading && <Loader />}
-            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                <Table.Root size="2" style={{ minWidth: 980, width: '100%' }}>
-                    <Table.Header>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', position: 'relative' }}>
+                <Table.Root size="2" style={{ minWidth: 980, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
                         <Table.Row>
                             {columns.map((column) => (
                                 <Table.ColumnHeaderCell
@@ -263,6 +270,7 @@ const LettersTable = ({
                                     style={{
                                         minWidth: column.uid === 'from' ? 150 : column.uid === 'status' ? 140 : column.uid === 'subject' ? 220 : column.uid === 'action_taken' ? 180 : column.uid === 'assigned_to' ? 150 : column.uid === 'received_date' ? 120 : 90,
                                         whiteSpace: 'nowrap',
+                                        background: 'inherit',
                                         cursor: column.sortable ? 'pointer' : undefined
                                     }}
                                     onClick={

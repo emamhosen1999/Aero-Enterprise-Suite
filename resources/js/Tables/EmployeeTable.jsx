@@ -268,18 +268,31 @@ const EmployeeTable = ({
             )}
 
             {/* Scrollable table */}
-            <Box style={{ overflowX: 'auto' }}>
-                <Table.Root variant="surface" size={isMobile ? '1' : '2'}>
-                    <Table.Header>
+            <Box style={{ 
+                overflowX: 'auto', 
+                WebkitOverflowScrolling: 'touch', 
+                borderRadius: 16, 
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', 
+                position: 'relative' 
+            }}>
+                <Table.Root size={isMobile ? '1' : '2'} style={{ minWidth: 1080, width: '100%' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
                         <Table.Row>
-                            <Table.ColumnHeaderCell style={{ width: 48 }}>#</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
-                            {!isMobile && <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>}
-                            <Table.ColumnHeaderCell>Department</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Designation</Table.ColumnHeaderCell>
-                            {!isMobile && !isTablet && <Table.ColumnHeaderCell>Attendance Type</Table.ColumnHeaderCell>}
-                            {!isMobile && <Table.ColumnHeaderCell>Reports To</Table.ColumnHeaderCell>}
-                            <Table.ColumnHeaderCell style={{ width: 56, textAlign: 'center' }}>Actions</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ width: 50, minWidth: 50, textAlign: 'center', background: 'inherit' }}><Text size="1" weight="bold">#</Text></Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 220, background: 'inherit' }}><Text size="1" weight="bold">Employee</Text></Table.ColumnHeaderCell>
+                            {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}><Text size="1" weight="bold">Contact</Text></Table.ColumnHeaderCell>}
+                            <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}><Text size="1" weight="bold">Department</Text></Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}><Text size="1" weight="bold">Designation</Text></Table.ColumnHeaderCell>
+                            {!isMobile && !isTablet && <Table.ColumnHeaderCell style={{ minWidth: 170, background: 'inherit' }}><Text size="1" weight="bold">Attendance Type</Text></Table.ColumnHeaderCell>}
+                            {!isMobile && <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}><Text size="1" weight="bold">Reports To</Text></Table.ColumnHeaderCell>}
+                            <Table.ColumnHeaderCell style={{ width: 64, minWidth: 64, textAlign: 'center', background: 'inherit' }}><Text size="1" weight="bold">Actions</Text></Table.ColumnHeaderCell>
                         </Table.Row>
                     </Table.Header>
 

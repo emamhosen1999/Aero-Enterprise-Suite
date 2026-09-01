@@ -137,9 +137,16 @@ const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, o
 
     return (
         <Box className="w-full">
-            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
-                    <Table.Header>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', position: 'relative' }}>
+                <Table.Root size="2" style={{ minWidth: 840, width: '100%', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
                         <Table.Row>
                             {columns.map((col) => (
                                 <Table.ColumnHeaderCell
@@ -147,7 +154,8 @@ const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, o
                                     justify={col.uid === 'actions' ? 'end' : 'start'}
                                     style={{
                                         minWidth: col.uid === 'employee' ? 180 : col.uid === 'review_type' ? 140 : col.uid === 'period' ? 120 : col.uid === 'status' ? 120 : col.uid === 'reviewer' ? 140 : col.uid === 'score' ? 90 : 80,
-                                        whiteSpace: 'nowrap'
+                                        whiteSpace: 'nowrap',
+                                        background: 'inherit'
                                     }}
                                 >
                                     <Text size="1" weight="bold" style={{ whiteSpace: 'nowrap' }}>{col.name}</Text>
