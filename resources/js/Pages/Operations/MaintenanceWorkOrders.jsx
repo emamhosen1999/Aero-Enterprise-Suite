@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog, Select } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Grid, Button, Badge, Table, TextField, Dialog, Select, Separator } from '@radix-ui/themes';
 import { WrenchScrewdriverIcon, PlusIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
@@ -34,9 +34,9 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
     return (
         <App auth={auth}>
             <Head title="Maintenance Work Orders" />
-            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+            <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                    <Panel>
                         {/* ── Page Header ── */}
                         <Box mb="4">
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
@@ -89,81 +89,84 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
                                             </Table.Cell>
                                             <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.location}</Text></Table.Cell>
                                             <Table.Cell>
-                                                <Badge color={wo.priority === 'high' ? 'red' : 'orange'} variant="soft" style={{ borderRadius: 999 }}>
+                                                <Badge color={wo.priority === 'high' ? 'red' : wo.priority === 'medium' ? 'orange' : 'gray'} variant="soft" style={{ borderRadius: 999 }}>
                                                     {wo.priority}
                                                 </Badge>
                                             </Table.Cell>
                                             <Table.Cell>
-                                                <Badge color={wo.status === 'completed' ? 'green' : 'amber'} variant="soft" style={{ borderRadius: 999 }}>
+                                                <Badge color={wo.status === 'completed' ? 'green' : wo.status === 'in_progress' ? 'blue' : 'amber'} variant="soft" style={{ borderRadius: 999 }}>
                                                     {wo.status}
                                                 </Badge>
                                             </Table.Cell>
-                                            <Table.Cell style={{ textAlign: 'right' }}><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.assigned_to}</Text></Table.Cell>
+                                            <Table.Cell style={{ textAlign: 'right' }}>
+                                                <Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.assigned_to}</Text>
+                                            </Table.Cell>
                                         </Table.Row>
                                     ))}
                                 </Table.Body>
                             </Table.Root>
                         </Box>
+
+                        {/* Create Modal */}
+                        <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
+                            <Dialog.Content style={{ maxWidth: 480 }}>
+                                <Dialog.Title>Create Maintenance Work Order</Dialog.Title>
+                                <Dialog.Description size="2" mb="4">
+                                    Issue a new routine, corrective, or emergency highway maintenance ticket.
+                                </Dialog.Description>
+                                <form onSubmit={handleSubmit}>
+                                    <Flex direction="column" gap="3">
+                                        <label>
+                                            <Text as="div" size="2" mb="1" weight="bold">Title / Task</Text>
+                                            <TextField.Root placeholder="e.g. Guardrail Replacement at Kanchan" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                                        </label>
+                                        <Grid columns="2" gap="3">
+                                            <label>
+                                                <Text as="div" size="2" mb="1" weight="bold">Category</Text>
+                                                <Select.Root value={category} onValueChange={setCategory}>
+                                                    <Select.Trigger style={{ width: '100%' }} />
+                                                    <Select.Content>
+                                                        <Select.Item value="pavement">Pavement & Surfacing</Select.Item>
+                                                        <Select.Item value="bridge">Bridge & Culverts</Select.Item>
+                                                        <Select.Item value="lighting">Lighting & Electrification</Select.Item>
+                                                        <Select.Item value="drainage">Drainage & Slope</Select.Item>
+                                                        <Select.Item value="signage">Traffic Signs & VMS</Select.Item>
+                                                    </Select.Content>
+                                                </Select.Root>
+                                            </label>
+                                            <label>
+                                                <Text as="div" size="2" mb="1" weight="bold">Priority</Text>
+                                                <Select.Root value={priority} onValueChange={setPriority}>
+                                                    <Select.Trigger style={{ width: '100%' }} />
+                                                    <Select.Content>
+                                                        <Select.Item value="low">Low</Select.Item>
+                                                        <Select.Item value="medium">Medium</Select.Item>
+                                                        <Select.Item value="high">High Emergency</Select.Item>
+                                                    </Select.Content>
+                                                </Select.Root>
+                                            </label>
+                                        </Grid>
+                                        <label>
+                                            <Text as="div" size="2" mb="1" weight="bold">Location (Chainage)</Text>
+                                            <TextField.Root placeholder="e.g. Ch 12+400 Northbound" value={location} onChange={(e) => setLocation(e.target.value)} required />
+                                        </label>
+                                        <label>
+                                            <Text as="div" size="2" mb="1" weight="bold">Assigned Maintenance Crew</Text>
+                                            <TextField.Root placeholder="e.g. Roadside Civil Crew B" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} required />
+                                        </label>
+                                        <Flex gap="3" mt="4" justify="end">
+                                            <Dialog.Close>
+                                                <Button variant="soft" color="gray">Cancel</Button>
+                                            </Dialog.Close>
+                                            <Button type="submit" color="blue">Issue Ticket</Button>
+                                        </Flex>
+                                    </Flex>
+                                </form>
+                            </Dialog.Content>
+                        </Dialog.Root>
                     </Panel>
                 </Box>
             </Flex>
-
-            {/* Create Work Order Modal */}
-            <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
-                <Dialog.Content style={{ maxWidth: 480 }}>
-                    <Dialog.Title>Create Maintenance Work Order</Dialog.Title>
-                    <form onSubmit={handleSubmit}>
-                        <Box mb="3">
-                            <Text size="2" weight="bold" mb="1" as="div">Work Order Title</Text>
-                            <TextField.Root value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Guardrail repair near Kanchan Bridge" required />
-                        </Box>
-                        <Flex gap="3" mb="3">
-                            <Box style={{ flex: 1 }}>
-                                <Text size="2" weight="bold" mb="1" as="div">Category</Text>
-                                <Select.Root value={category} onValueChange={setCategory}>
-                                    <Select.Trigger style={{ width: '100%' }} />
-                                    <Select.Content>
-                                        <Select.Item value="pavement">Pavement</Select.Item>
-                                        <Select.Item value="guardrail">Guardrail</Select.Item>
-                                        <Select.Item value="lighting">Lighting & ITS</Select.Item>
-                                        <Select.Item value="drainage">Drainage</Select.Item>
-                                        <Select.Item value="bridge">Bridge / Structure</Select.Item>
-                                        <Select.Item value="signage">Signage & Marking</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
-                            <Box style={{ flex: 1 }}>
-                                <Text size="2" weight="bold" mb="1" as="div">Priority</Text>
-                                <Select.Root value={priority} onValueChange={setPriority}>
-                                    <Select.Trigger style={{ width: '100%' }} />
-                                    <Select.Content>
-                                        <Select.Item value="low">Low</Select.Item>
-                                        <Select.Item value="medium">Medium</Select.Item>
-                                        <Select.Item value="high">High</Select.Item>
-                                        <Select.Item value="emergency">Emergency</Select.Item>
-                                    </Select.Content>
-                                </Select.Root>
-                            </Box>
-                        </Flex>
-                        <Box mb="3">
-                            <Text size="2" weight="bold" mb="1" as="div">Location / Chainage</Text>
-                            <TextField.Root value={location} onChange={(e) => setLocation(e.target.value)} required />
-                        </Box>
-                        <Box mb="4">
-                            <Text size="2" weight="bold" mb="1" as="div">Assigned Crew / Contractor</Text>
-                            <TextField.Root value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} required />
-                        </Box>
-                        <Flex justify="end" gap="2">
-                            <Button type="button" variant="soft" color="gray" onClick={() => setOpenModal(false)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" color="blue">
-                                Issue Work Order
-                            </Button>
-                        </Flex>
-                    </form>
-                </Dialog.Content>
-            </Dialog.Root>
         </App>
     );
 }

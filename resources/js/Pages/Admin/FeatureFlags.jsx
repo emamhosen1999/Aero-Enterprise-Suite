@@ -154,9 +154,9 @@ const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
       <Head title="Feature Flags" />
 
       <ErrorBoundary>
-        <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+        <Flex justify="center" p="4">
           <Box style={{ width: '100%', maxWidth: 2000 }}>
-            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+            <Panel>
               {/* ── Page Header ── */}
               <Box mb="4">
                 <Flex align={{ initial: 'start', sm: 'center' }} justify="between" gap="4" direction={{ initial: 'column', sm: 'row' }}>

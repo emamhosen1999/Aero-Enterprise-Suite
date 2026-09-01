@@ -14,9 +14,9 @@ export default function ShiftHandoverLogs({ auth, shiftLogs }) {
     return (
         <App auth={auth}>
             <Head title="Digital Shift Handover Logs" />
-            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+            <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                    <Panel>
                         {/* ── Page Header ── */}
                         <Box mb="4">
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
