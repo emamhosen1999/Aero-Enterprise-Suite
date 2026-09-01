@@ -15,12 +15,14 @@ use Tests\TestCase;
 
 class OperationsMaintenanceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected User $user;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::first() ?? User::factory()->create();
+        $this->user = User::factory()->create();
     }
 
     public function test_om_dashboard_returns_successful_data(): void
@@ -155,7 +157,7 @@ class OperationsMaintenanceTest extends TestCase
     public function test_mobile_field_endpoints(): void
     {
         $response = $this->actingAs($this->user)
-            ->getJson('/api/om/field/overview');
+            ->getJson('/api/v1/om/field/overview');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
