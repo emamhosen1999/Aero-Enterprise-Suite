@@ -89,75 +89,76 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
 
     // Radix Stats Cards Configuration
     const statsCards = [
-        { title: 'Total Designations', value: stats.total, icon: <LayersIcon width="20" height="20" />, color: 'var(--blue-9)', bg: 'var(--blue-3)' },
-        { title: 'Active', value: stats.active, icon: <CheckCircledIcon width="20" height="20" />, color: 'var(--green-9)', bg: 'var(--green-3)' },
-        { title: 'Inactive', value: stats.inactive, icon: <CrossCircledIcon width="20" height="20" />, color: 'var(--red-9)', bg: 'var(--red-3)' },
-        { title: 'Top-Level', value: stats.parent_designations, icon: <PersonIcon width="20" height="20" />, color: 'var(--purple-9)', bg: 'var(--purple-3)' }
+        { title: 'Total Designations', value: stats?.total ?? initialStats?.total ?? 0, icon: <LayersIcon width="20" height="20" />, color: 'var(--blue-9)', bg: 'var(--blue-3)' },
+        { title: 'Active', value: stats?.active ?? initialStats?.active ?? 0, icon: <CheckCircledIcon width="20" height="20" />, color: 'var(--green-9)', bg: 'var(--green-3)' },
+        { title: 'Inactive', value: stats?.inactive ?? initialStats?.inactive ?? 0, icon: <CrossCircledIcon width="20" height="20" />, color: 'var(--red-9)', bg: 'var(--red-3)' },
+        { title: 'Top-Level', value: stats?.parent_designations ?? initialStats?.parent_designations ?? 0, icon: <PersonIcon width="20" height="20" />, color: 'var(--purple-9)', bg: 'var(--purple-3)' }
     ];
 
     return (
         <App>
             <Head title={title || "Designations"} />
             
-            <Flex justify="center" p="4">
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
                         {/* ── Page Header ── */}
-                        <Box mb="5">
-                            <Flex justify="between" align="center" direction={{ initial: 'column', sm: 'row' }} gap="4">
+                        <Box mb="4">
+                            <Flex justify="between" align={{ initial: 'start', sm: 'center' }} direction={{ initial: 'column', sm: 'row' }} gap="4">
                                 <Flex align="center" gap="3">
-                                    <Box p="3" style={{ background: 'var(--accent-a3)', borderRadius: 'var(--radius-2)' }}>
-                                        <LayersIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <LayersIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size="5">Designation Management</Heading>
-                                        <Text size="2" color="gray">Manage company designations and hierarchy</Text>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Designation Management</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Manage company designations and hierarchy</Text>
                                     </Box>
                                 </Flex>
                                 {canCreateDesignation && (
-                                    <Button onClick={() => openModal('add_designation')} color="indigo">
+                                    <Button onClick={() => openModal('add_designation')} color="blue" style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                         <PlusIcon /> {isMobile ? "Add" : "Add Designation"}
                                     </Button>
                                 )}
                             </Flex>
                         </Box>
 
-                        <Separator size="4" mb="5" />
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
                         {/* ── Stats Row ── */}
-                        <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
-                            {statsCards.map((stat, idx) => (
-                                <Panel key={idx} tinted>
-                                    <Flex align="center" gap="3">
-                                        <Box p="2" style={{ backgroundColor: stat.bg, color: stat.color, borderRadius: 'var(--radius-2)' }}>
-                                            {stat.icon}
-                                        </Box>
-                                        <Box>
-                                            <Text size="2" color="gray" as="div">{stat.title}</Text>
-                                            <Text size="5" weight="bold">{stat.value}</Text>
-                                        </Box>
-                                    </Flex>
-                                </Panel>
-                            ))}
-                        </Grid>
+                        <Box mb="4">
+                            <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3">
+                                {statsCards.map((stat, idx) => (
+                                    <Panel key={idx} tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
+                                        <Flex align="center" justify="between">
+                                            <Box>
+                                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }} as="div">{stat.title}</Text>
+                                                <Heading size="6" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{stat.value}</Heading>
+                                            </Box>
+                                            <Box p="2" style={{ backgroundColor: stat.bg, color: stat.color, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {stat.icon}
+                                            </Box>
+                                        </Flex>
+                                    </Panel>
+                                ))}
+                            </Grid>
+                        </Box>
 
                         {/* ── Filters ── */}
-                        <Flex gap="3" wrap="wrap" mb="5" align="end">
-                            <Box style={{ flexGrow: 1, minWidth: '250px' }}>
-                                <Text size="2" weight="medium" mb="1" display="block">Search Designations</Text>
+                        <Flex gap="3" wrap="wrap" mb="4" align="center">
+                            <Box style={{ flex: 1, minWidth: '240px' }}>
                                 <TextField.Root 
                                     placeholder="Search by title..." 
                                     value={filters.search} 
                                     onChange={(e) => handleFilterChange('search', e.target.value)}
+                                    style={{ borderRadius: 10 }}
                                 >
-                                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                                    <TextField.Slot><MagnifyingGlassIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} /></TextField.Slot>
                                 </TextField.Root>
                             </Box>
                             
-                            <Box style={{ minWidth: '200px' }}>
-                                <Text size="2" weight="medium" mb="1" display="block">Department</Text>
+                            <Box style={{ minWidth: '180px' }}>
                                 <Select.Root value={filters.department} onValueChange={(v) => handleFilterChange('department', v)}>
-                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
                                     <Select.Content>
                                         <Select.Item value="all">All Departments</Select.Item>
                                         {departments?.map(dept => (
@@ -168,9 +169,8 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                             </Box>
 
                             <Box style={{ minWidth: '150px' }}>
-                                <Text size="2" weight="medium" mb="1" display="block">Status</Text>
                                 <Select.Root value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
-                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
                                     <Select.Content>
                                         <Select.Item value="all">All Status</Select.Item>
                                         <Select.Item value="active">Active</Select.Item>
@@ -182,15 +182,12 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
 
                         {/* ── Data Table ── */}
                         <Box>
-                            {loading && designationsData.data.length === 0 ? (
-                                <Flex justify="center" align="center" py="8" direction="column" gap="3">
-                                    <Spinner size="3" />
-                                    <Text color="gray">Loading designations...</Text>
-                                </Flex>
+                            {loading && (!designationsData || !designationsData.data) ? (
+                                <TableLoadingSkeleton rows={pagination.perPage || 6} columns={5} />
                             ) : (
                                 <ErrorBoundary>
                                     <DesignationTable
-                                        designations={designationsData}
+                                        designations={designationsData || initialDesignations}
                                         loading={loading}
                                         onEdit={canEditDesignation ? (d) => openModal('edit_designation', d) : undefined}
                                         onDelete={canDeleteDesignation ? (d) => openModal('delete_designation', d) : undefined}

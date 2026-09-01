@@ -167,15 +167,15 @@ const AttendanceEmployee = React.memo(({ title }) => {
     <>
       <Head title={title || "My Attendance"} />
       
-      <Flex justify="center" p={{ initial: '3', md: '4' }}>
+      <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
         <Box style={{ width: '100%', maxWidth: 2000 }}>
-          <Panel>
+          <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
             
             {/* ── Page Header ── */}
             <Box mb="4">
               <Flex
-                direction={{ initial: 'column', md: 'row' }}
-                align={{ initial: 'start', md: 'center' }}
+                direction={{ initial: 'column', sm: 'row' }}
+                align={{ initial: 'start', sm: 'center' }}
                 justify="between"
                 gap="4"
               >
@@ -183,30 +183,32 @@ const AttendanceEmployee = React.memo(({ title }) => {
                   <Box
                     p={{ initial: '2', md: '3' }}
                     style={{
-                      background: 'var(--accent-a3)',
-                      borderRadius: 'var(--radius-2)',
+                      background: 'var(--blue-a3)',
+                      borderRadius: 12,
+                      border: '1px solid var(--blue-a5)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
                     <DashboardIcon
-                      width={isDesktop ? 28 : 20}
-                      height={isDesktop ? 28 : 20}
-                      color="var(--accent-9)"
+                      width={isDesktop ? 26 : 20}
+                      height={isDesktop ? 26 : 20}
+                      color="var(--blue-9)"
                     />
                   </Box>
                   <Box>
                     <Text
-                      size={{ initial: '4', sm: '5', md: '6' }}
+                      size={{ initial: '4', sm: '5' }}
                       weight="bold"
                       as="div"
+                      style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, letterSpacing: '-0.02em', color: 'var(--gray-12)' }}
                     >
                       My Attendance
                     </Text>
                     <Text
                       size={{ initial: '1', md: '2' }}
-                      color="gray"
+                      style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}
                       as="div"
                     >
                       View your attendance records and timesheet details
@@ -220,7 +222,7 @@ const AttendanceEmployee = React.memo(({ title }) => {
                     size="2"
                     value={filterData.currentMonth}
                     onChange={(e) => handleFilterChange('currentMonth', e.target.value)}
-                    style={{ width: 160 }}
+                    style={{ width: 160, borderRadius: 10 }}
                   >
                     <TextField.Slot><CalendarIcon /></TextField.Slot>
                   </TextField.Root>

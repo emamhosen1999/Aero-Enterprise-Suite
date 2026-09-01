@@ -6,10 +6,10 @@ import App from '@/Layouts/App';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import DateTimePicker from '@/Components/DateTimePicker';
-
 import * as useRequestLogsQuery from '@/api/queries/useRequestLogsQuery';
 import TablePagination from '@/Components/TablePagination.jsx';
-import { Box, Flex, Text, Button, TextField, Select, Table, Badge, Tooltip, Dialog, Code, Separator, Spinner, IconButton, ScrollArea } from '@radix-ui/themes';
+import { TableLoadingSkeleton } from '@/Components/LoadingSkeleton';
+import { Box, Flex, Text, Heading, Button, TextField, Select, Table, Badge, Tooltip, Dialog, Code, Separator, Spinner, IconButton, ScrollArea } from '@radix-ui/themes';
 import {
     TrashIcon,
     ReloadIcon,
@@ -121,17 +121,11 @@ const RequestLogs = ({ title }) => {
     const handleDeleteLog = async (id) => {
         if (!confirm('Delete this log?')) return;
         
-        // Optimistic UI: remove from local state immediately
-        const previousLogs = [...logs];
-        setLogs(prev => prev.filter(log => log.id !== id));
-        
         try {
             await deleteLogMutation.mutateAsync(id);
             showToast.success('Log deleted.');
             refetch();
         } catch {
-            // Revert on error
-            setLogs(previousLogs);
             showToast.error('Failed to delete log.');
         }
     };
@@ -140,36 +134,24 @@ const RequestLogs = ({ title }) => {
         if (selectedLogs.size === 0) return;
         if (!confirm(`Delete ${selectedLogs.size} selected logs?`)) return;
         
-        // Optimistic UI: remove from local state immediately
-        const previousLogs = [...logs];
         const selectedIds = Array.from(selectedLogs);
-        setLogs(prev => prev.filter(log => !selectedIds.includes(log.id)));
-        
         try {
             await bulkDeleteLogs.mutateAsync(selectedIds);
             showToast.success('Logs deleted.');
             setSelectedLogs(new Set());
             refetch();
         } catch {
-            // Revert on error
-            setLogs(previousLogs);
             showToast.error('Failed to delete logs.');
         }
     };
 
     const handleClearAllLogs = async () => {
-        // Optimistic UI: clear local state immediately
-        const previousLogs = [...logs];
-        setLogs([]);
-        
         try {
             await clearAllLogsMutation.mutateAsync();
             showToast.success('All logs cleared.');
             setConfirmClearAll(false);
             refetch();
         } catch {
-            // Revert on error
-            setLogs(previousLogs);
             showToast.error('Failed to clear logs.');
         }
     };
@@ -221,20 +203,14 @@ const RequestLogs = ({ title }) => {
         return colors[method] || 'gray';
     };
 
-    const totalPages = Math.ceil(pagination.total / pagination.per_page);
-    const from = ((pagination.current_page - 1) * pagination.per_page) + 1;
-    const to = Math.min(pagination.current_page * pagination.per_page, pagination.total);
-
     return (
-        <>
-            <Head title={title} />
-            <App>
-                <ErrorBoundary>
-                <Flex justify="center" p="4">
+        <App>
+            <Head title={title || 'Request Logs'} />
+            <ErrorBoundary>
+                <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
                     <Box style={{ width: '100%', maxWidth: 2000 }}>
-                        <Panel>
-
-                            {/* ── Page Header ─────────────────────────────────── */}
+                        <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                            {/* ── Page Header ── */}
                             <Box mb="4">
                                 <Flex
                                     direction={{ initial: 'column', md: 'row' }}
@@ -243,32 +219,32 @@ const RequestLogs = ({ title }) => {
                                     gap="4"
                                 >
                                     {/* Icon + title */}
-                                    <Flex align="center" gap="4">
+                                    <Flex align="center" gap="3">
                                         <Box
-                                            p={{ initial: '2', md: '3' }}
+                                            p="3"
                                             style={{
-                                                backgroundColor: 'var(--accent-a3)',
-                                                borderRadius: 'var(--radius-2)',
+                                                background: 'var(--blue-a3)',
+                                                borderRadius: 12,
+                                                border: '1px solid var(--blue-a5)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
                                             }}
                                         >
                                             <ActivityLogIcon
-                                                width={isMobile ? 24 : 32}
-                                                height={isMobile ? 24 : 32}
-                                                color="var(--accent-9)"
+                                                style={{ width: 22, height: 22, color: 'var(--blue-9)' }}
                                             />
                                         </Box>
                                         <Box>
-                                            <Text
-                                                size={{ initial: '4', sm: '5', md: '6' }}
-                                                weight="bold"
-                                                as="div"
+                                            <Heading
+                                                size="5"
+                                                style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}
                                             >
                                                 Request Logs
-                                            </Text>
+                                            </Heading>
                                             <Text
-                                                size={{ initial: '1', md: '2' }}
-                                                color="gray"
-                                                as="div"
+                                                size="2"
+                                                style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}
                                             >
                                                 View and manage all HTTP request logs
                                                 {pagination.total > 0 && ` · ${pagination.total.toLocaleString()} total`}
@@ -277,17 +253,18 @@ const RequestLogs = ({ title }) => {
                                     </Flex>
 
                                     {/* Actions */}
-                                    <Flex align="center" gap="3" wrap="wrap">
-                                        <Button size={{ initial: '1', md: '2' }} variant="soft" color="green" onClick={handleExportLogs}>
+                                    <Flex align="center" gap="2" wrap="wrap">
+                                        <Button size="2" variant="soft" color="green" onClick={handleExportLogs} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
                                             <DownloadIcon width={16} height={16} />
                                             {!isMobile && 'Export'}
                                         </Button>
                                         <Button
-                                            size={{ initial: '1', md: '2' }}
+                                            size="2"
                                             variant="soft"
-                                            color="blue"
+                                            color="gray"
                                             onClick={() => refetch()}
                                             disabled={loading}
+                                            style={{ borderRadius: 10 }}
                                         >
                                             <ReloadIcon
                                                 width={16}
@@ -297,12 +274,12 @@ const RequestLogs = ({ title }) => {
                                             {!isMobile && 'Refresh'}
                                         </Button>
                                         {selectedLogs.size > 0 && (
-                                            <Button size={{ initial: '1', md: '2' }} variant="solid" color="red" onClick={bulkDelete}>
+                                            <Button size="2" variant="solid" color="red" onClick={bulkDelete} style={{ borderRadius: 10 }}>
                                                 <TrashIcon width={16} height={16} />
                                                 Delete ({selectedLogs.size})
                                             </Button>
                                         )}
-                                        <Button size={{ initial: '1', md: '2' }} variant="soft" color="red" onClick={() => setConfirmClearAll(true)}>
+                                        <Button size="2" variant="soft" color="red" onClick={() => setConfirmClearAll(true)} style={{ borderRadius: 10 }}>
                                             <TrashIcon width={16} height={16} />
                                             {!isMobile && 'Clear All'}
                                         </Button>
@@ -310,15 +287,16 @@ const RequestLogs = ({ title }) => {
                                 </Flex>
                             </Box>
 
-                            <Separator size="4" mb="4" />
+                            <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
                             {/* ── Filters ── */}
                             <Box
                                 p="3"
+                                mb="4"
                                 style={{
-                                    background: 'var(--gray-a2)',
-                                    borderRadius: 'var(--radius-3)',
-                                    border: '1px solid var(--gray-a5)',
+                                    background: 'var(--aero-surface, var(--color-background))',
+                                    borderRadius: 14,
+                                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
                                 }}
                             >
                                 <Flex gap="2" wrap="wrap" align="end">
@@ -415,11 +393,11 @@ const RequestLogs = ({ title }) => {
 
                                     {/* Filter Actions */}
                                     <Flex gap="2" align="end">
-                                        <Button size="2" variant="solid" color="indigo" onClick={applyFilters}>
+                                        <Button size="2" variant="solid" color="blue" onClick={applyFilters} style={{ borderRadius: 10 }}>
                                             <MagnifyingGlassIcon width={15} height={15} />
                                             Apply
                                         </Button>
-                                        <Button size="2" variant="soft" color="gray" onClick={resetFilters}>
+                                        <Button size="2" variant="soft" color="gray" onClick={resetFilters} style={{ borderRadius: 10 }}>
                                             <Cross2Icon width={15} height={15} />
                                             Reset
                                         </Button>
@@ -427,28 +405,23 @@ const RequestLogs = ({ title }) => {
                                 </Flex>
                             </Box>
 
-                            <Separator size="4" />
-
                             {/* ── Table ── */}
                             {loading ? (
-                                <Flex justify="center" align="center" py="9" gap="3">
-                                    <Spinner size="3" />
-                                    <Text size="2" color="gray">Loading logs...</Text>
-                                </Flex>
+                                <TableLoadingSkeleton rows={pagination.per_page > 10 ? 10 : pagination.per_page} cols={8} />
                             ) : logs.length === 0 ? (
                                 <Flex
                                     direction="column"
                                     justify="center"
                                     align="center"
-                                            py="9"
+                                    py="9"
                                     gap="2"
                                 >
                                     <Text size="4">🪵</Text>
-                                    <Text size="3" color="gray" weight="medium">No logs found</Text>
+                                    <Text size="3" color="gray" weight="medium" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>No logs found</Text>
                                     <Text size="2" color="gray">Try adjusting your filters or refreshing.</Text>
                                 </Flex>
                             ) : (
-                                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                                     <Table.Root size="2" style={{ minWidth: 920, width: '100%' }}>
                                         <Table.Header style={{
                                             position: 'sticky',
@@ -464,7 +437,7 @@ const RequestLogs = ({ title }) => {
                                                         type="checkbox"
                                                         checked={selectedLogs.size > 0 && selectedLogs.size === logs.length}
                                                         ref={el => {
-                                                            if (el) el.indeterminate = selectedLogs.size > 0 && selectedLogs.size < logs.length;
+                                                             if (el) el.indeterminate = selectedLogs.size > 0 && selectedLogs.size < logs.length;
                                                         }}
                                                         onChange={toggleAllSelection}
                                                         style={{ cursor: 'pointer' }}
@@ -552,13 +525,13 @@ const RequestLogs = ({ title }) => {
                                                     </Table.Cell>
                                                     {!isMobile && (
                                                         <Table.Cell>
-                                                            <Text size="1" color="gray" style={{ whiteSpace: 'nowrap' }}>
+                                                            <Text size="1" color="gray" style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                                                                 {new Date(log.created_at).toLocaleString()}
                                                             </Text>
                                                         </Table.Cell>
                                                     )}
                                                     <Table.Cell>
-                                                        <Flex gap="1">
+                                                        <Flex gap="1" justify="end">
                                                             <Tooltip content="View details">
                                                                 <IconButton
                                                                     size="1"
@@ -590,28 +563,30 @@ const RequestLogs = ({ title }) => {
 
                             {/* ── Pagination ── */}
                             {pagination.total > 0 && (
-                                <Flex
-                                    justify="between"
-                                    align="center"
-                                    gap="3"
-                                    direction={{ initial: 'column', sm: 'row' }}
-                                >
-                                    <Text size="1" color="gray">
-                                        {selectedLogs.size > 0 && (
-                                            <Text as="span" color="indigo">{selectedLogs.size} selected · </Text>
-                                        )}
-                                    </Text>
-                                    <TablePagination
-                                        pagination={{
-                                            currentPage: pagination.current_page,
-                                            perPage: pagination.per_page,
-                                            total: pagination.total
-                                        }}
-                                        onPageChange={(page) => { setPagination(prev => ({ ...prev, current_page: page })); refetch(); }}
-                                        onRowsPerPageChange={handleRowsPerPageChange}
-                                        loading={loading}
-                                    />
-                                </Flex>
+                                <Box mt="4">
+                                    <Flex
+                                        justify="between"
+                                        align="center"
+                                        gap="3"
+                                        direction={{ initial: 'column', sm: 'row' }}
+                                    >
+                                        <Text size="1" color="gray">
+                                            {selectedLogs.size > 0 && (
+                                                <Text as="span" color="indigo">{selectedLogs.size} selected · </Text>
+                                            )}
+                                        </Text>
+                                        <TablePagination
+                                            pagination={{
+                                                currentPage: pagination.current_page,
+                                                perPage: pagination.per_page,
+                                                total: pagination.total
+                                            }}
+                                            onPageChange={(page) => { setPagination(prev => ({ ...prev, current_page: page })); refetch(); }}
+                                            onRowsPerPageChange={handleRowsPerPageChange}
+                                            loading={loading}
+                                        />
+                                    </Flex>
+                                </Box>
                             )}
                         </Panel>
                     </Box>
@@ -808,9 +783,8 @@ const RequestLogs = ({ title }) => {
                         to { transform: rotate(360deg); }
                     }
                 `}</style>
-                </ErrorBoundary>
-            </App>
-        </>
+            </ErrorBoundary>
+        </App>
     );
 };
 

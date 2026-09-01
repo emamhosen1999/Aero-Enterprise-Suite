@@ -66,93 +66,107 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
     return (
         <>
             <Head title="NCR Register" />
-            <Box p={{ initial: '3', sm: '4', md: '5' }}>
-                <Flex align="center" justify="between" wrap="wrap" gap="3" mb="4">
-                    <Box>
-                        <Text size="1" style={{ fontFamily: MONO, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gray-11)' }}>
-                            Quality · Independent Engineer register
-                        </Text>
-                        <Heading size="6" style={{ letterSpacing: '-0.02em' }}>Non-Conformance Reports</Heading>
-                    </Box>
-                    {can.create && (
-                        <Button size="3" onClick={() => setEditing({})}><PlusIcon /> New NCR</Button>
-                    )}
-                </Flex>
-
-                {/* KPI band */}
-                <Grid columns={{ initial: '2', sm: '3', md: '6' }} gap="3" mb="4">
-                    <Kpi label="Issued" value={stats.issued} tone="gray" />
-                    <Kpi label="Open" value={stats.open} tone="tomato" />
-                    <Kpi label="In process" value={stats.in_process} tone="amber" />
-                    <Kpi label="Under IE review" value={stats.under_review} tone="blue" />
-                    <Kpi label="RHD consent" value={stats.consent} tone="jade" />
-                    <Kpi label="Closed" value={stats.closed} tone="gray" />
-                </Grid>
-
-                <Grid columns={{ initial: '1', md: '3' }} gap="3" mb="4">
-                    <SeverityCard sev={stats.severity} />
-                    <Box style={{ gridColumn: 'span 2' }}><ChainageMap ncrs={ncrs} onPick={(n) => setDetail(n)} /></Box>
-                </Grid>
-
-                {/* Filters */}
-                <Flex align="center" gap="2" wrap="wrap" mb="3">
-                    <TextField.Root placeholder="Search ref, title, chainage…" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 240, flex: 1 }}>
-                        <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                    </TextField.Root>
-                    <SelectFilter value={fStatus} onChange={setFStatus} placeholder="Status"
-                        items={[['all', 'All statuses'], ['open', 'Open (all)'], ...Object.entries(STATUS).map(([k, v]) => [k, v.label])]} />
-                    <SelectFilter value={fSev} onChange={setFSev} placeholder="Severity"
-                        items={[['all', 'All severities'], ...Object.keys(SEV).map((k) => [k, SEV[k].label])]} />
-                    <Text size="1" color="gray" style={{ fontFamily: MONO }}>{filtered.length} of {ncrs.length}</Text>
-                </Flex>
-
-                {/* Register table */}
-                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                        <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
-                            <Table.Header style={{
-                                position: 'sticky',
-                                top: 0,
-                                zIndex: 2,
-                                background: 'var(--aero-surface, var(--color-background))',
-                                backdropFilter: 'blur(8px)',
-                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
-                            }}>
-                                <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Ref</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Non-conformity</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Severity</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Chainage</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Detected</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 70, background: 'inherit' }}></Table.ColumnHeaderCell>
-                                </Table.Row>
-                            </Table.Header>
-                            <Table.Body>
-                                {filtered.map((n) => (
-                                    <Table.Row key={n.id} align="center" style={{ cursor: 'pointer' }} onClick={() => setDetail(n)}>
-                                        <Table.Cell><Text style={{ fontFamily: MONO }} weight="medium">{n.ncr_number}</Text></Table.Cell>
-                                        <Table.Cell><Text style={{ display: 'block', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</Text></Table.Cell>
-                                        <Table.Cell><Badge color={SEV[n.severity]?.color} variant="soft" style={{ borderRadius: 999 }}>{SEV[n.severity]?.label}</Badge></Table.Cell>
-                                        <Table.Cell><Badge color={STATUS[n.status]?.color} variant="soft" highContrast style={{ borderRadius: 999 }}>{STATUS[n.status]?.label}</Badge></Table.Cell>
-                                        <Table.Cell><Text style={{ fontFamily: MONO }} color="gray">{chLabel(n.chainage_m) ?? '—'}</Text></Table.Cell>
-                                        <Table.Cell><Text style={{ fontFamily: MONO }} color="gray">{n.detected_date ?? '—'}</Text></Table.Cell>
-                                        <Table.Cell onClick={(e) => e.stopPropagation()} style={{ textAlign: 'right' }}>
-                                            <Flex gap="1" justify="end">
-                                                {can.update && <Tooltip content="Edit"><IconButton size="1" variant="ghost" onClick={() => setEditing(n)}><Pencil1Icon /></IconButton></Tooltip>}
-                                                {can.delete && <Tooltip content="Delete"><IconButton size="1" variant="ghost" color="red" onClick={() => doDelete(n)}><TrashIcon /></IconButton></Tooltip>}
-                                            </Flex>
-                                        </Table.Cell>
-                                    </Table.Row>
-                                ))}
-                                {filtered.length === 0 && (
-                                    <Table.Row><Table.Cell colSpan={7}><Text color="gray" align="center" style={{ display: 'block', padding: 24 }}>No NCRs match the filters.</Text></Table.Cell></Table.Row>
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Cross2Icon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Non-Conformance Reports (NCR)</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                            Quality Assurance & Independent Engineer (IE) Register · Dhaka Bypass (N-105)
+                                        </Text>
+                                    </Box>
+                                </Flex>
+                                {can.create && (
+                                    <Button color="blue" onClick={() => setEditing({})} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                        <PlusIcon /> New NCR
+                                    </Button>
                                 )}
-                            </Table.Body>
-                        </Table.Root>
-                    </Box>
-                </Panel>
-            </Box>
+                            </Flex>
+                        </Box>
+
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
+
+                        {/* KPI band */}
+                        <Grid columns={{ initial: '2', sm: '3', md: '6' }} gap="3" mb="4">
+                            <Kpi label="Issued" value={stats.issued} tone="gray" />
+                            <Kpi label="Open" value={stats.open} tone="tomato" />
+                            <Kpi label="In process" value={stats.in_process} tone="amber" />
+                            <Kpi label="Under IE review" value={stats.under_review} tone="blue" />
+                            <Kpi label="RHD consent" value={stats.consent} tone="jade" />
+                            <Kpi label="Closed" value={stats.closed} tone="gray" />
+                        </Grid>
+
+                        <Grid columns={{ initial: '1', md: '3' }} gap="3" mb="4">
+                            <SeverityCard sev={stats.severity} />
+                            <Box style={{ gridColumn: 'span 2' }}><ChainageMap ncrs={ncrs} onPick={(n) => setDetail(n)} /></Box>
+                        </Grid>
+
+                        {/* Filters */}
+                        <Flex align="center" gap="2" wrap="wrap" mb="3">
+                            <TextField.Root placeholder="Search ref, title, chainage…" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 240, flex: 1 }}>
+                                <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                            </TextField.Root>
+                            <SelectFilter value={fStatus} onChange={setFStatus} placeholder="Status"
+                                items={[['all', 'All statuses'], ['open', 'Open (all)'], ...Object.entries(STATUS).map(([k, v]) => [k, v.label])]} />
+                            <SelectFilter value={fSev} onChange={setFSev} placeholder="Severity"
+                                items={[['all', 'All severities'], ...Object.keys(SEV).map((k) => [k, SEV[k].label])]} />
+                            <Text size="1" color="gray" style={{ fontFamily: MONO }}>{filtered.length} of {ncrs.length}</Text>
+                        </Flex>
+
+                        {/* Register table */}
+                        <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                            <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
+                                <Table.Header style={{
+                                    position: 'sticky',
+                                    top: 0,
+                                    zIndex: 2,
+                                    background: 'var(--aero-surface, var(--color-background))',
+                                    backdropFilter: 'blur(8px)',
+                                    boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                                }}>
+                                    <Table.Row>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Ref</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Non-conformity</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Severity</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Chainage</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Detected</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 70, background: 'inherit' }}></Table.ColumnHeaderCell>
+                                    </Table.Row>
+                                </Table.Header>
+                                <Table.Body>
+                                    {filtered.map((n) => (
+                                        <Table.Row key={n.id} align="center" style={{ cursor: 'pointer' }} onClick={() => setDetail(n)}>
+                                            <Table.Cell><Text style={{ fontFamily: MONO }} weight="medium">{n.ncr_number}</Text></Table.Cell>
+                                            <Table.Cell><Text style={{ display: 'block', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</Text></Table.Cell>
+                                            <Table.Cell><Badge color={SEV[n.severity]?.color} variant="soft" style={{ borderRadius: 999 }}>{SEV[n.severity]?.label}</Badge></Table.Cell>
+                                            <Table.Cell><Badge color={STATUS[n.status]?.color} variant="soft" highContrast style={{ borderRadius: 999 }}>{STATUS[n.status]?.label}</Badge></Table.Cell>
+                                            <Table.Cell><Text style={{ fontFamily: MONO }} color="gray">{chLabel(n.chainage_m) ?? '—'}</Text></Table.Cell>
+                                            <Table.Cell><Text style={{ fontFamily: MONO }} color="gray">{n.detected_date ?? '—'}</Text></Table.Cell>
+                                            <Table.Cell onClick={(e) => e.stopPropagation()} style={{ textAlign: 'right' }}>
+                                                <Flex gap="1" justify="end">
+                                                    {can.update && <Tooltip content="Edit"><IconButton size="1" variant="ghost" onClick={() => setEditing(n)}><Pencil1Icon /></IconButton></Tooltip>}
+                                                    {can.delete && <Tooltip content="Delete"><IconButton size="1" variant="ghost" color="red" onClick={() => doDelete(n)}><TrashIcon /></IconButton></Tooltip>}
+                                                </Flex>
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    ))}
+                                    {filtered.length === 0 && (
+                                        <Table.Row><Table.Cell colSpan={7}><Text color="gray" align="center" style={{ display: 'block', padding: 24 }}>No NCRs match the filters.</Text></Table.Cell></Table.Row>
+                                    )}
+                                </Table.Body>
+                            </Table.Root>
+                        </Box>
+                    </Panel>
+                </Box>
+            </Flex>
 
             {/* Detail drawer */}
             <Dialog.Root open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>

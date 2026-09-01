@@ -16,9 +16,11 @@ import {
     Badge,
     Switch,
     Checkbox,
-    Spinner,
+    Separator,
 } from '@radix-ui/themes';
 import { BellIcon } from '@radix-ui/react-icons';
+import { Panel } from '@/Components/ui/Panel';
+import { TableLoadingSkeleton } from '@/Components/LoadingSkeleton';
 
 const CHANNELS = [
     { key: 'database', label: 'In-app' },
@@ -72,56 +74,61 @@ function NotificationTypeRow({ type, roles = DEFAULT_ROLES }) {
         save({ recipient_roles: next });
     };
 
+    const toggleActive = (active) => {
+        save({ is_active: active });
+    };
+
     return (
-        <Table.Row>
-            <Table.Cell>
+        <Table.Row align="center">
+            <Table.RowHeaderCell>
                 <Flex direction="column" gap="1">
                     <Text size="2" weight="medium">{localType.label}</Text>
                     {localType.description && (
                         <Text size="1" color="gray">{localType.description}</Text>
                     )}
                 </Flex>
-            </Table.Cell>
-
+            </Table.RowHeaderCell>
             {CHANNELS.map(({ key, label }) => {
                 const isLocked = (localType.locked_channels || []).includes(key);
-                const isChecked = isLocked || (localType.default_channels || []).includes(key);
+                const isChecked = (localType.default_channels || []).includes(key);
                 return (
                     <Table.Cell key={key}>
                         <Flex align="center" gap="1">
                             <Checkbox
                                 checked={isChecked}
-                                disabled={isLocked || updateMutation.isPending}
+                                disabled={isLocked}
                                 onCheckedChange={() => toggleChannel(key)}
                             />
                             {isLocked && (
-                                <Text size="1" color="gray" title="Required channel">(req)</Text>
+                                <Badge size="1" color="gray" variant="surface">Req</Badge>
                             )}
                         </Flex>
                     </Table.Cell>
                 );
             })}
-
             <Table.Cell>
-                <Flex direction="column" gap="1">
-                    {roles.map((role) => (
-                        <Flex key={role} align="center" gap="1">
-                            <Checkbox
-                                checked={(localType.recipient_roles || []).includes(role)}
-                                disabled={updateMutation.isPending}
-                                onCheckedChange={() => toggleRole(role)}
-                            />
-                            <Text size="1">{role}</Text>
-                        </Flex>
-                    ))}
+                <Flex wrap="wrap" gap="1">
+                    {roles.map((role) => {
+                        const isSelected = (localType.recipient_roles || []).includes(role);
+                        return (
+                            <Badge
+                                key={role}
+                                size="1"
+                                variant={isSelected ? 'solid' : 'surface'}
+                                color={isSelected ? 'blue' : 'gray'}
+                                style={{ cursor: 'pointer', userSelect: 'none' }}
+                                onClick={() => toggleRole(role)}
+                            >
+                                {role}
+                            </Badge>
+                        );
+                    })}
                 </Flex>
             </Table.Cell>
-
             <Table.Cell>
                 <Switch
                     checked={localType.is_active}
-                    disabled={updateMutation.isPending}
-                    onCheckedChange={(checked) => save({ is_active: checked })}
+                    onCheckedChange={toggleActive}
                 />
             </Table.Cell>
         </Table.Row>
@@ -130,29 +137,38 @@ function NotificationTypeRow({ type, roles = DEFAULT_ROLES }) {
 
 function CategorySection({ category, types, roles = DEFAULT_ROLES }) {
     return (
-        <Box mb="5">
+        <Box mb="4">
             <Flex align="center" gap="2" mb="2">
-                <Badge color="blue" variant="soft" style={{ textTransform: 'capitalize' }}>
+                <Badge color="blue" variant="soft" style={{ textTransform: 'capitalize', fontWeight: 700, borderRadius: 8 }}>
                     {category}
                 </Badge>
             </Flex>
-            <Table.Root variant="surface" size="1">
-                <Table.Header>
-                    <Table.Row>
-                        <Table.ColumnHeaderCell style={{ minWidth: 200 }}>Notification Type</Table.ColumnHeaderCell>
-                        {CHANNELS.map(({ key, label }) => (
-                            <Table.ColumnHeaderCell key={key}>{label}</Table.ColumnHeaderCell>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                <Table.Root size="2" style={{ minWidth: 780, width: '100%' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
+                        <Table.Row>
+                            <Table.ColumnHeaderCell style={{ minWidth: 200, background: 'inherit' }}>Notification Type</Table.ColumnHeaderCell>
+                            {CHANNELS.map(({ key, label }) => (
+                                <Table.ColumnHeaderCell key={key} style={{ minWidth: 80, background: 'inherit' }}>{label}</Table.ColumnHeaderCell>
+                            ))}
+                            <Table.ColumnHeaderCell style={{ minWidth: 220, background: 'inherit' }}>Recipients</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 80, background: 'inherit' }}>Active</Table.ColumnHeaderCell>
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {types.map((type) => (
+                            <NotificationTypeRow key={type.id} type={type} roles={roles} />
                         ))}
-                        <Table.ColumnHeaderCell style={{ minWidth: 150 }}>Recipients</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Active</Table.ColumnHeaderCell>
-                    </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                    {types.map((type) => (
-                        <NotificationTypeRow key={type.id} type={type} roles={roles} />
-                    ))}
-                </Table.Body>
-            </Table.Root>
+                    </Table.Body>
+                </Table.Root>
+            </Box>
         </Box>
     );
 }
@@ -160,13 +176,10 @@ function CategorySection({ category, types, roles = DEFAULT_ROLES }) {
 const NotificationSettings = ({ title }) => {
     const { data, isLoading, isError } = useNotificationTypes();
     const pageProps = usePage().props;
-    // Server-provided role list (Inertia prop); fall back to the static list if absent.
     const roles = Array.isArray(pageProps?.availableRoles) && pageProps.availableRoles.length
         ? pageProps.availableRoles
         : DEFAULT_ROLES;
 
-    // requestJson unwraps the `{success,data}` envelope (no `pagination` key) to the
-    // array itself, so `data` is already the types array.
     const types = Array.isArray(data) ? data : (data?.data ?? []);
 
     const grouped = types.reduce((acc, type) => {
@@ -177,43 +190,52 @@ const NotificationSettings = ({ title }) => {
     }, {});
 
     return (
-        <>
+        <App>
             <Head title={title ?? 'Notification Settings'} />
-            <div className="p-4">
-                <ErrorBoundary>
-                    <Flex direction="column" gap="4">
-                        <Flex align="center" gap="2">
-                            <BellIcon width={22} height={22} />
-                            <Heading size="5">Notification Settings</Heading>
-                        </Flex>
-                        <Text size="2" color="gray">
-                            Configure which channels are active for each notification type and which roles receive them.
-                            In-app (database) notifications marked as required cannot be disabled.
-                        </Text>
+            <ErrorBoundary>
+                <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                    <Box style={{ width: '100%', maxWidth: 2000 }}>
+                        <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                            {/* ── Page Header ── */}
+                            <Box mb="4">
+                                <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                    <Flex align="center" gap="3">
+                                        <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <BellIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                        </Box>
+                                        <Box>
+                                            <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Notification Settings</Heading>
+                                            <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                                Configure channels and recipient roles for each notification category.
+                                            </Text>
+                                        </Box>
+                                    </Flex>
+                                </Flex>
+                            </Box>
 
-                        {isLoading && (
-                            <Flex justify="center" py="6">
-                                <Spinner size="3" />
-                            </Flex>
-                        )}
+                            <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                        {isError && (
-                            <Text color="red" size="2">Failed to load notification types. Please refresh.</Text>
-                        )}
+                            {isLoading && (
+                                <TableLoadingSkeleton rows={6} cols={5} />
+                            )}
 
-                        {!isLoading && !isError && Object.keys(grouped).length === 0 && (
-                            <Text color="gray" size="2">No notification types found. Run the NotificationTypeSeeder first.</Text>
-                        )}
+                            {isError && (
+                                <Text color="red" size="2">Failed to load notification types. Please refresh.</Text>
+                            )}
 
-                        {!isLoading && !isError && Object.entries(grouped).map(([category, catTypes]) => (
-                            <CategorySection key={category} category={category} types={catTypes} roles={roles} />
-                        ))}
-                    </Flex>
-                </ErrorBoundary>
-            </div>
-        </>
+                            {!isLoading && !isError && Object.keys(grouped).length === 0 && (
+                                <Text color="gray" size="2">No notification types found. Run the NotificationTypeSeeder first.</Text>
+                            )}
+
+                            {!isLoading && !isError && Object.entries(grouped).map(([category, catTypes]) => (
+                                <CategorySection key={category} category={category} types={catTypes} roles={roles} />
+                            ))}
+                        </Panel>
+                    </Box>
+                </Flex>
+            </ErrorBoundary>
+        </App>
     );
 };
 
-NotificationSettings.layout = (page) => <App>{page}</App>;
 export default NotificationSettings;

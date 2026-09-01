@@ -41,9 +41,9 @@ const isMobilePlatform = (session) => {
 
 /* ── header metric ── */
 const Metric = ({ label, value, color = 'gray' }) => (
-  <Panel tinted>
-    <Text as="div" size="1" color="gray">{label}</Text>
-    <Heading size="6" color={color === 'gray' ? undefined : color} mt="1">{value}</Heading>
+  <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '16px 14px', background: 'var(--aero-surface, var(--color-background))' }}>
+    <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</Text>
+    <Heading size="6" color={color === 'gray' ? undefined : color} mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>{value}</Heading>
   </Panel>
 );
 
@@ -117,72 +117,87 @@ const DeviceSessions = ({ sessions = [], pagination = {}, filters = {}, summary 
       <Head title="Device Sessions" />
 
       <ErrorBoundary>
-        <Box p={{ initial: '3', md: '5' }}>
-          {/* ── masthead ── */}
-          <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
-            <Box>
-              <Heading size="6" weight="medium">Device Sessions</Heading>
-              <Text as="p" size="2" color="gray" mt="1">
-                Every registered device across the fleet, the credentials still attached to it,
-                and one-click revocation.
-              </Text>
-            </Box>
-            <Button variant="soft" onClick={() => router.reload({ preserveScroll: true })}>
-              <ReloadIcon /> Refresh
-            </Button>
-          </Flex>
+        <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+          <Box style={{ width: '100%', maxWidth: 2000 }}>
+            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+              {/* ── Page Header ── */}
+              <Box mb="4">
+                <Flex align={{ initial: 'start', sm: 'center' }} justify="between" gap="4" wrap="wrap">
+                  <Flex align="center" gap="3">
+                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <DesktopIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                    </Box>
+                    <Box>
+                      <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Fleet Device Sessions</Heading>
+                      <Text as="p" size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                        Every registered device across the fleet, the credentials still attached to it, and one-click revocation.
+                      </Text>
+                    </Box>
+                  </Flex>
+                  <Button variant="soft" color="gray" onClick={() => router.reload({ preserveScroll: true })} style={{ borderRadius: 10 }}>
+                    <ReloadIcon /> Refresh
+                  </Button>
+                </Flex>
+              </Box>
 
-          {/* ── fleet counters ── */}
-          <Grid columns={{ initial: '2', md: '5' }} gap="3" mb="5">
-            <Metric label="Total devices" value={summary.total_devices ?? 0} />
-            <Metric label="Active devices" value={summary.active_devices ?? 0} color="green" />
-            <Metric label="Inactive" value={summary.inactive_devices ?? 0} />
-            <Metric label="Users with devices" value={summary.users_with_devices ?? 0} />
-            <Metric label="Active refresh tokens" value={summary.active_refresh_tokens ?? 0} color="blue" />
-          </Grid>
+              <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-          {/* ── controls + table ── */}
-          <Panel variant="surface">
-            <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
-              <Flex align="center" gap="3" wrap="wrap">
-                <TextField.Root
-                  placeholder="Search user, email, device…"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  style={{ minWidth: 260 }}
-                >
-                  <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                </TextField.Root>
+              {/* ── fleet counters ── */}
+              <Grid columns={{ initial: '2', sm: '3', md: '5' }} gap="3" mb="4">
+                <Metric label="Total devices" value={summary.total_devices ?? 0} />
+                <Metric label="Active devices" value={summary.active_devices ?? 0} color="green" />
+                <Metric label="Inactive" value={summary.inactive_devices ?? 0} />
+                <Metric label="Users with devices" value={summary.users_with_devices ?? 0} />
+                <Metric label="Active refresh tokens" value={summary.active_refresh_tokens ?? 0} color="blue" />
+              </Grid>
 
-                <Select.Root value={status} onValueChange={applyStatus}>
-                  <Select.Trigger />
-                  <Select.Content>
-                    <Select.Item value="all">All devices</Select.Item>
-                    <Select.Item value="active">Active only</Select.Item>
-                    <Select.Item value="inactive">Inactive only</Select.Item>
-                  </Select.Content>
-                </Select.Root>
-              </Flex>
+              {/* ── controls + table ── */}
+              <Box mb="4" p="3" style={{ background: 'var(--aero-surface, var(--color-background))', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
+                <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
+                  <Flex align="center" gap="3" wrap="wrap">
+                    <TextField.Root
+                      placeholder="Search user, email, device…"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      style={{ minWidth: 260 }}
+                    >
+                      <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                    </TextField.Root>
 
-              <Text size="1" color="gray">
-                {liveCount} live {liveCount === 1 ? 'session' : 'sessions'} on this page
-              </Text>
-            </Flex>
+                    <Select.Root value={status} onValueChange={applyStatus}>
+                      <Select.Trigger />
+                      <Select.Content>
+                        <Select.Item value="all">All devices</Select.Item>
+                        <Select.Item value="active">Active only</Select.Item>
+                        <Select.Item value="inactive">Inactive only</Select.Item>
+                      </Select.Content>
+                    </Select.Root>
+                  </Flex>
 
-            <Separator size="4" mb="4" />
+                  <Text size="1" color="gray">
+                    {liveCount} live {liveCount === 1 ? 'session' : 'sessions'} on this page
+                  </Text>
+                </Flex>
 
-            <Box style={{ overflowX: 'auto' }}>
-              <Table.Root variant="ghost">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Credentials</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Last activity</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell align="right">Action</Table.ColumnHeaderCell>
-                  </Table.Row>
-                </Table.Header>
+                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                  <Table.Root size="2" style={{ minWidth: 720, width: '100%' }}>
+                    <Table.Header style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 2,
+                      background: 'var(--aero-surface, var(--color-background))',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
+                      <Table.Row>
+                        <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>User</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Device</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Credentials</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Last activity</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell align="right" style={{ minWidth: 90, background: 'inherit' }}>Action</Table.ColumnHeaderCell>
+                      </Table.Row>
+                    </Table.Header>
 
                 <Table.Body>
                   {sessions.length === 0 ? (
@@ -296,8 +311,10 @@ const DeviceSessions = ({ sessions = [], pagination = {}, filters = {}, summary 
                 </IconButton>
               </Flex>
             </Flex>
-          </Panel>
-        </Box>
+          </Box>
+        </Panel>
+      </Box>
+    </Flex>
 
         {/* ── revoke confirmation ── */}
         <Dialog.Root open={target !== null} onOpenChange={(open) => { if (!open) setTarget(null); }}>

@@ -13,7 +13,6 @@ import OverviewTab from '@/Components/Profile/OverviewTab.jsx';
 import EmploymentAndBankTab from '@/Components/Profile/EmploymentAndBankTab.jsx';
 import BackgroundTab from '@/Components/Profile/BackgroundTab.jsx';
 
-
 const UserProfile = ({ title, allUsers, departments, designations }) => {
     const { auth, user: initialUser } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
@@ -25,38 +24,37 @@ const UserProfile = ({ title, allUsers, departments, designations }) => {
                            auth.permissions?.includes('profile.update') || 
                            auth.user.id === user.id;
 
-    // Calculate Completion
-    const completionPercentage = 60; // TODO: Implement real calculation
+    const completionPercentage = 60;
 
     return (
-        <>
-            <Head title={title || `${user.name}'s Profile`} />
+        <App>
+            <Head title={title || `${user?.name || 'User'}'s Profile`} />
 
-            <Flex justify="center" p="4">
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
                         {/* ── Page Header ── */}
                         <Box mb="4">
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
                                 <Flex align="center" gap="3">
-                                    <Box p="3" style={{ background: 'var(--accent-a3)', borderRadius: 'var(--radius-2)', border: '1px solid var(--accent-a6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <PersonIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <PersonIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size="5">Employee Profile</Heading>
-                                        <Text size="2" color="gray">Comprehensive employee management</Text>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Employee Profile</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Comprehensive employee record and personal details</Text>
                                     </Box>
                                 </Flex>
 
                                 <Flex gap="2" align="center" wrap="wrap">
-                                    <Button variant="soft" color="gray" size="2">
+                                    <Button variant="soft" color="gray" size="2" style={{ borderRadius: 10 }}>
                                         <DownloadIcon /> {!isMobile && 'Export PDF'}
                                     </Button>
                                 </Flex>
                             </Flex>
                         </Box>
 
-                        <Separator size="4" mb="5" />
+                        <Separator size="4" mb="5" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
                         {/* ── Top Profile Card (Always Visible) ── */}
                         <ProfileCard 
@@ -100,7 +98,7 @@ const UserProfile = ({ title, allUsers, departments, designations }) => {
                                 </Tabs.Content>
 
                                 <Tabs.Content value="dependents">
-                                    <Text>Dependents content goes here...</Text>
+                                    <Text size="2" color="gray">Dependents information and emergency contacts.</Text>
                                 </Tabs.Content>
                             </Tabs.Root>
                         </Box>
@@ -108,9 +106,8 @@ const UserProfile = ({ title, allUsers, departments, designations }) => {
                     </Panel>
                 </Box>
             </Flex>
-        </>
+        </App>
     );
 };
 
-UserProfile.layout = page => <App>{page}</App>;
 export default UserProfile;

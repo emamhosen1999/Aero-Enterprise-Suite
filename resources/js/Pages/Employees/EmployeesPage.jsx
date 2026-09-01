@@ -60,9 +60,9 @@ const EmployeesPage = ({
         <>
             <Head title={title || 'Employees Console'} />
 
-            <Flex justify="center" p={{ initial: '3', md: '4' }}>
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
                         
                         {/* ══ PAGE HEADER ════════════════════════════════ */}
                         <Box mb="4">

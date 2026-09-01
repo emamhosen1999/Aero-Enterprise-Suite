@@ -119,59 +119,64 @@ const JurisdictionsManager = ({ jurisdictions: initial = [], users = [], canMana
                 </Flex>
             </Flex>
 
-            <Panel variant="surface">
-                <Box style={{ overflowX: 'auto' }}>
-                    <Table.Root variant="ghost">
-                        <Table.Header>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                <Table.Root size="2" style={{ minWidth: 620, width: '100%' }}>
+                    <Table.Header style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 2,
+                        background: 'var(--aero-surface, var(--color-background))',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                    }}>
+                        <Table.Row>
+                            <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Start Chainage</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>End Chainage</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ minWidth: 150, background: 'inherit' }}>Incharge</Table.ColumnHeaderCell>
+                            {canManage && <Table.ColumnHeaderCell justify="end" style={{ minWidth: 80, background: 'inherit' }}>Actions</Table.ColumnHeaderCell>}
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {filtered.length === 0 ? (
                             <Table.Row>
-                                <Table.ColumnHeaderCell>Location</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Start Chainage</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>End Chainage</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Incharge</Table.ColumnHeaderCell>
-                                {canManage && <Table.ColumnHeaderCell justify="end">Actions</Table.ColumnHeaderCell>}
+                                <Table.Cell colSpan={canManage ? 5 : 4}>
+                                    <Flex direction="column" align="center" justify="center" py="8" gap="2">
+                                        <SewingPinIcon style={{ width: 36, height: 36, color: 'var(--gray-8)' }} />
+                                        <Text size="2" color="gray">No jurisdictions found.</Text>
+                                    </Flex>
+                                </Table.Cell>
                             </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {filtered.length === 0 ? (
-                                <Table.Row>
-                                    <Table.Cell colSpan={canManage ? 5 : 4}>
-                                        <Flex direction="column" align="center" justify="center" py="8" gap="2">
-                                            <SewingPinIcon style={{ width: 36, height: 36, color: 'var(--gray-8)' }} />
-                                            <Text size="2" color="gray">No jurisdictions found.</Text>
+                        ) : filtered.map(row => (
+                            <Table.Row key={row.id} align="center">
+                                <Table.Cell>
+                                    <Flex align="center" gap="2">
+                                        <Box p="1" style={{ background: 'var(--blue-a3)', borderRadius: 8 }}>
+                                            <SewingPinIcon style={{ color: 'var(--blue-9)' }} />
+                                        </Box>
+                                        <Text weight="medium" size="2">{row.location}</Text>
+                                    </Flex>
+                                </Table.Cell>
+                                <Table.Cell><Badge color="gray" variant="soft" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', borderRadius: 6 }}>{row.start_chainage}</Badge></Table.Cell>
+                                <Table.Cell><Badge color="gray" variant="soft" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', borderRadius: 6 }}>{row.end_chainage}</Badge></Table.Cell>
+                                <Table.Cell><Text size="2">{inchargeName(row)}</Text></Table.Cell>
+                                {canManage && (
+                                    <Table.Cell justify="end">
+                                        <Flex gap="2" justify="end">
+                                            <Tooltip content="Edit">
+                                                <IconButton size="1" variant="ghost" color="gray" onClick={() => openEdit(row)}><Pencil1Icon /></IconButton>
+                                            </Tooltip>
+                                            <Tooltip content="Delete">
+                                                <IconButton size="1" variant="ghost" color="red" onClick={() => setDeleteRow(row)}><TrashIcon /></IconButton>
+                                            </Tooltip>
                                         </Flex>
                                     </Table.Cell>
-                                </Table.Row>
-                            ) : filtered.map(row => (
-                                <Table.Row key={row.id} align="center">
-                                    <Table.Cell>
-                                        <Flex align="center" gap="2">
-                                            <Box p="1" style={{ background: 'var(--blue-a3)', borderRadius: 'var(--radius-2)' }}>
-                                                <SewingPinIcon style={{ color: 'var(--blue-9)' }} />
-                                            </Box>
-                                            <Text weight="medium" size="2">{row.location}</Text>
-                                        </Flex>
-                                    </Table.Cell>
-                                    <Table.Cell><Badge color="gray" variant="soft">{row.start_chainage}</Badge></Table.Cell>
-                                    <Table.Cell><Badge color="gray" variant="soft">{row.end_chainage}</Badge></Table.Cell>
-                                    <Table.Cell><Text size="2">{inchargeName(row)}</Text></Table.Cell>
-                                    {canManage && (
-                                        <Table.Cell justify="end">
-                                            <Flex gap="3" justify="end">
-                                                <Tooltip content="Edit">
-                                                    <IconButton size="1" variant="ghost" color="gray" onClick={() => openEdit(row)}><Pencil1Icon /></IconButton>
-                                                </Tooltip>
-                                                <Tooltip content="Delete">
-                                                    <IconButton size="1" variant="ghost" color="red" onClick={() => setDeleteRow(row)}><TrashIcon /></IconButton>
-                                                </Tooltip>
-                                            </Flex>
-                                        </Table.Cell>
-                                    )}
-                                </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
-                </Box>
-            </Panel>
+                                )}
+                            </Table.Row>
+                        ))}
+                    </Table.Body>
+                </Table.Root>
+            </Box>
 
             {/* Add / Edit modal */}
             <Dialog.Root open={modalOpen} onOpenChange={(v) => { if (!v && !saving) setModalOpen(false); }}>

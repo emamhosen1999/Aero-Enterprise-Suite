@@ -34,131 +34,136 @@ export default function MaintenanceWorkOrders({ auth, workOrders }) {
     return (
         <App auth={auth}>
             <Head title="Maintenance Work Orders" />
-            <Box p={{ initial: '3', sm: '4', md: '5' }}>
-                <Flex align="center" justify="between" mb="4">
-                    <Box>
-                        <Heading size="6" weight="bold" style={{ letterSpacing: '-0.02em' }}>
-                            Routine & Preventive Maintenance Work Orders
-                        </Heading>
-                        <Text size="2" color="gray">
-                            Highway Infrastructure Care: Pavement, Guardrails, Bridge Joints, Lighting & Signage
-                        </Text>
-                    </Box>
-                    <Button color="blue" onClick={() => setOpenModal(true)}>
-                        <PlusIcon width={16} height={16} /> Create Work Order
-                    </Button>
-                </Flex>
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <WrenchScrewdriverIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Routine & Preventive Maintenance Work Orders</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Highway Infrastructure Care: Pavement, Guardrails, Bridge Joints, Lighting & Signage</Text>
+                                    </Box>
+                                </Flex>
+                                <Button color="blue" onClick={() => setOpenModal(true)} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                    <PlusIcon width={16} height={16} /> Create Work Order
+                                </Button>
+                            </Flex>
+                        </Box>
 
-                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                    <Box p="4" style={{ borderBottom: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                        <Heading size="4" weight="bold">Active Maintenance Register</Heading>
-                    </Box>
-                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                        <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
-                            <Table.Header style={{
-                                position: 'sticky',
-                                top: 0,
-                                zIndex: 2,
-                                background: 'var(--aero-surface, var(--color-background))',
-                                backdropFilter: 'blur(8px)',
-                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
-                            }}>
-                                <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>WO #</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Title</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Category</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 150, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Priority</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150, background: 'inherit' }}>Assigned Crew</Table.ColumnHeaderCell>
-                                </Table.Row>
-                            </Table.Header>
-                            <Table.Body>
-                                {woData.map((wo) => (
-                                    <Table.Row key={wo.id} align="center">
-                                        <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                                            {wo.work_order_number}
-                                        </Table.Cell>
-                                        <Table.Cell><Text weight="bold" style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</Text></Table.Cell>
-                                        <Table.Cell>
-                                            <Badge color="blue" variant="soft" style={{ borderRadius: 999 }}>{wo.category}</Badge>
-                                        </Table.Cell>
-                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.location}</Text></Table.Cell>
-                                        <Table.Cell>
-                                            <Badge color={wo.priority === 'high' ? 'red' : 'orange'} variant="soft" style={{ borderRadius: 999 }}>
-                                                {wo.priority}
-                                            </Badge>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Badge color={wo.status === 'completed' ? 'green' : 'amber'} variant="soft" style={{ borderRadius: 999 }}>
-                                                {wo.status}
-                                            </Badge>
-                                        </Table.Cell>
-                                        <Table.Cell style={{ textAlign: 'right' }}><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.assigned_to}</Text></Table.Cell>
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
+
+                        <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                            <Table.Root size="2" style={{ minWidth: 880, width: '100%' }}>
+                                <Table.Header style={{
+                                    position: 'sticky',
+                                    top: 0,
+                                    zIndex: 2,
+                                    background: 'var(--aero-surface, var(--color-background))',
+                                    backdropFilter: 'blur(8px)',
+                                    boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                                }}>
+                                    <Table.Row>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>WO #</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Title</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Category</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 150, background: 'inherit' }}>Location</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Priority</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 110, background: 'inherit' }}>Status</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150, background: 'inherit' }}>Assigned Crew</Table.ColumnHeaderCell>
                                     </Table.Row>
-                                ))}
-                            </Table.Body>
-                        </Table.Root>
-                    </Box>
-                </Panel>
+                                </Table.Header>
+                                <Table.Body>
+                                    {woData.map((wo) => (
+                                        <Table.Row key={wo.id} align="center">
+                                            <Table.Cell style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                                                {wo.work_order_number}
+                                            </Table.Cell>
+                                            <Table.Cell><Text weight="bold" style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wo.title}</Text></Table.Cell>
+                                            <Table.Cell>
+                                                <Badge color="blue" variant="soft" style={{ borderRadius: 999 }}>{wo.category}</Badge>
+                                            </Table.Cell>
+                                            <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.location}</Text></Table.Cell>
+                                            <Table.Cell>
+                                                <Badge color={wo.priority === 'high' ? 'red' : 'orange'} variant="soft" style={{ borderRadius: 999 }}>
+                                                    {wo.priority}
+                                                </Badge>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Badge color={wo.status === 'completed' ? 'green' : 'amber'} variant="soft" style={{ borderRadius: 999 }}>
+                                                    {wo.status}
+                                                </Badge>
+                                            </Table.Cell>
+                                            <Table.Cell style={{ textAlign: 'right' }}><Text size="2" style={{ whiteSpace: 'nowrap' }}>{wo.assigned_to}</Text></Table.Cell>
+                                        </Table.Row>
+                                    ))}
+                                </Table.Body>
+                            </Table.Root>
+                        </Box>
+                    </Panel>
+                </Box>
+            </Flex>
 
-                {/* Create Work Order Modal */}
-                <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
-                    <Dialog.Content style={{ maxWidth: 480 }}>
-                        <Dialog.Title>Create Maintenance Work Order</Dialog.Title>
-                        <form onSubmit={handleSubmit}>
-                            <Box mb="3">
-                                <Text size="2" weight="bold" mb="1" as="div">Work Order Title</Text>
-                                <TextField.Root value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Guardrail repair near Kanchan Bridge" required />
+            {/* Create Work Order Modal */}
+            <Dialog.Root open={openModal} onOpenChange={setOpenModal}>
+                <Dialog.Content style={{ maxWidth: 480 }}>
+                    <Dialog.Title>Create Maintenance Work Order</Dialog.Title>
+                    <form onSubmit={handleSubmit}>
+                        <Box mb="3">
+                            <Text size="2" weight="bold" mb="1" as="div">Work Order Title</Text>
+                            <TextField.Root value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Guardrail repair near Kanchan Bridge" required />
+                        </Box>
+                        <Flex gap="3" mb="3">
+                            <Box style={{ flex: 1 }}>
+                                <Text size="2" weight="bold" mb="1" as="div">Category</Text>
+                                <Select.Root value={category} onValueChange={setCategory}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="pavement">Pavement</Select.Item>
+                                        <Select.Item value="guardrail">Guardrail</Select.Item>
+                                        <Select.Item value="lighting">Lighting & ITS</Select.Item>
+                                        <Select.Item value="drainage">Drainage</Select.Item>
+                                        <Select.Item value="bridge">Bridge / Structure</Select.Item>
+                                        <Select.Item value="signage">Signage & Marking</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
                             </Box>
-                            <Flex gap="3" mb="3">
-                                <Box style={{ flex: 1 }}>
-                                    <Text size="2" weight="bold" mb="1" as="div">Category</Text>
-                                    <Select.Root value={category} onValueChange={setCategory}>
-                                        <Select.Trigger style={{ width: '100%' }} />
-                                        <Select.Content>
-                                            <Select.Item value="pavement">Pavement</Select.Item>
-                                            <Select.Item value="guardrail">Guardrail</Select.Item>
-                                            <Select.Item value="lighting">Lighting & ITS</Select.Item>
-                                            <Select.Item value="drainage">Drainage</Select.Item>
-                                            <Select.Item value="bridge">Bridge / Structure</Select.Item>
-                                            <Select.Item value="signage">Signage & Marking</Select.Item>
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-                                <Box style={{ flex: 1 }}>
-                                    <Text size="2" weight="bold" mb="1" as="div">Priority</Text>
-                                    <Select.Root value={priority} onValueChange={setPriority}>
-                                        <Select.Trigger style={{ width: '100%' }} />
-                                        <Select.Content>
-                                            <Select.Item value="low">Low</Select.Item>
-                                            <Select.Item value="medium">Medium</Select.Item>
-                                            <Select.Item value="high">High</Select.Item>
-                                            <Select.Item value="emergency">Emergency</Select.Item>
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-                            </Flex>
-                            <Box mb="3">
-                                <Text size="2" weight="bold" mb="1" as="div">Location / Chainage</Text>
-                                <TextField.Root value={location} onChange={(e) => setLocation(e.target.value)} required />
+                            <Box style={{ flex: 1 }}>
+                                <Text size="2" weight="bold" mb="1" as="div">Priority</Text>
+                                <Select.Root value={priority} onValueChange={setPriority}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="low">Low</Select.Item>
+                                        <Select.Item value="medium">Medium</Select.Item>
+                                        <Select.Item value="high">High</Select.Item>
+                                        <Select.Item value="emergency">Emergency</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
                             </Box>
-                            <Box mb="4">
-                                <Text size="2" weight="bold" mb="1" as="div">Assigned Crew / Contractor</Text>
-                                <TextField.Root value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} required />
-                            </Box>
-                            <Flex justify="end" gap="2">
-                                <Button type="button" variant="soft" color="gray" onClick={() => setOpenModal(false)}>
-                                    Cancel
-                                </Button>
-                                <Button type="submit" color="blue">
-                                    Issue Work Order
-                                </Button>
-                            </Flex>
-                        </form>
-                    </Dialog.Content>
-                </Dialog.Root>
-            </Box>
+                        </Flex>
+                        <Box mb="3">
+                            <Text size="2" weight="bold" mb="1" as="div">Location / Chainage</Text>
+                            <TextField.Root value={location} onChange={(e) => setLocation(e.target.value)} required />
+                        </Box>
+                        <Box mb="4">
+                            <Text size="2" weight="bold" mb="1" as="div">Assigned Crew / Contractor</Text>
+                            <TextField.Root value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} required />
+                        </Box>
+                        <Flex justify="end" gap="2">
+                            <Button type="button" variant="soft" color="gray" onClick={() => setOpenModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" color="blue">
+                                Issue Work Order
+                            </Button>
+                        </Flex>
+                    </form>
+                </Dialog.Content>
+            </Dialog.Root>
         </App>
     );
 }

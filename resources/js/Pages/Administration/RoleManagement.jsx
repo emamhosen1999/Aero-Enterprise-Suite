@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { Badge, Box, Button, Card, Flex, Grid, Heading, ScrollArea, Table, Tabs, Text, TextField } from '@radix-ui/themes';
+import { Badge, Box, Button, Card, Flex, Grid, Heading, ScrollArea, Table, Tabs, Text, TextField, Separator } from '@radix-ui/themes';
 import {
     ShieldCheckIcon,
     KeyIcon,
@@ -9,7 +9,6 @@ import {
     LockClosedIcon,
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
-import PageHeader from '@/Components/PageHeader';
 import { Panel } from '@/Components/ui/Panel';
 
 const RoleManagement = ({ title, roles = [], permissions = [], permissionsGrouped = {}, role_has_permissions = [], enterprise_modules = [] }) => {
@@ -42,188 +41,215 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
     return (
         <App>
             <Head title={title || 'Enterprise Role Management'} />
-            <Box p={{ initial: '3', md: '6' }}>
-                <PageHeader
-                    title={title || 'Enterprise Role & Permission Management'}
-                    subtitle="View and manage system access roles, security scopes, and enterprise permissions"
-                />
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <ShieldCheckIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Enterprise Role & Permission Management</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                            View and manage system access roles, security scopes, and enterprise permissions
+                                        </Text>
+                                    </Box>
+                                </Flex>
+                            </Flex>
+                        </Box>
 
-                <Tabs.Root value={selectedTab} onValueChange={setSelectedTab} style={{ marginTop: '16px' }}>
-                    <Tabs.List>
-                        <Tabs.Trigger value="roles">
-                            <Flex align="center" gap="2">
-                                <ShieldCheckIcon style={{ width: 16, height: 16 }} />
-                                Roles & Access ({roles.length})
-                            </Flex>
-                        </Tabs.Trigger>
-                        <Tabs.Trigger value="permissions">
-                            <Flex align="center" gap="2">
-                                <KeyIcon style={{ width: 16, height: 16 }} />
-                                All Permissions ({permissions.length})
-                            </Flex>
-                        </Tabs.Trigger>
-                        <Tabs.Trigger value="modules">
-                            <Flex align="center" gap="2">
-                                <UserGroupIcon style={{ width: 16, height: 16 }} />
-                                Module Matrix
-                            </Flex>
-                        </Tabs.Trigger>
-                    </Tabs.List>
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                    <Box pt="4">
-                        <Tabs.Content value="roles">
-                            <Grid columns={{ initial: '1', md: '3' }} gap="4">
-                                <Box>
-                                    <Heading size="3" mb="3">System Roles</Heading>
-                                    <Flex direction="column" gap="2">
-                                        {roles.map((role) => {
-                                            const permCount = rolePermissionsMap.get(role.id)?.size || 0;
-                                            const isSelected = selectedRole === role.id;
-                                            return (
-                                                <Card
-                                                    key={role.id}
-                                                    style={{
-                                                        cursor: 'pointer',
-                                                        border: isSelected ? '2px solid var(--accent-9)' : undefined,
-                                                        backgroundColor: isSelected ? 'var(--accent-2)' : undefined,
-                                                    }}
-                                                    onClick={() => setSelectedRole(role.id)}
-                                                >
-                                                    <Flex justify="between" align="center">
-                                                        <Box>
-                                                            <Text weight="bold" size="3">{role.name}</Text>
-                                                            <Text as="div" size="1" color="gray">Guard: {role.guard_name || 'web'}</Text>
-                                                        </Box>
-                                                        <Badge color={isSelected ? 'indigo' : 'gray'}>
-                                                            {permCount} Permissions
-                                                        </Badge>
-                                                    </Flex>
-                                                </Card>
-                                            );
-                                        })}
+                        <Tabs.Root value={selectedTab} onValueChange={setSelectedTab}>
+                            <Tabs.List>
+                                <Tabs.Trigger value="roles">
+                                    <Flex align="center" gap="2">
+                                        <ShieldCheckIcon style={{ width: 16, height: 16 }} />
+                                        Roles & Access ({roles.length})
                                     </Flex>
-                                </Box>
+                                </Tabs.Trigger>
+                                <Tabs.Trigger value="permissions">
+                                    <Flex align="center" gap="2">
+                                        <KeyIcon style={{ width: 16, height: 16 }} />
+                                        All Permissions ({permissions.length})
+                                    </Flex>
+                                </Tabs.Trigger>
+                                <Tabs.Trigger value="modules">
+                                    <Flex align="center" gap="2">
+                                        <UserGroupIcon style={{ width: 16, height: 16 }} />
+                                        Module Matrix
+                                    </Flex>
+                                </Tabs.Trigger>
+                            </Tabs.List>
 
-                                <Box style={{ gridColumn: 'span 2' }}>
-                                    {activeRole && (
-                                        <Panel>
-                                            <Box p="4">
-                                                <Flex justify="between" align="center" mb="4">
+                            <Box pt="4">
+                                <Tabs.Content value="roles">
+                                    <Grid columns={{ initial: '1', md: '3' }} gap="4">
+                                        <Box>
+                                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>System Roles</Heading>
+                                            <Flex direction="column" gap="2">
+                                                {roles.map((role) => {
+                                                    const permCount = rolePermissionsMap.get(role.id)?.size || 0;
+                                                    const isSelected = selectedRole === role.id;
+                                                    return (
+                                                        <Card
+                                                            key={role.id}
+                                                            style={{
+                                                                cursor: 'pointer',
+                                                                border: isSelected ? '2px solid var(--accent-9)' : undefined,
+                                                                backgroundColor: isSelected ? 'var(--accent-2)' : undefined,
+                                                            }}
+                                                            onClick={() => setSelectedRole(role.id)}
+                                                        >
+                                                            <Flex justify="between" align="center">
+                                                                <Box>
+                                                                    <Text weight="bold" size="3">{role.name}</Text>
+                                                                    <Text as="div" size="1" color="gray">Guard: {role.guard_name || 'web'}</Text>
+                                                                </Box>
+                                                                <Badge color={isSelected ? 'indigo' : 'gray'}>
+                                                                    {permCount} Permissions
+                                                                </Badge>
+                                                            </Flex>
+                                                        </Card>
+                                                    );
+                                                })}
+                                            </Flex>
+                                        </Box>
+
+                                        <Box style={{ gridColumn: 'span 2' }}>
+                                            {activeRole && (
+                                                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
                                                     <Box>
-                                                        <Heading size="4">{activeRole.name}</Heading>
-                                                        <Text size="2" color="gray">
-                                                            Active security role with {rolePermissionsMap.get(activeRole.id)?.size || 0} granted capabilities.
-                                                        </Text>
+                                                        <Flex justify="between" align="center" mb="4">
+                                                            <Box>
+                                                                <Heading size="4" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>{activeRole.name}</Heading>
+                                                                <Text size="2" color="gray">
+                                                                    Active security role with {rolePermissionsMap.get(activeRole.id)?.size || 0} granted capabilities.
+                                                                </Text>
+                                                            </Box>
+                                                            <Badge color="green" size="2" style={{ borderRadius: 999 }}>Active Guard: {activeRole.guard_name}</Badge>
+                                                        </Flex>
+
+                                                        <TextField.Root
+                                                            placeholder="Filter granted permissions..."
+                                                            value={searchTerm}
+                                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                                            mb="4"
+                                                        >
+                                                            <TextField.Slot>
+                                                                <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
+                                                            </TextField.Slot>
+                                                        </TextField.Root>
+
+                                                        <ScrollArea style={{ maxHeight: 500 }}>
+                                                            <Flex wrap="wrap" gap="2">
+                                                                {permissions
+                                                                    .filter((p) => rolePermissionsMap.get(activeRole.id)?.has(p.id))
+                                                                    .filter((p) => !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                                                                    .map((perm) => (
+                                                                        <Badge key={perm.id} color="indigo" variant="soft" size="2" style={{ borderRadius: 8 }}>
+                                                                            <LockClosedIcon style={{ width: 12, height: 12, marginRight: 4 }} />
+                                                                            {perm.name}
+                                                                        </Badge>
+                                                                    ))}
+                                                            </Flex>
+                                                        </ScrollArea>
                                                     </Box>
-                                                    <Badge color="green" size="2">Active Guard: {activeRole.guard_name}</Badge>
-                                                </Flex>
+                                                </Panel>
+                                            )}
+                                        </Box>
+                                    </Grid>
+                                </Tabs.Content>
 
-                                                <TextField.Root
-                                                    placeholder="Filter granted permissions..."
-                                                    value={searchTerm}
-                                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                                    mb="4"
-                                                >
-                                                    <TextField.Slot>
-                                                        <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
-                                                    </TextField.Slot>
-                                                </TextField.Root>
+                                <Tabs.Content value="permissions">
+                                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
+                                        <Box>
+                                            <TextField.Root
+                                                placeholder="Search all permissions..."
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                mb="4"
+                                            >
+                                                <TextField.Slot>
+                                                    <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
+                                                </TextField.Slot>
+                                            </TextField.Root>
 
-                                                <ScrollArea style={{ maxHeight: 500 }}>
-                                                    <Flex wrap="wrap" gap="2">
-                                                        {permissions
-                                                            .filter((p) => rolePermissionsMap.get(activeRole.id)?.has(p.id))
-                                                            .filter((p) => !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                                                            .map((perm) => (
-                                                                <Badge key={perm.id} color="indigo" variant="soft" size="2">
-                                                                    <LockClosedIcon style={{ width: 12, height: 12, marginRight: 4 }} />
-                                                                    {perm.name}
+                                            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                                                <Table.Root size="2" style={{ minWidth: 680, width: '100%' }}>
+                                                    <Table.Header style={{
+                                                        position: 'sticky',
+                                                        top: 0,
+                                                        zIndex: 2,
+                                                        background: 'var(--aero-surface, var(--color-background))',
+                                                        backdropFilter: 'blur(8px)',
+                                                        boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                                                    }}>
+                                                        <Table.Row>
+                                                            <Table.ColumnHeaderCell style={{ minWidth: 200, background: 'inherit' }}>Permission Identifier</Table.ColumnHeaderCell>
+                                                            <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Guard</Table.ColumnHeaderCell>
+                                                            <Table.ColumnHeaderCell style={{ minWidth: 200, background: 'inherit' }}>Assigned Roles</Table.ColumnHeaderCell>
+                                                        </Table.Row>
+                                                    </Table.Header>
+                                                    <Table.Body>
+                                                        {filteredPermissions.slice(0, 100).map((perm) => {
+                                                            const assignedRoles = roles.filter((r) => rolePermissionsMap.get(r.id)?.has(perm.id));
+                                                            return (
+                                                                <Table.Row key={perm.id} align="center">
+                                                                    <Table.Cell>
+                                                                        <Text weight="bold" size="2">{perm.name}</Text>
+                                                                    </Table.Cell>
+                                                                    <Table.Cell>
+                                                                        <Badge size="1" color="gray" variant="soft" style={{ borderRadius: 999 }}>{perm.guard_name}</Badge>
+                                                                    </Table.Cell>
+                                                                    <Table.Cell>
+                                                                        <Flex wrap="wrap" gap="1">
+                                                                            {assignedRoles.map((r) => (
+                                                                                <Badge key={r.id} color="blue" size="1" variant="soft" style={{ borderRadius: 999 }}>{r.name}</Badge>
+                                                                            ))}
+                                                                        </Flex>
+                                                                    </Table.Cell>
+                                                                </Table.Row>
+                                                            );
+                                                        })}
+                                                    </Table.Body>
+                                                </Table.Root>
+                                            </Box>
+                                        </Box>
+                                    </Panel>
+                                </Tabs.Content>
+
+                                <Tabs.Content value="modules">
+                                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '20px' }}>
+                                        <Box>
+                                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Module Permission Hierarchy</Heading>
+                                            <Grid columns={{ initial: '1', md: '2' }} gap="4">
+                                                {Object.entries(permissionsGrouped).map(([moduleName, perms]) => (
+                                                    <Card key={moduleName}>
+                                                        <Heading size="2" mb="2" style={{ textTransform: 'capitalize', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
+                                                            {moduleName} Module ({perms.length})
+                                                        </Heading>
+                                                        <Flex wrap="wrap" gap="1">
+                                                            {perms.map((p) => (
+                                                                <Badge key={p.id} size="1" color="purple" variant="outline" style={{ borderRadius: 8 }}>
+                                                                    {p.name}
                                                                 </Badge>
                                                             ))}
-                                                    </Flex>
-                                                </ScrollArea>
-                                            </Box>
-                                        </Panel>
-                                    )}
-                                </Box>
-                            </Grid>
-                        </Tabs.Content>
-
-                        <Tabs.Content value="permissions">
-                            <Panel>
-                                <Box p="4">
-                                    <TextField.Root
-                                        placeholder="Search all permissions..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        mb="4"
-                                    >
-                                        <TextField.Slot>
-                                            <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
-                                        </TextField.Slot>
-                                    </TextField.Root>
-
-                                    <Table.Root variant="surface">
-                                        <Table.Header>
-                                            <Table.Row>
-                                                <Table.ColumnHeaderCell>Permission Identifier</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell>Guard</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell>Assigned Roles</Table.ColumnHeaderCell>
-                                            </Table.Row>
-                                        </Table.Header>
-                                        <Table.Body>
-                                            {filteredPermissions.slice(0, 100).map((perm) => {
-                                                const assignedRoles = roles.filter((r) => rolePermissionsMap.get(r.id)?.has(perm.id));
-                                                return (
-                                                    <Table.Row key={perm.id}>
-                                                        <Table.Cell>
-                                                            <Text weight="bold" size="2">{perm.name}</Text>
-                                                        </Table.Cell>
-                                                        <Table.Cell>
-                                                            <Badge size="1" color="gray">{perm.guard_name}</Badge>
-                                                        </Table.Cell>
-                                                        <Table.Cell>
-                                                            <Flex wrap="wrap" gap="1">
-                                                                {assignedRoles.map((r) => (
-                                                                    <Badge key={r.id} color="blue" size="1">{r.name}</Badge>
-                                                                ))}
-                                                            </Flex>
-                                                        </Table.Cell>
-                                                    </Table.Row>
-                                                );
-                                            })}
-                                        </Table.Body>
-                                    </Table.Root>
-                                </Box>
-                            </Panel>
-                        </Tabs.Content>
-
-                        <Tabs.Content value="modules">
-                            <Panel>
-                                <Box p="4">
-                                    <Heading size="3" mb="3">Module Permission Hierarchy</Heading>
-                                    <Grid columns={{ initial: '1', md: '2' }} gap="4">
-                                        {Object.entries(permissionsGrouped).map(([moduleName, perms]) => (
-                                            <Card key={moduleName}>
-                                                <Heading size="2" mb="2" style={{ textTransform: 'capitalize' }}>
-                                                    {moduleName} Module ({perms.length})
-                                                </Heading>
-                                                <Flex wrap="wrap" gap="1">
-                                                    {perms.map((p) => (
-                                                        <Badge key={p.id} size="1" color="purple" variant="outline">
-                                                            {p.name}
-                                                        </Badge>
-                                                    ))}
-                                                </Flex>
-                                            </Card>
-                                        ))}
-                                    </Grid>
-                                </Box>
-                            </Panel>
-                        </Tabs.Content>
-                    </Box>
-                </Tabs.Root>
-            </Box>
+                                                        </Flex>
+                                                    </Card>
+                                                ))}
+                                            </Grid>
+                                        </Box>
+                                    </Panel>
+                                </Tabs.Content>
+                            </Box>
+                        </Tabs.Root>
+                    </Panel>
+                </Box>
+            </Flex>
         </App>
     );
 };

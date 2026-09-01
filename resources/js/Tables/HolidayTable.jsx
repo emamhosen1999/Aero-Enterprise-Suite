@@ -16,6 +16,7 @@ import {
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import TablePagination from '@/Components/TablePagination.jsx';
+import { TableLoadingSkeleton } from '@/Components/LoadingSkeleton';
 
 const holidayTypes = {
     public: { label: 'Public', color: 'red', icon: '🏛️' },
@@ -508,14 +509,11 @@ const HolidayTable = ({
     return (
         <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {topContent}
-            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                {isLoading ? (
-                    <Flex justify="center" py="8" align="center">
-                        <Spinner size="3" />
-                        <Text ml="2">Loading holidays...</Text>
-                    </Flex>
-                ) : (
-                    <Table.Root size="2" style={{ minWidth: 840, width: '100%', opacity: isLoading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+            {isLoading ? (
+                <TableLoadingSkeleton rows={rowsPerPage || 5} cols={columns.length} />
+            ) : (
+                <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                    <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
                         <Table.Header style={{
                             position: 'sticky',
                             top: 0,
@@ -570,8 +568,8 @@ const HolidayTable = ({
                             )}
                         </Table.Body>
                     </Table.Root>
-                )}
-            </Box>
+                </Box>
+            )}
             {filteredHolidays.length > rowsPerPage && (
                 <TablePagination
                     pagination={{

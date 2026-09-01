@@ -46,44 +46,54 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
     return (
         <App auth={auth}>
             <Head title="Traffic Monitoring Center (TMC / ITS)" />
-            <Box p={{ initial: '3', sm: '4', md: '5' }}>
-                <Flex align="center" justify="between" mb="4" wrap="wrap" gap="3">
-                    <Box>
-                        <Heading size="6" weight="bold" style={{ letterSpacing: '-0.02em' }}>
-                            Traffic Monitoring Center (TMC / ITS Suite)
-                        </Heading>
-                        <Text size="2" color="gray">
-                            Live Expressway Vehicle Flow, Speed Sensors, VMS Board Broadcast & WIM Overload Detection
-                        </Text>
-                    </Box>
-                    <Button variant="outline" color="gray" onClick={() => router.reload()}>
-                        <ArrowPathIcon width={16} height={16} /> Refresh Live Feed
-                    </Button>
-                </Flex>
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <ComputerDesktopIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Traffic Monitoring Center (TMC / ITS)</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Live Expressway Vehicle Flow, Speed Sensors, VMS Board Broadcast & WIM Overload Detection</Text>
+                                    </Box>
+                                </Flex>
+                                <Button variant="soft" color="gray" onClick={() => router.reload()} style={{ borderRadius: 10 }}>
+                                    <ArrowPathIcon width={16} height={16} /> Refresh Live Feed
+                                </Button>
+                            </Flex>
+                        </Box>
 
-                {/* Section Density Matrix */}
-                <Heading size="4" mb="3">Expressway Section Flow Rates (Ch 0+000 - Ch 48+000)</Heading>
-                <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="5">
-                    {sections.map((sec) => (
-                        <Panel key={sec.id} tinted style={{ padding: 16 }}>
-                            <Flex align="center" justify="between" mb="2">
-                                <Badge color={sec.density_status === 'free_flow' ? 'green' : sec.density_status === 'moderate' ? 'amber' : 'red'}>
-                                    {sec.density_status.replace('_', ' ').toUpperCase()}
-                                </Badge>
-                                <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>{sec.section_code}</Text>
-                            </Flex>
-                            <Heading size="4" mb="1">{sec.section_name}</Heading>
-                            <Flex justify="between" align="baseline" mt="2">
-                                <Text size="2" color="gray">Flow: <Text weight="bold" color="blue">{sec.vehicle_count_per_hour} veh/h</Text></Text>
-                                <Text size="2" color="gray">Speed: <Text weight="bold">{sec.avg_speed_kmh} km/h</Text></Text>
-                            </Flex>
-                            <Flex justify="between" mt="2" style={{ borderTop: '1px solid var(--gray-a4)', paddingTop: 8 }}>
-                                <Text size="1" color="gray">Overspeed: <Text color="red" weight="bold">{sec.overspeed_count}</Text></Text>
-                                <Text size="1" color="gray">Overload WIM: <Text color="amber" weight="bold">{sec.overload_count}</Text></Text>
-                            </Flex>
-                        </Panel>
-                    ))}
-                </Grid>
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
+
+                        {/* Section Density Matrix */}
+                        <Box mb="4">
+                            <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Expressway Section Flow Rates (Ch 0+000 - Ch 48+000)</Heading>
+                            <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3">
+                                {sections.map((sec) => (
+                                    <Panel key={sec.id} tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: 16, background: 'var(--aero-surface, var(--color-background))' }}>
+                                        <Flex align="center" justify="between" mb="2">
+                                            <Badge color={sec.density_status === 'free_flow' ? 'green' : sec.density_status === 'moderate' ? 'amber' : 'red'} variant="soft" style={{ borderRadius: 999 }}>
+                                                {sec.density_status.replace('_', ' ').toUpperCase()}
+                                            </Badge>
+                                            <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>{sec.section_code}</Text>
+                                        </Flex>
+                                        <Heading size="3" mb="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>{sec.section_name}</Heading>
+                                        <Flex justify="between" align="baseline" mt="2">
+                                            <Text size="2" color="gray">Flow: <Text weight="bold" color="blue" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{sec.vehicle_count_per_hour} veh/h</Text></Text>
+                                            <Text size="2" color="gray">Speed: <Text weight="bold" style={{ fontVariantNumeric: 'tabular-nums' }}>{sec.avg_speed_kmh} km/h</Text></Text>
+                                        </Flex>
+                                        <Flex justify="between" mt="2" style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.06))', paddingTop: 8 }}>
+                                            <Text size="1" color="gray">Overspeed: <Text color="red" weight="bold" style={{ fontVariantNumeric: 'tabular-nums' }}>{sec.overspeed_count}</Text></Text>
+                                            <Text size="1" color="gray">Overload WIM: <Text color="amber" weight="bold" style={{ fontVariantNumeric: 'tabular-nums' }}>{sec.overload_count}</Text></Text>
+                                        </Flex>
+                                    </Panel>
+                                ))}
+                            </Grid>
+                        </Box>
 
                 {/* VMS Live Control & Message Broadcast */}
                 <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', marginBottom: 24 }}>
@@ -171,7 +181,9 @@ export default function TrafficMonitoring({ auth, trafficSections, vmsMessages, 
                         </Dialog.Content>
                     </Dialog.Root>
                 )}
-            </Box>
+                    </Panel>
+                </Box>
+            </Flex>
         </App>
     );
 }

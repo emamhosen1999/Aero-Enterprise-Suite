@@ -40,42 +40,50 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
     return (
         <App auth={auth}>
             <Head title="O&M Overview — Operations & Maintenance" />
-            <Box p={{ initial: '3', sm: '4', md: '5' }}>
-                <Flex align="center" justify="between" mb="4" wrap="wrap" gap="3">
-                    <Box>
-                        <Heading size="6" weight="bold" style={{ letterSpacing: '-0.02em' }}>
-                            Expressway Operations & Maintenance Command Center
-                        </Heading>
-                        <Text size="2" color="gray">
-                            Dhaka Bypass Expressway (N-105) PPP · Live Toll, Traffic, Patrol & Maintenance Overview
-                        </Text>
-                    </Box>
-                    <Flex gap="2">
-                        <Button color="blue" variant="soft" onClick={() => router.visit('/om/traffic-monitoring')}>
-                            <ComputerDesktopIcon width={16} height={16} /> Traffic Control
-                        </Button>
-                        <Button color="indigo" onClick={() => router.visit('/om/incidents')}>
-                            <ShieldCheckIcon width={16} height={16} /> Patrol Dispatch
-                        </Button>
-                    </Flex>
-                </Flex>
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <TruckIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Expressway Operations & Maintenance Command Center</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Dhaka Bypass Expressway (N-105) PPP · Live Toll, Traffic, Patrol & Maintenance Overview</Text>
+                                    </Box>
+                                </Flex>
+                                <Flex gap="2" wrap="wrap">
+                                    <Button color="blue" variant="soft" onClick={() => router.visit('/om/traffic-monitoring')} style={{ borderRadius: 10 }}>
+                                        <ComputerDesktopIcon width={16} height={16} /> Traffic Control
+                                    </Button>
+                                    <Button color="indigo" onClick={() => router.visit('/om/incidents')} style={{ borderRadius: 10 }}>
+                                        <ShieldCheckIcon width={16} height={16} /> Patrol Dispatch
+                                    </Button>
+                                </Flex>
+                            </Flex>
+                        </Box>
 
-                {/* Top KPI Cards */}
-                <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="5">
-                    <Panel tinted style={{ padding: 18 }}>
-                        <Flex align="center" justify="between" mb="2">
-                            <Text size="1" weight="bold" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                Today's Toll Revenue
-                            </Text>
-                            <CurrencyDollarIcon width={20} height={20} style={{ color: 'var(--green-9)' }} />
-                        </Flex>
-                        <Heading size="6" style={{ color: 'var(--green-11)' }}>
-                            ৳ {Number(defaultStats.today_toll_revenue).toLocaleString()}
-                        </Heading>
-                        <Text size="1" color="gray" mt="1">
-                            ETC Ratio: <Text weight="bold" color="green">{defaultStats.etc_vehicle_ratio}%</Text>
-                        </Text>
-                    </Panel>
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
+
+                        {/* Top KPI Cards */}
+                        <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
+                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                                <Flex align="center" justify="between" mb="2">
+                                    <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                        Today's Toll Revenue
+                                    </Text>
+                                    <CurrencyDollarIcon width={20} height={20} style={{ color: 'var(--green-9)' }} />
+                                </Flex>
+                                <Heading size="6" style={{ color: 'var(--green-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>
+                                    ৳ {Number(defaultStats.today_toll_revenue).toLocaleString()}
+                                </Heading>
+                                <Text size="1" color="gray" mt="1">
+                                    ETC Ratio: <Text weight="bold" color="green">{defaultStats.etc_vehicle_ratio}%</Text>
+                                </Text>
+                            </Panel>
 
                     <Panel tinted style={{ padding: 18 }}>
                         <Flex align="center" justify="between" mb="2">
@@ -211,7 +219,9 @@ export default function OmDashboard({ auth, stats, recentIncidents, trafficSecti
                         </Table.Root>
                     </Panel>
                 </Grid>
-            </Box>
+                    </Panel>
+                </Box>
+            </Flex>
         </App>
     );
 }

@@ -286,21 +286,23 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
     <App>
       <Head title={`Device Management - ${userState.name}`} />
       <ErrorBoundary>
-        <Box p="4" style={{ maxWidth: 1280, margin: '0 auto', width: '100%' }}>
+        <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+          <Box style={{ width: '100%', maxWidth: 2000 }}>
+            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
 
-          {/* ── Page Header ── */}
-          <Flex direction={{ initial: 'column', sm: 'row' }} justify="between" align={{ initial: 'start', sm: 'center' }} gap="4" mb="5">
-            <Box>
-              <Link href={route('users')}>
-                <Button variant="ghost" color="gray" size="2" mb="2" style={{ marginLeft: '-10px' }}>
-                  <ArrowLeftIcon /> Back to Users
-                </Button>
-              </Link>
-              <Heading size="6">Device Management</Heading>
-              <Text size="2" color="gray">
-                {userState.name} ({userState.email})
-              </Text>
-            </Box>
+              {/* ── Page Header ── */}
+              <Flex direction={{ initial: 'column', sm: 'row' }} justify="between" align={{ initial: 'start', sm: 'center' }} gap="4" mb="4">
+                <Box>
+                  <Link href={route('users')}>
+                    <Button variant="ghost" color="gray" size="2" mb="2" style={{ marginLeft: '-10px', borderRadius: 8 }}>
+                      <ArrowLeftIcon /> Back to Users
+                    </Button>
+                  </Link>
+                  <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Device Management</Heading>
+                  <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                    {userState.name} ({userState.email})
+                  </Text>
+                </Box>
 
             <Flex align="center" gap="3">
               <Badge
@@ -603,7 +605,9 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               )}
             </Panel>
           </Flex>
+          </Panel>
         </Box>
+      </Flex>
 
         {/* ── Dialogs ── */}
         <Dialog.Root open={resetModal.isOpen} onOpenChange={o => !o && resetModal.onClose()}>

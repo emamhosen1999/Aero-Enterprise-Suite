@@ -586,47 +586,53 @@ const LeavesEmployee = ({ title, allUsers }) => {
         />
       )}
 
-      <Box p={{ initial: '3', md: '5' }}>
-        <Panel>
-          <Panel.Header
-            actions={
-              <Flex gap="2">
-                <Button
-                  onClick={() => openModal('add_leave')}
-                  size="2"
-                  style={{
-                      cursor: 'pointer',
-                      background: 'linear-gradient(135deg, var(--accent-9) 0%, var(--accent-10) 100%)',
-                      boxShadow: '0 2px 8px var(--accent-a3)'
-                  }}
-                >
-                  <PlusIcon /> Add Leave
-                </Button>
-                <Button variant="soft" color="gray" onClick={() => openModal('bulk_leave')} size="2" style={{ cursor: 'pointer' }}>
-                  <CalendarIcon /> Bulk Add
-                </Button>
+      <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+        <Box style={{ width: '100%', maxWidth: 2000 }}>
+          <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+            
+            {/* ── Page Header ── */}
+            <Box mb="4">
+              <Flex
+                direction={{ initial: 'column', sm: 'row' }}
+                align={{ initial: 'start', sm: 'center' }}
+                justify="between"
+                gap="4"
+              >
+                <Flex align="center" gap="3">
+                  <Box style={{
+                    padding: 12,
+                    background: 'var(--blue-a3)',
+                    borderRadius: 12,
+                    border: '1px solid var(--blue-a5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <CalendarIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                  </Box>
+                  <Box>
+                    <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--gray-12)' }}>My Leaves</Heading>
+                    <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', display: 'block', mt: 0.5 }}>Your leave requests and balances</Text>
+                  </Box>
+                </Flex>
+
+                <Flex gap="2" align="center" wrap="wrap">
+                  <Button
+                    onClick={() => openModal('add_leave')}
+                    color="blue"
+                    size="2"
+                    style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <PlusIcon /> Add Leave
+                  </Button>
+                  <Button variant="soft" color="gray" onClick={() => openModal('bulk_leave')} size="2" style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600, cursor: 'pointer' }}>
+                    <CalendarIcon /> Bulk Add
+                  </Button>
+                </Flex>
               </Flex>
-            }
-          >
-            <Flex align="center" gap="3">
-              <Box style={{
-                padding: 12,
-                background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a2) 100%)',
-                borderRadius: 'var(--radius-3)',
-                border: '1px solid var(--accent-a5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px var(--accent-a2)'
-              }}>
-                <CalendarIcon style={{ width: 24, height: 24, color: 'var(--accent-9)' }} />
-              </Box>
-              <Box>
-                <Heading size="5" style={{ letterSpacing: '-0.02em', color: 'var(--gray-12)' }}>My Leaves</Heading>
-                <Text size="2" color="gray" style={{ display: 'block', mt: 0.5 }}>Your leave requests and balances</Text>
-              </Box>
-            </Flex>
-          </Panel.Header>
+            </Box>
+
+            <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
           <Panel tinted mb="5">
             <Flex gap="3" align="end" wrap="wrap">
@@ -718,6 +724,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
           </Box>
         </Panel>
       </Box>
+    </Flex>
     </>
   );
 };

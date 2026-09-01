@@ -1,35 +1,28 @@
 import { Panel } from '@/Components/ui/Panel';
-import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Select, TextField, Badge, Spinner } from '@radix-ui/themes';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-
 import {
     BuildingOffice2Icon,
     PlusIcon,
-    FunnelIcon,
     MagnifyingGlassIcon,
     UserGroupIcon,
     CheckCircleIcon,
     XCircleIcon,
-    DocumentArrowDownIcon,
-    ChartBarIcon,
     Squares2X2Icon,
     TableCellsIcon,
-    AdjustmentsHorizontalIcon,
-    BuildingOfficeIcon,
     UsersIcon,
-    PencilIcon,
     MapPinIcon,
     CalendarIcon
 } from '@heroicons/react/24/outline';
-import PageHeader from '@/Components/PageHeader.jsx';
 import StatsCards from '@/Components/StatsCards.jsx';
 import App from '@/Layouts/App.jsx';
 import DepartmentTable from '@/Tables/DepartmentTable.jsx';
 import DepartmentForm from '@/Forms/DepartmentForm.jsx';
 import DeleteDepartmentForm from '@/Forms/DeleteDepartmentForm.jsx';
+import TablePagination from '@/Components/TablePagination.jsx';
+import { PageLoadingSkeleton, TableLoadingSkeleton } from '@/Components/LoadingSkeleton.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { showToast } from '@/utils/toastUtils';
 import dayjs from 'dayjs';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
@@ -39,32 +32,24 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
     const isMobile = useMediaQuery('(max-width: 639px)');
     const isTablet = useMediaQuery('(max-width: 767px)');
     
-    // Dialog states
     const [modalState, setModalState] = useState({
         type: null,
         department: null
     });
     
-    // Filters
     const [filters, setFilters] = useState({
         search: initialFilters?.search || '',
         status: initialFilters?.status || 'all',
         parentDepartment: initialFilters?.parentDepartment || 'all'
     });
     
-    // Show/Hide filters panel
-    const [showFilters, setShowFilters] = useState(false);
-    
-    // View mode (table or grid)
     const [viewMode, setViewMode] = useState('table');
     
-    // Pagination
     const [pagination, setPagination] = useState({
         currentPage: initialDepartments?.current_page || 1,
         perPage: initialDepartments?.per_page || 10
     });
     
-    // React Query hooks
     const { data: departmentsData, isLoading: loading, refetch } = useDepartmentsQuery.useDepartmentsList({
         page: pagination.currentPage,
         per_page: pagination.perPage,
@@ -75,33 +60,24 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
 
     const { data: stats } = useDepartmentsQuery.useDepartmentStats();
     
-    // Check permissions
-    const canCreateDepartment = auth.permissions?.includes('departments.create') || false;
-    const canEditDepartment = auth.permissions?.includes('departments.update') || false;
-    const canDeleteDepartment = auth.permissions?.includes('departments.delete') || false;
+    const canCreateDepartment = auth?.permissions?.includes('departments.create') || false;
+    const canEditDepartment = auth?.permissions?.includes('departments.update') || false;
+    const canDeleteDepartment = auth?.permissions?.includes('departments.delete') || false;
     
-    // Check permissions more directly for template use
-    const hasEditPermission = canEditDepartment || auth.permissions?.includes('departments.update') || false;
-    const hasDeletePermission = canDeleteDepartment || auth.permissions?.includes('departments.delete') || false;
-    
-    // Filter handlers
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
-        setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page on filter change
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
     };
     
-    // Handle pagination changes
     const handlePageChange = (page) => {
         setPagination(prev => ({ ...prev, currentPage: page }));
-        // Scroll to top when changing pages
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     
     const handleRowsPerPageChange = (rowsPerPage) => {
-        setPagination({ currentPage: 1, perPage: rowsPerPage });
+        setPagination(prev => ({ ...prev, perPage: rowsPerPage, currentPage: 1 }));
     };
     
-    // Dialog handlers
     const openModal = (type, department = null) => {
         setModalState({ type, department });
     };
@@ -110,134 +86,15 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         setModalState({ type: null, department: null });
     };
     
-    // Handle success actions
     const handleSuccess = () => {
         refetch();
+        closeModal();
     };
     
-    // Department Card component for grid view
-    const DepartmentCard = ({ department, index }) => {
-        const manager = department.manager;
-        const parent = department.parent;
-
-        return (
-            <Panel
-                tinted
-                className="transition-all duration-200 cursor-pointer h-full"
-                onClick={() => openModal('view_department', department)}
-            >
-                <Panel.Body className="p-4 flex flex-col h-full">
-                    {/* Card Header with Department Info */}
-                    <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/10">
-                        <div className="flex justify-center items-center h-10 w-10 rounded-lg bg-primary/20 text-primary shrink-0">
-                            <BuildingOfficeIcon className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <h3 className="font-semibold text-foreground text-sm line-clamp-1">{department.name}</h3>
-                                    <p className="text-default-500 text-xs">{department.code || 'No Code'}</p>
-                                </div>
-                                
-                                {hasEditPermission && (
-                                    <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="light"
-                                        className="text-default-400 hover:text-foreground ml-2"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openModal('edit_department', department);
-                                        }}
-                                    >
-                                        <PencilIcon className="w-4 h-4" />
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* Card Content */}
-                    <div className="flex-1 flex flex-col gap-3">
-                        {/* Location */}
-                        {department.location && (
-                            <div className="flex items-center gap-2 text-sm">
-                                <MapPinIcon className="w-4 h-4 text-default-400 shrink-0" />
-                                <span className="text-default-600 text-xs line-clamp-1">{department.location}</span>
-                            </div>
-                        )}
-                        
-                        {/* Established Date */}
-                        {department.established_date && (
-                            <div className="flex items-center gap-2 text-sm">
-                                <CalendarIcon className="w-4 h-4 text-default-400 shrink-0" />
-                                <span className="text-default-600 text-xs">
-                                    {dayjs(department.established_date).format('MMM D, YYYY')}
-                                </span>
-                            </div>
-                        )}
-                        
-                        {/* Employees Count */}
-                        <div className="flex items-center gap-2 text-sm">
-                            <UsersIcon className="w-4 h-4 text-default-400 shrink-0" />
-                            <span className="text-default-600 text-xs">
-                                {department.employee_count || 0} {department.employee_count === 1 ? 'Employee' : 'Employees'}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    {/* Card Footer with Tags */}
-                    <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-2">
-                        {/* Status */}
-                        <Badge
-                            size="sm"
-                            variant={department.is_active ? "solid" : "bordered"}
-                            color={department.is_active ? "success" : "danger"}
-                            className="text-xs"
-                            startContent={department.is_active ? 
-                                <CheckCircleIcon className="w-3 h-3" /> : 
-                                <XCircleIcon className="w-3 h-3" />
-                            }
-                        >
-                            {department.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                        
-                        {/* Parent Department */}
-                        {parent && (
-                            <Badge
-                                size="sm"
-                                variant="soft"
-                                color="primary"
-                                className="text-xs"
-                                startContent={<BuildingOffice2Icon className="w-3 h-3" />}
-                            >
-                                {parent.name}
-                            </Badge>
-                        )}
-                        
-                        {/* Manager */}
-                        {manager && (
-                            <Badge
-                                size="sm"
-                                variant="soft"
-                                color="secondary"
-                                className="text-xs"
-                                startContent={<UsersIcon className="w-3 h-3" />}
-                            >
-                                {manager.name}
-                            </Badge>
-                        )}
-                    </div>
-                </Panel.Body>
-            </Panel>
-        );
-    };
-    
-    // Statistics cards
     const statsCards = useMemo(() => [
         {
             title: 'Total Departments',
-            value: stats?.total || 0,
+            value: stats?.total ?? initialStats?.total ?? 0,
             icon: <BuildingOffice2Icon className="w-5 h-5" />,
             color: 'text-blue-400',
             iconBg: 'bg-blue-500/20',
@@ -245,7 +102,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         },
         {
             title: 'Active',
-            value: stats?.active || 0,
+            value: stats?.active ?? initialStats?.active ?? 0,
             icon: <CheckCircleIcon className="w-5 h-5" />,
             color: 'text-green-400',
             iconBg: 'bg-green-500/20',
@@ -253,7 +110,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         },
         {
             title: 'Inactive',
-            value: stats?.inactive || 0,
+            value: stats?.inactive ?? initialStats?.inactive ?? 0,
             icon: <XCircleIcon className="w-5 h-5" />,
             color: 'text-red-400',
             iconBg: 'bg-red-500/20',
@@ -261,282 +118,270 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         },
         {
             title: 'Parent Departments',
-            value: stats?.parent_departments || 0,
+            value: stats?.parent_departments ?? initialStats?.parent_departments ?? 0,
             icon: <UserGroupIcon className="w-5 h-5" />,
             color: 'text-purple-400',
             iconBg: 'bg-purple-500/20',
             description: 'Top-level departments'
         },
-    ], [stats]);
-    
-    // Action buttons for page header
-    const actionButtons = useMemo(() => {
-        const buttons = [];
-        
-        if (canCreateDepartment) {
-            buttons.push({
-                label: isMobile ? "Add" : "Add Department",
-                icon: <PlusIcon className="w-4 h-4" />,
-                onPress: () => openModal('add_department'),
-                className: "bg-linear-to-r from-(--theme-primary) to-(--theme-secondary) text-white font-medium hover:opacity-90"
-            });
-        }
+    ], [stats, initialStats]);
 
-        buttons.push({
-            label: isMobile ? "" : "Export",
-            isIconOnly: isMobile,
-            icon: <DocumentArrowDownIcon className="w-4 h-4" />,
-            variant: "bordered",
-            className: "border-[rgba(var(--theme-primary-rgb),0.3)] bg-[rgba(var(--theme-primary-rgb),0.05)] hover:bg-[rgba(var(--theme-primary-rgb),0.1)]"
-        });
+    const DepartmentCard = ({ department }) => {
+        const parent = department.parent_id ? parentDepartments?.find(d => d.id === department.parent_id) : null;
+        const manager = department.manager_id ? managers?.find(m => m.id === department.manager_id) : null;
         
-        return buttons;
-    }, [canCreateDepartment, isMobile]);
-    
+        return (
+            <Panel
+                tinted
+                style={{
+                    borderRadius: 16,
+                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                    padding: 16,
+                    background: 'var(--aero-surface, var(--color-background))',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                }}
+            >
+                <Box>
+                    <Flex justify="between" align="start" mb="3">
+                        <Box style={{ flex: 1 }}>
+                            <Heading size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
+                                {department.name}
+                            </Heading>
+                            <Text size="1" color="gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                Code: {department.code || 'N/A'}
+                            </Text>
+                        </Box>
+                        <Badge
+                            size="1"
+                            variant="soft"
+                            color={department.is_active ? "green" : "red"}
+                            style={{ borderRadius: 999 }}
+                        >
+                            {department.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                    </Flex>
+
+                    {department.description && (
+                        <Text size="2" color="gray" style={{ display: 'block', marginBottom: 12, lineHeight: 1.4 }}>
+                            {department.description}
+                        </Text>
+                    )}
+
+                    <Flex direction="column" gap="2" my="2">
+                        {department.location && (
+                            <Flex align="center" gap="2">
+                                <MapPinIcon style={{ width: 14, height: 14, color: 'var(--gray-9)' }} />
+                                <Text size="1" color="gray">{department.location}</Text>
+                            </Flex>
+                        )}
+                        <Flex align="center" gap="2">
+                            <UsersIcon style={{ width: 14, height: 14, color: 'var(--gray-9)' }} />
+                            <Text size="1" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {department.employee_count || 0} {department.employee_count === 1 ? 'Employee' : 'Employees'}
+                            </Text>
+                        </Flex>
+                        {parent && (
+                            <Flex align="center" gap="2">
+                                <BuildingOffice2Icon style={{ width: 14, height: 14, color: 'var(--blue-9)' }} />
+                                <Text size="1" color="blue">Parent: {parent.name}</Text>
+                            </Flex>
+                        )}
+                    </Flex>
+                </Box>
+
+                <Box mt="3" pt="3" style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.06))' }}>
+                    <Flex justify="between" align="center">
+                        <Text size="1" color="gray" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {department.created_at ? dayjs(department.created_at).format('MMM DD, YYYY') : ''}
+                        </Text>
+                        <Flex gap="1">
+                            {canEditDepartment && (
+                                <Button size="1" variant="soft" color="gray" onClick={() => openModal('edit_department', department)} style={{ borderRadius: 8 }}>
+                                    Edit
+                                </Button>
+                            )}
+                            {canDeleteDepartment && (
+                                <Button size="1" variant="soft" color="red" onClick={() => openModal('delete_department', department)} style={{ borderRadius: 8 }}>
+                                    Delete
+                                </Button>
+                            )}
+                        </Flex>
+                    </Flex>
+                </Box>
+            </Panel>
+        );
+    };
+
     return (
         <App>
-            <Head title={title} />
+            <Head title={title || "Department Management"} />
             
-            <div className="flex justify-center p-2">
-                <div>
-                    <Panel>
-                        <PageHeader
-                            title="Department Management"
-                            subtitle="Manage company departments, hierarchies, and organizational structure"
-                            icon={<BuildingOffice2Icon className="w-8 h-8" />}
-                            variant="default"
-                            actionButtons={actionButtons}
-                        >
-                            <div className="p-4 sm:p-6">
-                                {/* Statistics Cards */}
-                                <ErrorBoundary>
-                                    <StatsCards stats={statsCards} className="mb-6" />
-                                </ErrorBoundary>
-                                
-                                {/* View Controls */}
-                                <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                                    <div className="flex-1">
-                                        <TextField.Root
-                                            label="Search Departments"
-                                            placeholder="Search by name, code, or location..."
-                                            value={filters.search}
-                                            onChange={(e) => handleFilterChange('search', e.target.value)}
-                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
-                                        />
-                                    </div>
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                        
+                        <Box mb="4">
+                            <Flex
+                                direction={{ initial: 'column', sm: 'row' }}
+                                align={{ initial: 'start', sm: 'center' }}
+                                justify="between"
+                                gap="4"
+                            >
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{
+                                        background: 'var(--blue-a3)',
+                                        borderRadius: 12,
+                                        border: '1px solid var(--blue-a5)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <BuildingOffice2Icon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Department Management</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                            Manage company departments, hierarchies, and organizational structure
+                                        </Text>
+                                    </Box>
+                                </Flex>
 
-                                    <div className="flex gap-2 items-end">
-                                        {/* View Toggle */}
-                                        <ButtonGroup variant="outline" className="bg-white/5">
-                                            <Button
-                                                isIconOnly={isMobile}
-                                                color={viewMode === 'table' ? 'primary' : 'default'}
-                                                onClick={() => setViewMode('table')}
-                                                className={viewMode === 'table' ? 'bg-blue-500/20' : ''}
-                                            >
-                                                <TableCellsIcon className="w-4 h-4" />
-                                                {!isMobile && <span className="ml-1">Table</span>}
-                                            </Button>
-                                            <Button
-                                                isIconOnly={isMobile}
-                                                color={viewMode === 'grid' ? 'primary' : 'default'}
-                                                onClick={() => setViewMode('grid')}
-                                                className={viewMode === 'grid' ? 'bg-blue-500/20' : ''}
-                                            >
-                                                <Squares2X2Icon className="w-4 h-4" />
-                                                {!isMobile && <span className="ml-1">Grid</span>}
-                                            </Button>
-                                        </ButtonGroup>
-                                        
-                                        {/* Filter Toggle */}
-                                        <Button
-                                            isIconOnly={isMobile}
-                                            variant="outline"
-                                            onClick={() => setShowFilters(!showFilters)}
-                                            className={showFilters ? 'bg-purple-500/20' : 'bg-white/5'}
-                                        >
-                                            <AdjustmentsHorizontalIcon className="w-4 h-4" />
-                                            {!isMobile && <span className="ml-1">Filters</span>}
+                                <Flex gap="2" align="center" wrap="wrap">
+                                    {canCreateDepartment && (
+                                        <Button color="blue" onClick={() => openModal('add_department')} style={{ borderRadius: 12, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                                            <PlusIcon style={{ width: 16, height: 16 }} />
+                                            {!isMobile && 'Add Department'}
                                         </Button>
-                                    </div>
-                                </div>
-
-                                {/* Filters Section */}
-                                {showFilters && (
-                                    <div
-                                        className="mb-6 p-4 bg-white/5 backdrop-blur-md rounded-lg border border-white/10"
-                                    >
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                <Select
-                                                    label="Status"
-                                                    variant="outline"
-                                                    selectedKeys={filters.status !== 'all' ? [filters.status] : []}
-                                                    onSelectionChange={(keys) => {
-                                                        const value = Array.from(keys)[0] || 'all';
-                                                        handleFilterChange('status', value);
-                                                    }}
-                                                    classNames={{
-                                                        trigger: "bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15",
-                                                    }}
-                                                >
-                                                    <SelectItem key="all" value="all">All Statuses</SelectItem>
-                                                    <SelectItem key="active" value="active">Active Only</SelectItem>
-                                                    <SelectItem key="inactive" value="inactive">Inactive Only</SelectItem>
-                                                </Select>
-
-                                                <Select
-                                                    label="Parent Department"
-                                                    variant="outline"
-                                                    selectedKeys={filters.parentDepartment !== 'all' ? [filters.parentDepartment] : []}
-                                                    onSelectionChange={(keys) => {
-                                                        const value = Array.from(keys)[0] || 'all';
-                                                        handleFilterChange('parentDepartment', value);
-                                                    }}
-                                                    classNames={{
-                                                        trigger: "bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15",
-                                                    }}
-                                                >
-                                                    <SelectItem key="all" value="all">All Parent Departments</SelectItem>
-                                                    <SelectItem key="none" value="none">Top-Level Departments</SelectItem>
-                                                    {parentDepartments?.map(dept => (
-                                                        <SelectItem key={dept.id.toString()} value={dept.id.toString()}>
-                                                            {dept.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </Select>
-                                            </div>
-
-                                            {/* Active Filters */}
-                                            {(filters.search || filters.status !== 'all' || filters.parentDepartment !== 'all') && (
-                                                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
-                                                    {filters.search && (
-                                                        <Badge
-                                                            variant="soft"
-                                                            color="primary"
-                                                            size="sm"
-                                                            onClose={() => handleFilterChange('search', '')}
-                                                        >
-                                                            Search: {filters.search}
-                                                        </Badge>
-                                                    )}
-                                                    {filters.status !== 'all' && (
-                                                        <Badge
-                                                            variant="soft"
-                                                            color="secondary"
-                                                            size="sm"
-                                                            onClose={() => handleFilterChange('status', 'all')}
-                                                        >
-                                                            Status: {filters.status === 'active' ? 'Active' : 'Inactive'}
-                                                        </Badge>
-                                                    )}
-                                                    {filters.parentDepartment !== 'all' && (
-                                                        <Badge
-                                                            variant="soft"
-                                                            color="warning"
-                                                            size="sm"
-                                                            onClose={() => handleFilterChange('parentDepartment', 'all')}
-                                                        >
-                                                            Parent: {
-                                                                filters.parentDepartment === 'none' 
-                                                                    ? 'None (Top-Level)' 
-                                                                    : parentDepartments?.find(d => d.id === parseInt(filters.parentDepartment))?.name
-                                                            }
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                )}
-
-                                {/* Content Area */}
-                                <div className="bg-white/5 backdrop-blur-md rounded-lg border border-white/10 overflow-hidden">
-                                    <div className="p-4 border-b border-white/10">
-                                        <h3 className="text-lg font-semibold text-foreground">
-                                            {viewMode === 'table' ? 'Department Table' : 'Department Grid'} 
-                                            <span className="text-sm text-default-500 ml-2">
-                                                ({departmentsData.total || 0} {departmentsData.total === 1 ? 'department' : 'departments'})
-                                            </span>
-                                        </h3>
-                                    </div>
-                                    
-                                    {loading ? (
-                                        <div className="text-center py-8">
-                                            <Spinner size="lg" />
-                                            <p className="mt-4 text-default-500">
-                                                Loading departments data...
-                                            </p>
-                                        </div>
-                                    ) : viewMode === 'table' ? (
-                                        <ErrorBoundary>
-                                            <DepartmentTable
-                                                departments={departmentsData}
-                                                loading={loading}
-                                                onEdit={canEditDepartment ? (department) => openModal('edit_department', department) : undefined}
-                                                onDelete={canDeleteDepartment ? (department) => openModal('delete_department', department) : undefined}
-                                                onView={(department) => openModal('view_department', department)}
-                                                isMobile={isMobile}
-                                                isTablet={isTablet}
-                                                pagination={pagination}
-                                                onPageChange={handlePageChange}
-                                                onRowsPerPageChange={handleRowsPerPageChange}
-                                                canEditDepartment={canEditDepartment}
-                                                canDeleteDepartment={canDeleteDepartment}
-                                            />
-                                        </ErrorBoundary>
-                                    ) : (
-                                        <div className="p-4">
-                                            {departmentsData.data && departmentsData.data.length > 0 ? (
-                                                <div className={`grid gap-4 ${
-                                                    isMobile 
-                                                        ? 'grid-cols-1' 
-                                                        : isTablet 
-                                                            ? 'grid-cols-2' 
-                                                            : 'grid-cols-3 xl:grid-cols-4'
-                                                }`}>
-                                                    {departmentsData.data.map((department, index) => (
-                                                        <DepartmentCard key={department.id} department={department} index={index} />
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="text-center py-8">
-                                                    <BuildingOffice2Icon className="w-12 h-12 mx-auto text-default-300 mb-2" />
-                                                    <p className="text-default-500 mb-1">
-                                                        No departments found
-                                                    </p>
-                                                    <p className="text-xs text-default-400">
-                                                        Try adjusting your search or filters
-                                                    </p>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Pagination for Grid View */}
-                                            {departmentsData.data && departmentsData.data.length > 0 && (
-                                                <div className="flex justify-center mt-6 border-t border-white/10 pt-4">
-                                                    <Pagination
-                                                        total={Math.ceil(departmentsData.total / pagination.perPage)}
-                                                        initialPage={pagination.currentPage}
-                                                        page={pagination.currentPage}
-                                                        onChange={handlePageChange}
-                                                        size={isMobile ? "sm" : "md"}
-                                                        variant="outline"
-                                                        showControls
-                                                        classNames={{
-                                                            item: "bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15",
-                                                            cursor: "bg-white/20 backdrop-blur-md border-white/20",
-                                                        }}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
                                     )}
-                                </div>
-                            </div>
-                        </PageHeader>
+                                </Flex>
+                            </Flex>
+                        </Box>
+
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
+
+                        <Box mb="4">
+                            <ErrorBoundary>
+                                <StatsCards stats={statsCards} />
+                            </ErrorBoundary>
+                        </Box>
+
+                        <Flex gap="3" wrap="wrap" mb="4" align="center">
+                            <Box style={{ flex: 1, minWidth: '240px' }}>
+                                <TextField.Root
+                                    placeholder="Search by name, code, or location..."
+                                    value={filters.search}
+                                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                                    style={{ borderRadius: 10 }}
+                                >
+                                    <TextField.Slot><MagnifyingGlassIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} /></TextField.Slot>
+                                </TextField.Root>
+                            </Box>
+
+                            <Box style={{ minWidth: '150px' }}>
+                                <Select.Root value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
+                                    <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Statuses</Select.Item>
+                                        <Select.Item value="active">Active Only</Select.Item>
+                                        <Select.Item value="inactive">Inactive Only</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+
+                            <Box style={{ minWidth: '180px' }}>
+                                <Select.Root value={filters.parentDepartment} onValueChange={(v) => handleFilterChange('parentDepartment', v)}>
+                                    <Select.Trigger style={{ width: '100%', borderRadius: 10 }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Parent Depts</Select.Item>
+                                        <Select.Item value="none">Top-Level Depts</Select.Item>
+                                        {parentDepartments?.map(dept => (
+                                            <Select.Item key={dept.id} value={String(dept.id)}>
+                                                {dept.name}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+
+                            <Flex gap="1" style={{ background: 'var(--gray-a3)', padding: 3, borderRadius: 10 }}>
+                                <IconButton
+                                    size="2"
+                                    variant={viewMode === 'table' ? 'solid' : 'ghost'}
+                                    color={viewMode === 'table' ? 'blue' : 'gray'}
+                                    onClick={() => setViewMode('table')}
+                                    aria-label="Table view"
+                                    style={{ borderRadius: 8 }}
+                                >
+                                    <TableCellsIcon style={{ width: 16, height: 16 }} />
+                                </IconButton>
+                                <IconButton
+                                    size="2"
+                                    variant={viewMode === 'grid' ? 'solid' : 'ghost'}
+                                    color={viewMode === 'grid' ? 'blue' : 'gray'}
+                                    onClick={() => setViewMode('grid')}
+                                    aria-label="Grid view"
+                                    style={{ borderRadius: 8 }}
+                                >
+                                    <Squares2X2Icon style={{ width: 16, height: 16 }} />
+                                </IconButton>
+                            </Flex>
+                        </Flex>
+
+                        {loading && (!departmentsData || !departmentsData.data) ? (
+                            <TableLoadingSkeleton rows={pagination.perPage || 6} columns={5} />
+                        ) : viewMode === 'table' ? (
+                            <ErrorBoundary>
+                                <DepartmentTable
+                                    departments={departmentsData || initialDepartments}
+                                    loading={loading}
+                                    onEdit={canEditDepartment ? (department) => openModal('edit_department', department) : undefined}
+                                    onDelete={canDeleteDepartment ? (department) => openModal('delete_department', department) : undefined}
+                                    onView={(department) => openModal('view_department', department)}
+                                    isMobile={isMobile}
+                                    isTablet={isTablet}
+                                    pagination={pagination}
+                                    onPageChange={handlePageChange}
+                                    onRowsPerPageChange={handleRowsPerPageChange}
+                                    canEditDepartment={canEditDepartment}
+                                    canDeleteDepartment={canDeleteDepartment}
+                                />
+                            </ErrorBoundary>
+                        ) : (
+                            <Box>
+                                {departmentsData?.data && departmentsData.data.length > 0 ? (
+                                    <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '4' }} gap="4">
+                                        {departmentsData.data.map((department) => (
+                                            <DepartmentCard key={department.id} department={department} />
+                                        ))}
+                                    </Grid>
+                                ) : (
+                                    <Flex direction="column" align="center" justify="center" py="8" gap="2">
+                                        <BuildingOffice2Icon style={{ width: 48, height: 48, color: 'var(--gray-8)', opacity: 0.5 }} />
+                                        <Text size="3" weight="medium" color="gray">No departments found</Text>
+                                        <Text size="2" color="gray">Try adjusting your search or filters</Text>
+                                    </Flex>
+                                )}
+                                
+                                {departmentsData?.total > pagination.perPage && (
+                                    <Box mt="4">
+                                        <TablePagination
+                                            pagination={{
+                                                currentPage: pagination.currentPage,
+                                                perPage: pagination.perPage,
+                                                total: departmentsData.total
+                                            }}
+                                            onPageChange={handlePageChange}
+                                            onRowsPerPageChange={handleRowsPerPageChange}
+                                            loading={loading}
+                                        />
+                                    </Box>
+                                )}
+                            </Box>
+                        )}
                     </Panel>
-                </div>
-            </div>
+                </Box>
+            </Flex>
             
-            {/* Department Form Dialog */}
             {(modalState.type === 'add_department' || modalState.type === 'edit_department') && (
                 <DepartmentForm
                     open={true}
@@ -548,7 +393,6 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                 />
             )}
             
-            {/* Delete Department Dialog */}
             {modalState.type === 'delete_department' && (
                 <DeleteDepartmentForm
                     open={true}
@@ -558,12 +402,11 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                 />
             )}
             
-            {/* View Department Dialog */}
             {modalState.type === 'view_department' && (
                 <DepartmentForm
                     open={true}
                     onClose={closeModal}
-                    onSuccess={() => {}} // View only, no success handler needed
+                    onSuccess={() => {}}
                     department={modalState.department}
                     managers={managers}
                     parentDepartments={parentDepartments}

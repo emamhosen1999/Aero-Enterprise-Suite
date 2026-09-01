@@ -23,85 +23,90 @@ export default function TollOperations({ auth, summary, tollRecords }) {
     return (
         <App auth={auth}>
             <Head title="Toll Operations & Revenue" />
-            <Box p={{ initial: '3', sm: '4', md: '5' }}>
-                <Flex align="center" justify="between" mb="4">
-                    <Box>
-                        <Heading size="6" weight="bold" style={{ letterSpacing: '-0.02em' }}>
-                            Toll Operations & Electronic Toll Collection (ETC)
-                        </Heading>
-                        <Text size="2" color="gray">
-                            Dhaka Bypass Toll Revenue, Lane Collection Rates & ETC System Throughput
-                        </Text>
-                    </Box>
-                </Flex>
+            <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <CurrencyDollarIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Toll Operations & Electronic Toll Collection (ETC)</Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Dhaka Bypass Toll Revenue, Lane Collection Rates & ETC System Throughput</Text>
+                                    </Box>
+                                </Flex>
+                            </Flex>
+                        </Box>
 
-                <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="5">
-                    <Panel tinted style={{ padding: '20px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                        <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Today's Revenue</Text>
-                        <Heading size="6" mt="1" style={{ color: 'var(--green-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>৳ {Number(defaultSummary.total_revenue_today).toLocaleString()}</Heading>
-                    </Panel>
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-                    <Panel tinted style={{ padding: '20px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                        <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>ETC Collection Share</Text>
-                        <Heading size="6" mt="1" style={{ color: 'var(--blue-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{defaultSummary.etc_percentage}%</Heading>
-                    </Panel>
+                        <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
+                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Today's Revenue</Text>
+                                <Heading size="6" mt="1" style={{ color: 'var(--green-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>৳ {Number(defaultSummary.total_revenue_today).toLocaleString()}</Heading>
+                            </Panel>
 
-                    <Panel tinted style={{ padding: '20px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                        <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cash Toll Share</Text>
-                        <Heading size="6" mt="1" style={{ color: 'var(--amber-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{defaultSummary.cash_percentage}%</Heading>
-                    </Panel>
+                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>ETC Collection Share</Text>
+                                <Heading size="6" mt="1" style={{ color: 'var(--blue-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{defaultSummary.etc_percentage}%</Heading>
+                            </Panel>
 
-                    <Panel tinted style={{ padding: '20px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
-                        <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Total Vehicles Processed</Text>
-                        <Heading size="6" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{Number(defaultSummary.total_transactions_today).toLocaleString()}</Heading>
-                    </Panel>
-                </Grid>
+                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cash Toll Share</Text>
+                                <Heading size="6" mt="1" style={{ color: 'var(--amber-11)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{defaultSummary.cash_percentage}%</Heading>
+                            </Panel>
 
-                <Panel p="0" style={{ overflow: 'hidden', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                    <Box p="4" style={{ borderBottom: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
-                        <Heading size="4" weight="bold">Live Toll Transaction Stream</Heading>
-                    </Box>
-                    <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                        <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
-                            <Table.Header style={{
-                                position: 'sticky',
-                                top: 0,
-                                zIndex: 2,
-                                background: 'var(--aero-surface, var(--color-background))',
-                                backdropFilter: 'blur(8px)',
-                                boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
-                            }}>
-                                <Table.Row>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Plaza</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Lane</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Vehicle Class</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 130, background: 'inherit' }}>Payment Method</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Toll Amount</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150, background: 'inherit' }}>Time</Table.ColumnHeaderCell>
-                                </Table.Row>
-                            </Table.Header>
-                            <Table.Body>
-                                {records.map((rec) => (
-                                    <Table.Row key={rec.id} align="center">
-                                        <Table.Cell><Text weight="bold" style={{ whiteSpace: 'nowrap' }}>{rec.plaza_name}</Text></Table.Cell>
-                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{rec.lane_id}</Text></Table.Cell>
-                                        <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{rec.vehicle_class}</Text></Table.Cell>
-                                        <Table.Cell>
-                                            <Badge color={rec.payment_method === 'etc' ? 'green' : 'amber'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
-                                                {rec.payment_method.toUpperCase()}
-                                            </Badge>
-                                        </Table.Cell>
-                                        <Table.Cell>
-                                            <Text weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>৳ {Number(rec.amount).toFixed(2)}</Text>
-                                        </Table.Cell>
-                                        <Table.Cell style={{ textAlign: 'right', color: 'var(--gray-10)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{rec.transacted_at}</Table.Cell>
+                            <Panel tinted style={{ padding: '18px 16px', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                                <Text size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Total Vehicles Processed</Text>
+                                <Heading size="6" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{Number(defaultSummary.total_transactions_today).toLocaleString()}</Heading>
+                            </Panel>
+                        </Grid>
+
+                        <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                            <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
+                                <Table.Header style={{
+                                    position: 'sticky',
+                                    top: 0,
+                                    zIndex: 2,
+                                    background: 'var(--aero-surface, var(--color-background))',
+                                    backdropFilter: 'blur(8px)',
+                                    boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                                }}>
+                                    <Table.Row>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Plaza</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Lane</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 180, background: 'inherit' }}>Vehicle Class</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 130, background: 'inherit' }}>Payment Method</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ minWidth: 120, background: 'inherit' }}>Toll Amount</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 150, background: 'inherit' }}>Time</Table.ColumnHeaderCell>
                                     </Table.Row>
-                                ))}
-                            </Table.Body>
-                        </Table.Root>
-                    </Box>
-                </Panel>
-            </Box>
+                                </Table.Header>
+                                <Table.Body>
+                                    {records.map((rec) => (
+                                        <Table.Row key={rec.id} align="center">
+                                            <Table.Cell><Text weight="bold" style={{ whiteSpace: 'nowrap' }}>{rec.plaza_name}</Text></Table.Cell>
+                                            <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{rec.lane_id}</Text></Table.Cell>
+                                            <Table.Cell><Text size="2" style={{ whiteSpace: 'nowrap' }}>{rec.vehicle_class}</Text></Table.Cell>
+                                            <Table.Cell>
+                                                <Badge color={rec.payment_method === 'etc' ? 'green' : 'amber'} variant="soft" style={{ borderRadius: 999, fontWeight: 700 }}>
+                                                    {rec.payment_method.toUpperCase()}
+                                                </Badge>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Text weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>৳ {Number(rec.amount).toFixed(2)}</Text>
+                                            </Table.Cell>
+                                            <Table.Cell style={{ textAlign: 'right', color: 'var(--gray-10)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{rec.transacted_at}</Table.Cell>
+                                        </Table.Row>
+                                    ))}
+                                </Table.Body>
+                            </Table.Root>
+                        </Box>
+                    </Panel>
+                </Box>
+            </Flex>
         </App>
     );
 }

@@ -55,9 +55,9 @@ const SourceBadge = ({ source }) => {
 
 /* ── header metric ── */
 const Metric = ({ label, value, color = 'gray' }) => (
-  <Panel tinted>
-    <Text as="div" size="1" color="gray">{label}</Text>
-    <Heading size="6" color={color === 'gray' ? undefined : color} mt="1">{value}</Heading>
+  <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '16px 14px', background: 'var(--aero-surface, var(--color-background))' }}>
+    <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{label}</Text>
+    <Heading size="6" color={color === 'gray' ? undefined : color} mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>{value}</Heading>
   </Panel>
 );
 
@@ -173,34 +173,43 @@ const ClientErrors = ({
       <Head title="Client Diagnostics" />
 
       <ErrorBoundary>
-        <Box p={{ initial: '3', md: '5' }}>
-          {/* ── masthead ── */}
-          <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
-            <Box>
-              <Heading size="6" weight="medium">Diagnostics</Heading>
-              <Text as="p" size="2" color="gray" mt="1">
-                Mobile app crashes and server exceptions on one board, grouped by
-                fingerprint so each row is one bug rather than one occurrence.
-              </Text>
-            </Box>
-            <Button variant="soft" onClick={() => router.reload({ preserveScroll: true })}>
-              <ReloadIcon /> Refresh
-            </Button>
-          </Flex>
+        <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+          <Box style={{ width: '100%', maxWidth: 2000 }}>
+            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+              {/* ── Page Header ── */}
+              <Box mb="4">
+                <Flex align={{ initial: 'start', sm: 'center' }} justify="between" gap="4" wrap="wrap">
+                  <Flex align="center" gap="3">
+                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <ExclamationTriangleIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                    </Box>
+                    <Box>
+                      <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Diagnostics & Error Telemetry</Heading>
+                      <Text as="p" size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                        Mobile app crashes and server exceptions on one board, grouped by fingerprint.
+                      </Text>
+                    </Box>
+                  </Flex>
+                  <Button variant="soft" color="gray" onClick={() => router.reload({ preserveScroll: true })} style={{ borderRadius: 10 }}>
+                    <ReloadIcon /> Refresh
+                  </Button>
+                </Flex>
+              </Box>
 
-          {/* ── fleet counters ── */}
-          <Grid columns={{ initial: '2', md: '6' }} gap="3" mb="5">
-            <Metric label="Error groups" value={summary.total_groups ?? 0} />
-            <Metric label="Unresolved" value={summary.unresolved ?? 0} color="orange" />
-            <Metric label="Fatal unresolved" value={summary.fatal_unresolved ?? 0} color="red" />
-            {/* Which half of the stack is bleeding, before any filter is touched. */}
-            <Metric label="Mobile unresolved" value={summary.mobile_unresolved ?? 0} color="violet" />
-            <Metric label="Server unresolved" value={summary.server_unresolved ?? 0} color="cyan" />
-            <Metric label="Occurrences (24h)" value={summary.occurrences_last_24h ?? 0} color="blue" />
-          </Grid>
+              <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-          {/* ── controls + table ── */}
-          <Panel variant="surface">
+              {/* ── fleet counters ── */}
+              <Grid columns={{ initial: '2', sm: '3', md: '6' }} gap="3" mb="4">
+                <Metric label="Error groups" value={summary.total_groups ?? 0} />
+                <Metric label="Unresolved" value={summary.unresolved ?? 0} color="orange" />
+                <Metric label="Fatal unresolved" value={summary.fatal_unresolved ?? 0} color="red" />
+                <Metric label="Mobile unresolved" value={summary.mobile_unresolved ?? 0} color="violet" />
+                <Metric label="Server unresolved" value={summary.server_unresolved ?? 0} color="cyan" />
+                <Metric label="Occurrences (24h)" value={summary.occurrences_last_24h ?? 0} color="blue" />
+              </Grid>
+
+              {/* ── controls + table ── */}
+              <Box mb="4" p="3" style={{ background: 'var(--aero-surface, var(--color-background))', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))' }}>
             <Flex align="center" justify="between" gap="3" wrap="wrap" mb="3">
               <Flex align="center" gap="3" wrap="wrap">
                 <TextField.Root
@@ -315,19 +324,24 @@ const ClientErrors = ({
               </Text>
             </Flex>
 
-            <Separator size="4" mb="4" />
-
-            <Box style={{ overflowX: 'auto' }}>
-              <Table.Root variant="ghost">
-                <Table.Header>
+            <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+              <Table.Root size="2" style={{ minWidth: 800, width: '100%' }}>
+                <Table.Header style={{
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  background: 'var(--aero-surface, var(--color-background))',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                }}>
                   <Table.Row>
-                    <Table.ColumnHeaderCell>Error</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Severity</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell align="right">Count</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Affected</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Breakdown</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Seen</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell align="right">Action</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell style={{ minWidth: 240, background: 'inherit' }}>Error</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Severity</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell align="right" style={{ minWidth: 80, background: 'inherit' }}>Count</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>Affected</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Breakdown</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Seen</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell align="right" style={{ minWidth: 100, background: 'inherit' }}>Action</Table.ColumnHeaderCell>
                   </Table.Row>
                 </Table.Header>
 
@@ -463,8 +477,10 @@ const ClientErrors = ({
                 </IconButton>
               </Flex>
             </Flex>
-          </Panel>
-        </Box>
+          </Box>
+        </Panel>
+      </Box>
+    </Flex>
 
         {/* ── detail drawer ── */}
         <Dialog.Root open={detail !== null} onOpenChange={(open) => { if (!open) setDetail(null); }}>

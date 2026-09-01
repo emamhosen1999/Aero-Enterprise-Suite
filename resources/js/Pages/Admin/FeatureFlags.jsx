@@ -154,58 +154,74 @@ const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
       <Head title="Feature Flags" />
 
       <ErrorBoundary>
-        <Box p={{ initial: '3', md: '5' }}>
-          {/* ── masthead ── */}
-          <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
-            <Box>
-              <Heading size="6" weight="medium">Feature Flags &amp; Remote Config</Heading>
-              <Text as="p" size="2" color="gray" mt="1">
-                Server-controlled switches the mobile app reads at runtime. Changes reach devices on
-                their next foreground — no app-store release required.
-              </Text>
-            </Box>
-            <Flex gap="2">
-              <Button variant="soft" onClick={() => router.reload({ preserveScroll: true })}>
-                <ReloadIcon /> Refresh
-              </Button>
-              <Button onClick={openCreate}>
-                <PlusIcon /> New flag
-              </Button>
-            </Flex>
-          </Flex>
+        <Flex justify="center" p={{ initial: '3', sm: '4', md: '5' }}>
+          <Box style={{ width: '100%', maxWidth: 2000 }}>
+            <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '24px 20px' }}>
+              {/* ── Page Header ── */}
+              <Box mb="4">
+                <Flex align={{ initial: 'start', sm: 'center' }} justify="between" gap="4" direction={{ initial: 'column', sm: 'row' }}>
+                  <Flex align="center" gap="3">
+                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <MixerHorizontalIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                    </Box>
+                    <Box>
+                      <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>Feature Flags & Remote Config</Heading>
+                      <Text as="p" size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                        Server-controlled switches the mobile app reads at runtime. Changes reach devices on next foreground.
+                      </Text>
+                    </Box>
+                  </Flex>
+                  <Flex gap="2" wrap="wrap">
+                    <Button variant="soft" color="gray" onClick={() => router.reload({ preserveScroll: true })} style={{ borderRadius: 10 }}>
+                      <ReloadIcon /> Refresh
+                    </Button>
+                    <Button color="blue" onClick={openCreate} style={{ borderRadius: 10, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 600 }}>
+                      <PlusIcon /> New flag
+                    </Button>
+                  </Flex>
+                </Flex>
+              </Box>
 
-          {/* ── counters ── */}
-          <Grid columns={{ initial: '2', md: '4' }} gap="3" mb="5">
-            <Metric label="Total rows" value={summary.total ?? 0} />
-            <Metric label="Enabled" value={summary.enabled ?? 0} color="green" />
-            <Metric label="Disabled" value={summary.disabled ?? 0} color="red" />
-            <Metric label="Role-scoped" value={summary.role_scoped ?? 0} color="blue" />
-          </Grid>
+              <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
-          <Panel variant="surface">
-            <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
-              <Flex align="center" gap="2">
-                <MixerHorizontalIcon />
-                <Text size="2" weight="medium">Effective configuration</Text>
-              </Flex>
-              <Text size="1" color="gray">
-                A role row overrides the global row for users holding that role.
-              </Text>
-            </Flex>
+              {/* ── Counters ── */}
+              <Grid columns={{ initial: '2', md: '4' }} gap="3" mb="4">
+                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
+                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Total rows</Text>
+                  <Heading size="6" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.total ?? 0}</Heading>
+                </Panel>
+                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
+                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Enabled</Text>
+                  <Heading size="6" color="green" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.enabled ?? 0}</Heading>
+                </Panel>
+                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
+                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Disabled</Text>
+                  <Heading size="6" color="red" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.disabled ?? 0}</Heading>
+                </Panel>
+                <Panel tinted style={{ borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', padding: '18px 16px', background: 'var(--aero-surface, var(--color-background))' }}>
+                  <Text as="div" size="1" weight="bold" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Role-scoped</Text>
+                  <Heading size="6" color="blue" mt="1" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{summary.role_scoped ?? 0}</Heading>
+                </Panel>
+              </Grid>
 
-            <Separator size="4" mb="4" />
-
-            <Box style={{ overflowX: 'auto' }}>
-              <Table.Root variant="ghost">
-                <Table.Header>
-                  <Table.Row>
-                    <Table.ColumnHeaderCell>Key / scope</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Value</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>State</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Updated</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell align="right">Actions</Table.ColumnHeaderCell>
-                  </Table.Row>
-                </Table.Header>
+              <Box style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: 16, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
+                <Table.Root size="2" style={{ minWidth: 840, width: '100%' }}>
+                  <Table.Header style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                    background: 'var(--aero-surface, var(--color-background))',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 1px 0 var(--dl-border-color, rgba(0,0,0,0.06))'
+                  }}>
+                    <Table.Row>
+                      <Table.ColumnHeaderCell style={{ minWidth: 160, background: 'inherit' }}>Key / scope</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={{ minWidth: 200, background: 'inherit' }}>Value</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={{ minWidth: 100, background: 'inherit' }}>State</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell style={{ minWidth: 140, background: 'inherit' }}>Updated</Table.ColumnHeaderCell>
+                      <Table.ColumnHeaderCell align="right" style={{ minWidth: 120, background: 'inherit' }}>Actions</Table.ColumnHeaderCell>
+                    </Table.Row>
+                  </Table.Header>
 
                 <Table.Body>
                   {grouped.length === 0 ? (
@@ -282,6 +298,7 @@ const FeatureFlags = ({ flags = [], roles = [], summary = {} }) => {
             </Box>
           </Panel>
         </Box>
+      </Flex>
 
         {/* ── editor ── */}
         <Dialog.Root open={Boolean(form)} onOpenChange={(open) => (open ? null : setForm(null))}>
