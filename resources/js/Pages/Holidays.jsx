@@ -57,6 +57,17 @@ const Holidays = ({ title }) => {
         const y = now.getFullYear();
         const thisYear = safe.filter((h) => h?.from_date && new Date(h.from_date).getFullYear() === y);
         const upcoming = safe.filter((h) => h?.from_date && new Date(h.from_date) > now);
+        const totalDays = safe.reduce((acc, h) => {
+            if (h?.num_of_days != null) return acc + Number(h.num_of_days);
+            if (h?.from_date && h?.to_date) {
+                const start = new Date(h.from_date);
+                const end = new Date(h.to_date);
+                const diff = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                return acc + diff;
+            }
+            return acc + 1;
+        }, 0);
+
         return [
             { key: 'total', title: 'Total Holidays', value: safe.length, icon: <BarChartIcon style={{ width: 20, height: 20 }} />, color: 'blue', description: 'All records' },
             { key: 'this_year', title: 'This Year', value: thisYear.length, icon: <CalendarIcon style={{ width: 20, height: 20 }} />, color: 'green', description: 'Current calendar year' },
