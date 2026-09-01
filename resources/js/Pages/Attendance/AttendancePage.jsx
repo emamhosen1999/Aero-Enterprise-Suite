@@ -108,17 +108,18 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                                     <Box
                                         p={{ initial: '2', md: '3' }}
                                         style={{
-                                            background: 'var(--accent-a3)',
-                                            borderRadius: 'var(--radius-2)',
+                                            background: 'var(--blue-a3)',
+                                            border: '1px solid var(--blue-a5)',
+                                            borderRadius: 12,
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                         }}
                                     >
                                         <ClockIcon
-                                            width={isDesktop ? 28 : 20}
-                                            height={isDesktop ? 28 : 20}
-                                            color="var(--accent-9)"
+                                            width={isDesktop ? 26 : 20}
+                                            height={isDesktop ? 26 : 20}
+                                            color="var(--blue-9)"
                                         />
                                     </Box>
                                     <Box>
@@ -126,12 +127,13 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                                             size={{ initial: '4', sm: '5', md: '6' }}
                                             weight="bold"
                                             as="div"
+                                            style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, letterSpacing: '-0.02em', color: 'var(--gray-12)' }}
                                         >
                                             Attendance
                                         </Text>
                                         <Text
                                             size={{ initial: '1', md: '2' }}
-                                            color="gray"
+                                            style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}
                                             as="div"
                                         >
                                             Daily timesheet, monthly calendar and settings
@@ -145,16 +147,17 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                                     {activeTab !== 'settings' && activeTab !== 'biometric' && (
                                         <Flex
                                             align="center"
-                                            gap="1"
-                                            px="2"
+                                            gap="2"
+                                            px="3"
                                             py="1"
                                             style={{
-                                                background: 'var(--gray-a3)',
-                                                borderRadius: 'var(--radius-2)',
+                                                background: 'var(--aero-surface, var(--gray-2))',
+                                                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                                                borderRadius: 999,
                                             }}
                                         >
-                                            <CalendarIcon style={{ color: 'var(--gray-9)', width: 13 }} />
-                                            <Text size="1" color="gray">
+                                            <CalendarIcon style={{ color: 'var(--aero-accent, var(--blue-9))', width: 14, height: 14 }} />
+                                            <Text size="1" weight="bold" style={{ color: 'var(--gray-12)', fontVariantNumeric: 'tabular-nums' }}>
                                                 {activeTab === 'monthly'
                                                     ? dayjs(selectedMonth + '-01').format('MMM YYYY')
                                                     : dayjs(selectedDate).format('MMM D, YYYY')}

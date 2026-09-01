@@ -77,24 +77,25 @@ const EmployeesPage = ({
                                     <Box
                                         p={{ initial: '2', md: '3' }}
                                         style={{
-                                            background: 'var(--accent-a3)',
-                                            borderRadius: 'var(--radius-2)',
+                                            background: 'var(--blue-a3)',
+                                            border: '1px solid var(--blue-a5)',
+                                            borderRadius: 12,
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                         }}
                                     >
                                         <Component1Icon
-                                            width={isDesktop ? 28 : 20}
-                                            height={isDesktop ? 28 : 20}
-                                            color="var(--accent-9)"
+                                            width={isDesktop ? 26 : 20}
+                                            height={isDesktop ? 26 : 20}
+                                            color="var(--blue-9)"
                                         />
                                     </Box>
                                     <Box>
-                                        <Text size={{ initial: '4', sm: '5', md: '6' }} weight="bold" as="div">
+                                        <Text size={{ initial: '4', sm: '5', md: '6' }} weight="bold" as="div" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, letterSpacing: '-0.02em', color: 'var(--gray-12)' }}>
                                             Employees Console
                                         </Text>
-                                        <Text size={{ initial: '1', md: '2' }} color="gray" as="div">
+                                        <Text size={{ initial: '1', md: '2' }} style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }} as="div">
                                             Manage employees, departments, designations, and permissions
                                         </Text>
                                     </Box>

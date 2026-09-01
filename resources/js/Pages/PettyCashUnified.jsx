@@ -72,7 +72,7 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
                     <Panel>
 
                         {/* ── Page Header ── */}
-                        <Box mb="5">
+                        <Box mb="4">
                             <Flex
                                 direction={{ initial: 'column', sm: 'row' }}
                                 align={{ initial: 'start', sm: 'center' }}
@@ -81,17 +81,16 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
                             >
                                 <Flex align="center" gap="3">
                                     <Box p="3" style={{
-                                        background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a2) 100%)',
-                                        borderRadius: 'var(--radius-3)',
-                                        border: '1px solid var(--accent-a5)',
+                                        background: 'var(--blue-a3)',
+                                        borderRadius: 12,
+                                        border: '1px solid var(--blue-a5)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        boxShadow: '0 4px 12px var(--accent-a2)'
                                     }}>
-                                        <BackpackIcon style={{ width: 24, height: 24, color: 'var(--accent-9)' }} />
+                                        <BackpackIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size="5" style={{ letterSpacing: '-0.02em', color: 'var(--gray-12)' }}>Petty Cash Management</Heading>
-                                        <Text size="2" color="gray" style={{ display: 'block', mt: 0.5 }}>
+                                        <Heading size="5" style={{ letterSpacing: '-0.02em', color: 'var(--gray-12)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800 }}>Petty Cash Management</Heading>
+                                        <Text size="2" style={{ display: 'block', mt: 0.5, color: 'var(--aero-color-subtle, var(--gray-9))' }}>
                                             Track office expenses, reimbursements, and fund balances
                                         </Text>
                                     </Box>
@@ -121,13 +120,14 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
                                                 alignItems: 'center',
                                                 gap: '8px',
                                                 padding: '8px 16px',
-                                                backgroundColor: 'var(--accent-9)',
-                                                color: 'var(--accent-contrast)',
+                                                backgroundColor: 'var(--aero-accent, var(--accent-9))',
+                                                color: '#FFFFFF',
                                                 border: 'none',
-                                                borderRadius: 'var(--radius-2)',
+                                                borderRadius: 12,
                                                 cursor: 'pointer',
-                                                fontSize: '14px',
-                                                fontWeight: '500',
+                                                fontSize: '13px',
+                                                fontWeight: '700',
+                                                transition: 'transform 80ms ease',
                                             }}
                                         >
                                             <PlusIcon style={{ width: 16, height: 16 }} />
@@ -146,7 +146,7 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
                                             color={selectedLoan?.id === loan.id ? 'blue' : 'gray'}
                                             variant={selectedLoan?.id === loan.id ? 'solid' : 'soft'}
                                             size="2"
-                                            style={{ cursor: 'pointer' }}
+                                            style={{ cursor: 'pointer', borderRadius: 999, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}
                                             onClick={() => setSelectedFundId(String(loan.id))}
                                         >
                                             {loan.fund_name || 'General Fund'}: ৳{parseFloat(loan.current_balance).toLocaleString()}
@@ -156,7 +156,7 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
                             )}
                         </Box>
 
-                        <Separator size="4" mb="5" style={{ background: 'var(--gray-a3)' }} />
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.08))' }} />
 
                         {/* ── Tabs ── */}
                         <Tabs.Root value={activeTab} onValueChange={setActiveTab}>

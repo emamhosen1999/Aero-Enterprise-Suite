@@ -814,12 +814,12 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                 <Flex align="center" gap="4">
                                     <Box 
                                         p={{ initial: '2', md: '3' }} 
-                                        style={{ backgroundColor: 'var(--accent-a3)', borderRadius: 'var(--radius-2)' }}
+                                        style={{ backgroundColor: 'var(--blue-a3)', border: '1px solid var(--blue-a5)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     >
                                         <LayersIcon 
-                                            width={isDesktop ? 32 : 24} 
-                                            height={isDesktop ? 32 : 24} 
-                                            color="var(--accent-9)" 
+                                            width={isDesktop ? 26 : 22} 
+                                            height={isDesktop ? 26 : 22} 
+                                            color="var(--blue-9)" 
                                         />
                                     </Box>
                                     <Box>
@@ -827,12 +827,13 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                             size={{ initial: '4', sm: '5', md: '6' }} 
                                             weight="bold" 
                                             as="div"
+                                            style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, letterSpacing: '-0.02em', color: 'var(--gray-12)' }}
                                         >
                                             Daily Works Unified
                                         </Text>
                                         <Text 
                                             size={{ initial: '1', md: '2' }} 
-                                            color="gray" 
+                                            style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }} 
                                             as="div"
                                         >
                                             Manage daily works, summaries, and objections in one place
