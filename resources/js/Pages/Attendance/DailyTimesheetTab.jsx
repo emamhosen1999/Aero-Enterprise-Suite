@@ -340,19 +340,19 @@ const StatBand = ({ counts = {}, isLoading = false }) => (
                 style={{
                     flex: '1 1 120px',
                     minWidth: 120,
-                    borderRadius: 'var(--radius-3)',
-                    background: 'var(--color-surface)',
-                    border: '1px solid var(--gray-a4)',
-                    boxShadow: 'var(--shadow-1)',
-                    borderTop: `2px solid ${color}`,
+                    borderRadius: 16,
+                    background: 'var(--aero-surface, var(--color-background))',
+                    border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                    boxShadow: 'none',
+                    transition: 'transform 80ms ease'
                 }}
             >
-                <Text size="1" color="gray" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <Text size="1" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--aero-color-subtle, var(--gray-9))', fontWeight: 600, fontSize: 11 }}>
                     {label}
                 </Text>
                 {isLoading
                     ? <Skeleton width="40px" height="24px" style={{ marginTop: 4 }} />
-                    : <Text size="6" weight="bold" style={{ display: 'block', lineHeight: 1.2 }}>{counts[key] ?? 0}</Text>}
+                    : <Text size="6" weight="bold" style={{ display: 'block', lineHeight: 1.2, fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)', marginTop: 2 }}>{counts[key] ?? 0}</Text>}
             </Box>
         ))}
     </Flex>
@@ -362,8 +362,8 @@ const StatBand = ({ counts = {}, isLoading = false }) => (
 
 const EmptyState = ({ icon: Icon = ClockIcon, text }) => (
     <Flex direction="column" align="center" justify="center" py="9" gap="3">
-        <Icon style={{ color: 'var(--gray-7)', width: 36, height: 36 }} />
-        <Text size="2" color="gray" align="center">{text}</Text>
+        <Icon style={{ color: 'var(--aero-color-subtle, var(--gray-8))', width: 36, height: 36 }} />
+        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }} align="center">{text}</Text>
     </Flex>
 );
 
@@ -384,10 +384,10 @@ const PartitionRow = ({ row, variant, onMarkAsPresent, markingId, canManage }) =
         <Box
             p="3"
             style={{
-                borderRadius: 'var(--radius-3)',
-                background: 'var(--color-surface)',
-                border: '1px solid var(--gray-a4)',
-                boxShadow: 'var(--shadow-1)',
+                borderRadius: 14,
+                background: 'var(--aero-surface, var(--color-background))',
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                boxShadow: 'none',
                 opacity: variant === 'off_leave' ? 0.92 : 1,
             }}
         >
@@ -400,11 +400,11 @@ const PartitionRow = ({ row, variant, onMarkAsPresent, markingId, canManage }) =
                     style={{ flexShrink: 0 }}
                 />
                 <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="2" weight="bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <Text size="2" weight="bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: `'Space Grotesk', system-ui, sans-serif`, color: 'var(--gray-12)' }}>
                         {user.name || 'Unknown'}
                     </Text>
                     {user.employee_id && (
-                        <Text size="1" color="gray">#{user.employee_id}</Text>
+                        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>#{user.employee_id}</Text>
                     )}
 
                     {/* variant-specific detail */}
@@ -867,8 +867,8 @@ const DailyTimesheetTab = ({
         { value: 'offleave', label: 'Off / Leave',count: counts.off_leave ?? 0, color: 'gray',   icon: <CalendarIcon /> },
     ];
 
-    const tabPanelStyle = { border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' };
-    const listPanelStyle = { border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', padding: 'var(--space-3)', maxHeight: 'calc(100vh - 360px)', overflow: 'auto' };
+    const tabPanelStyle = { border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', borderRadius: 16, background: 'var(--aero-surface, var(--color-background))', overflow: 'hidden' };
+    const listPanelStyle = { border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', borderRadius: 16, background: 'var(--aero-surface, var(--color-background))', padding: 'var(--space-3)', maxHeight: 'calc(100vh - 360px)', overflow: 'auto' };
 
     /* ── render ─────────────────────────────────────────────── */
     return (

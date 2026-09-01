@@ -17,10 +17,15 @@ import DeleteWorkLocationForm from '../Components/DeleteWorkLocationForm.jsx';
 const EMPTY_ARRAY = [];
 
 const StatPill = ({ label, value, color = 'gray' }) => (
-    <Badge size="2" variant="soft" color={color} style={{ borderRadius: 999, padding: '4px 10px' }}>
-        <Text weight="bold" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{value}</Text>
-        <Text color={color} style={{ opacity: 0.8, marginLeft: 4 }}>{label}</Text>
-    </Badge>
+    <Flex align="center" gap="2" px="3" py="2" style={{
+        background: 'var(--aero-surface, var(--color-background))',
+        border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+        borderRadius: 12,
+        boxShadow: 'none'
+    }}>
+        <Text weight="bold" size="2" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums', color: 'var(--gray-12)' }}>{value}</Text>
+        <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>{label}</Text>
+    </Flex>
 );
 
 const WorkLocationsTab = ({ isActive }) => {

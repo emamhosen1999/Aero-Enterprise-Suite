@@ -35,19 +35,20 @@ function StatPill({ label, value, color = 'gray', icon: Icon, loading = false, a
             style={{
                 minWidth: '130px',
                 flex: '1 1 auto',
-                ...(active ? {
-                    background: `linear-gradient(135deg, var(--${color}-9) 0%, var(--${color}-10) 100%)`,
-                } : {}),
+                borderRadius: 16,
+                border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                background: active ? 'linear-gradient(135deg, var(--blue-9) 0%, var(--blue-10) 100%)' : 'var(--aero-surface, var(--color-background))',
                 cursor: onClick ? 'pointer' : 'default',
                 transform: active ? 'translateY(-2px)' : 'none',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.15s ease',
             }}
             onClick={onClick}
         >
             <Flex align="center" gap="3" p="1">
                 <Box p="2" style={{ 
                     backgroundColor: active ? 'rgba(255, 255, 255, 0.2)' : `var(--${color}-a3)`, 
-                    borderRadius: 'var(--radius-2)', 
+                    border: `1px solid ${active ? 'rgba(255, 255, 255, 0.3)' : `var(--${color}-a5)`}`,
+                    borderRadius: 10, 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center' 
@@ -60,9 +61,9 @@ function StatPill({ label, value, color = 'gray', icon: Icon, loading = false, a
                 </Box>
                 <Box>
                     <Skeleton loading={loading}>
-                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1, color: active ? 'white' : 'var(--gray-12)' }}>{value}</Text>
+                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1, color: active ? 'white' : 'var(--gray-12)', fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontVariantNumeric: 'tabular-nums' }}>{value}</Text>
                     </Skeleton>
-                    <Text size="1" color={active ? 'white' : 'gray'} weight="medium" style={{ display: 'block', marginTop: 4, opacity: active ? 0.9 : 1 }}>{label}</Text>
+                    <Text size="1" style={{ display: 'block', marginTop: 4, opacity: active ? 0.9 : 1, color: active ? 'white' : 'var(--aero-color-subtle, var(--gray-9))' }} weight="medium">{label}</Text>
                 </Box>
             </Flex>
         </Panel>
