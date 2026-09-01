@@ -28,6 +28,7 @@ import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdate
 import StatsCards from '@/Components/StatsCards';
 import SearchFilterBar from '@/Components/SearchFilterBar';
 import PageToolbar from '@/Components/PageToolbar';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 
 export default function AdminLeavesPanel({
