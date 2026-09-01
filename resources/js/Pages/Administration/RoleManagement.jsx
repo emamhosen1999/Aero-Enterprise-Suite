@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { Badge, Box, Button, Card, Flex, Grid, Heading, ScrollArea, Table, Tabs, Text, TextField, Separator } from '@radix-ui/themes';
+import { Badge, Box, Button, Flex, Grid, Heading, ScrollArea, Table, Tabs, Text, TextField, Separator } from '@radix-ui/themes';
 import {
     ShieldCheckIcon,
     KeyIcon,
@@ -95,12 +95,14 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                                     const permCount = rolePermissionsMap.get(role.id)?.size || 0;
                                                     const isSelected = selectedRole === role.id;
                                                     return (
-                                                        <Card
+                                                        <Box
                                                             key={role.id}
+                                                            p="3"
                                                             style={{
                                                                 cursor: 'pointer',
-                                                                border: isSelected ? '2px solid var(--accent-9)' : undefined,
-                                                                backgroundColor: isSelected ? 'var(--accent-2)' : undefined,
+                                                                borderRadius: 12,
+                                                                border: isSelected ? '1px solid var(--accent-9)' : '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))',
+                                                                background: isSelected ? 'var(--accent-a3)' : 'var(--aero-surface, var(--color-background))',
                                                             }}
                                                             onClick={() => setSelectedRole(role.id)}
                                                         >
@@ -109,11 +111,11 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                                                     <Text weight="bold" size="3">{role.name}</Text>
                                                                     <Text as="div" size="1" color="gray">Guard: {role.guard_name || 'web'}</Text>
                                                                 </Box>
-                                                                <Badge color={isSelected ? 'indigo' : 'gray'}>
+                                                                <Badge color={isSelected ? 'indigo' : 'gray'} style={{ borderRadius: 999 }}>
                                                                     {permCount} Permissions
                                                                 </Badge>
                                                             </Flex>
-                                                        </Card>
+                                                        </Box>
                                                     );
                                                 })}
                                             </Flex>
@@ -228,7 +230,7 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                             <Heading size="3" mb="3" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 700 }}>Module Permission Hierarchy</Heading>
                                             <Grid columns={{ initial: '1', md: '2' }} gap="4">
                                                 {Object.entries(permissionsGrouped).map(([moduleName, perms]) => (
-                                                    <Card key={moduleName}>
+                                                    <Box key={moduleName} p="3" style={{ borderRadius: 14, border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.06))', background: 'var(--aero-surface, var(--color-background))' }}>
                                                         <Heading size="2" mb="2" style={{ textTransform: 'capitalize', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
                                                             {moduleName} Module ({perms.length})
                                                         </Heading>
@@ -239,7 +241,7 @@ const RoleManagement = ({ title, roles = [], permissions = [], permissionsGroupe
                                                                 </Badge>
                                                             ))}
                                                         </Flex>
-                                                    </Card>
+                                                    </Box>
                                                 ))}
                                             </Grid>
                                         </Box>

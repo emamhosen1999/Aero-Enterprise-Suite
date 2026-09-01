@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
-import { Flex, Box, Text, Heading, Badge, Card, Button } from '@radix-ui/themes';
+import { Flex, Box, Text, Heading, Badge, Button } from '@radix-ui/themes';
 import { Plus, History, Download, MapPin, Radio, ShieldCheck, Activity, Cpu, Sparkles, Send } from 'lucide-react';
 import App from '../../Layouts/App.jsx';
 import AeonConversation from '../../aeon/AeonConversation.jsx';
@@ -203,7 +203,7 @@ export default function AeonConsole() {
           </div>
 
           {/* Alignment Map Tracker */}
-          <Card size="1" variant="surface" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'var(--gray-4, rgba(255,255,255,0.08))', borderRadius: '12px' }}>
+          <Box style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--gray-4, rgba(255,255,255,0.08))', borderRadius: '12px', padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-11, #22e3ff)' }}>Expressway Alignment</span>
               <span style={{ fontSize: '10px', color: 'var(--gray-9)' }}>48.00 km</span>
@@ -227,29 +227,29 @@ export default function AeonConsole() {
                 <Badge size="1" color="green" variant="soft">Clear</Badge>
               </div>
             </div>
-          </Card>
+          </Box>
 
           {/* Quick Metrics */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <Card size="1" variant="surface" style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px' }}>
+            <Box style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--gray-4, rgba(255,255,255,0.08))', borderRadius: '10px' }}>
               <div style={{ fontSize: '10px', color: 'var(--gray-9)' }}>Active Patrols</div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent-11, #22e3ff)', marginTop: '2px' }}>6 Units</div>
-            </Card>
+            </Box>
 
-            <Card size="1" variant="surface" style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px' }}>
+            <Box style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--gray-4, rgba(255,255,255,0.08))', borderRadius: '10px' }}>
               <div style={{ fontSize: '10px', color: 'var(--gray-9)' }}>Open NCRs</div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: '#f59e0b', marginTop: '2px' }}>3 Active</div>
-            </Card>
+            </Box>
 
-            <Card size="1" variant="surface" style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px' }}>
+            <Box style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--gray-4, rgba(255,255,255,0.08))', borderRadius: '10px' }}>
               <div style={{ fontSize: '10px', color: 'var(--gray-9)' }}>ADMS Punch Sync</div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '2px' }}>100% Live</div>
-            </Card>
+            </Box>
 
-            <Card size="1" variant="surface" style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px' }}>
+            <Box style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--gray-4, rgba(255,255,255,0.08))', borderRadius: '10px' }}>
               <div style={{ fontSize: '10px', color: 'var(--gray-9)' }}>ETC Adoption</div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent-11, #22e3ff)', marginTop: '2px' }}>68.4%</div>
-            </Card>
+            </Box>
           </div>
 
           {/* Prompt Shortcuts */}
