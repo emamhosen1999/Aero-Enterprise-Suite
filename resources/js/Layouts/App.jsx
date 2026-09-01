@@ -114,7 +114,7 @@ const App = React.memo(({ children }) => {
             <RadixThemeDrawer open={themeDrawerOpen} onClose={closeThemeDrawer} />
 
             <AuthGuard auth={auth} url={url}>
-              <Box style={{ display: 'flex', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+              <Box style={{ display: 'flex', height: '100vh', overflow: 'hidden', position: 'relative', background: 'var(--color-background)' }}>
 
                 {/* Update notification */}
                 <UpdateNotification

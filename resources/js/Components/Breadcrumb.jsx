@@ -162,7 +162,7 @@ const Breadcrumb = () => {
     return (
         <nav
             aria-label="Breadcrumb"
-            style={{ padding: '6px 16px' }}
+            style={{ padding: '4px 16px', borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))' }}
         >
             <Flex align="center" gap="1" wrap="wrap">
                 {breadcrumbs.map((breadcrumb, idx) => (

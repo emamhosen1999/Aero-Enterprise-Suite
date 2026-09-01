@@ -1,0 +1,217 @@
+/* ==========================================================================
+   DBEDC Guardian — Design Language Contract
+   --------------------------------------------------------------------------
+   Every file in resources/css/design/<language>.css MUST fill this contract.
+   Nothing else in the app may define --dl-* tokens.
+
+   CASCADE STRATEGY (read before editing)
+   --------------------------------------
+   Radix Themes ships styles.css UNLAYERED. Unlayered CSS beats every cascade
+   layer, so @layer would make our rules LOSE. We therefore win on specificity:
+
+     Radix base        .radix-themes                  -> 0,1,0
+     Radix component   .rt-Card                       -> 0,1,0
+     Our tokens        [data-design=x] .radix-themes  -> 0,2,0   WINS
+     Our components    [data-design=x] .rt-Card       -> 0,2,0   WINS
+
+   No !important anywhere except the two documented escapes at the bottom.
+
+   WHY THE SELECTOR LIST IS THREE LONG
+   -----------------------------------
+   data-design lives on <html>. Radix re-declares its tokens on the inner
+   .radix-themes wrapper div, and a declaration on a nearer ancestor beats an
+   inherited one regardless of specificity. So token blocks must target the
+   wrapper, not just :root. Portalled content (dialogs, popovers, toasts) gets
+   its own .radix-themes wrapper, which the descendant selector still matches
+   because <html> is an ancestor of every portal.
+   ========================================================================== */
+
+/* ── TIER 1: tokens every language MUST define ────────────────────────────
+   Each language file opens with this exact selector list:
+
+     [data-design="NAME"],
+     [data-design="NAME"] .radix-themes,
+     [data-design="NAME"] .rt-Theme { ... }
+
+   REQUIRED — Radix native tokens (these reach all 310 tokenised inline styles)
+   --------------------------------------------------------------------------
+   --radius-factor              number, multiplies Radix's computed radii
+   --radius-full                px|%  pill/circle radius (Brutalism sets 0)
+   --radius-thumb               px|%  slider & switch thumbs
+   --radius-1 … --radius-6      explicit ramp, overrides the factor
+   --shadow-1 … --shadow-6      elevation ramp; THE main expressive lever
+   --color-panel-solid          opaque card/dialog fill
+   --color-panel-translucent    translucent card fill (glass family)
+   --color-surface              input/inset fill
+   --color-overlay              dialog backdrop
+   --color-background           app canvas
+   --space-1 … --space-9        density (Minimalism widens, Maximalism tightens)
+   --default-font-family        body type
+   --heading-font-family        display type
+   --letter-spacing-1 … -9      tracking ramp
+   --line-height-1 … -9         leading ramp
+   --cursor-button              pointer style
+
+   REQUIRED — design-layer tokens (consumed by Tier 2/3 and by app code)
+   --------------------------------------------------------------------------
+   --dl-border-width            px    panel/control border thickness
+   --dl-border-color            color panel/control border colour
+   --dl-border-style            solid | dashed | double
+   --dl-panel-shadow            shadow stack for resting cards
+   --dl-panel-shadow-hover      shadow stack on hover
+   --dl-panel-inset             inner highlight/shading (clay, neo, skeuo)
+   --dl-control-shadow          shadow for buttons/inputs at rest
+   --dl-control-shadow-active   shadow for :active (neo/skeuo invert here)
+   --dl-backdrop                backdrop-filter value, or `none`
+   --dl-surface-bg              raised surface fill (may be a gradient)
+   --dl-elevated-bg             highest surface fill (dialogs, popovers)
+   --dl-app-bg                  background-image stack for the app canvas
+   --dl-app-bg-size             matching background-size
+   --dl-text-shadow             text shadow, or `none`
+   --dl-transition              transition timing for interactive states
+   --dl-lift                    translateY distance on hover (0 disables)
+   --dl-grid-gap                gutter between dashboard tiles
+   --dl-accent-treatment        flat | gradient | glow
+   --dl-font-body               body typeface stack for this language
+   --dl-font-display            heading typeface stack (falls back to body)
+   --dl-app-glow                atmosphere layer painted by .app-bg-grid::before
+
+   NOTE ON TYPE: app.css resolves fonts as
+     --custom-font-family (user's explicit pick)  >  --dl-font-body  >  Inter
+   so a language's typeface lands only while the user's Font control is set to
+   "Auto". Never use !important to force type past the user's choice.
+   -------------------------------------------------------------------------- */
+
+/* ── Neutral fallbacks ────────────────────────────────────────────────────
+   Guarantee every --dl-* token resolves even before a language loads, and for
+   data-design="none". Anything consuming --dl-* is therefore always safe.
+
+   ALIGNED WITH DBEDC MOBILE APP (aeroOled / aeroPure palettes)
+   - Cardless design: no panel shadows
+   - Maximum-contrast: pure black/white backgrounds
+   - Typography: Space Grotesk (heading) + Inter (body)  */
+:root,
+.radix-themes {
+  --dl-border-width: 1px;
+  --dl-border-color: rgba(0, 0, 0, 0.08);
+  --dl-border-style: solid;
+  --dl-panel-shadow: none;
+  --dl-panel-shadow-hover: none;
+  --dl-panel-inset: none;
+  --dl-control-shadow: none;
+  --dl-control-shadow-active: none;
+  --dl-backdrop: none;
+  --dl-surface-bg: #F4F4F7;
+  --dl-elevated-bg: #FFFFFF;
+  --dl-app-bg: none;
+  --dl-app-bg-size: auto;
+  --dl-text-shadow: none;
+  --dl-transition: 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+  --dl-lift: 0px;
+  --dl-grid-gap: var(--space-4);
+  --dl-accent-treatment: flat;
+  --dl-font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --dl-font-display: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* ── Mobile-app-aligned semantic tokens ─── */
+  --aero-accent: #2563EB;
+  --aero-accent-strong: #1D4ED8;
+  --aero-success: #059669;
+  --aero-warning: #B45309;
+  --aero-danger: #DC2626;
+  --aero-surface: #F4F4F7;
+  --aero-surface-border: rgba(0, 0, 0, 0.07);
+  --aero-color-subtle: #6E6E73;
+  --aero-color-faint: #9A9AA0;
+}
+
+/* ── Dark mode overrides (matching aeroOled from mobile app) ────────── */
+.dark:root,
+.dark .radix-themes,
+html.dark .radix-themes {
+  --dl-border-color: rgba(255, 255, 255, 0.08);
+  --dl-surface-bg: #0E0E14;
+  --dl-elevated-bg: #0E0E14;
+
+  --aero-accent: #4F8CFF;
+  --aero-accent-strong: #2F6BFF;
+  --aero-success: #34D399;
+  --aero-warning: #FBBF24;
+  --aero-danger: #F87171;
+  --aero-surface: #0E0E14;
+  --aero-surface-border: rgba(255, 255, 255, 0.10);
+  --aero-color-subtle: #8A8A8E;
+  --aero-color-faint: #5A5A5E;
+}
+
+/* ── TIER 2 hooks: the Radix classes every language file may restyle ──────
+   This is the audited surface. If a language leaves one unstyled it inherits
+   Radix defaults — which is exactly what "95% skinned" looks like. The
+   verification harness at /design-lab renders every one of these.
+
+     .rt-Card                 .rt-BaseButton           .rt-Button
+     .rt-IconButton           .rt-TextFieldRoot        .rt-TextFieldInput
+     .rt-TextAreaRoot         .rt-SelectTrigger        .rt-SelectContent
+     .rt-DialogContent        .rt-AlertDialogContent
+     .rt-PopoverContent       .rt-HoverCardContent     .rt-DropdownMenuContent
+     .rt-ContextMenuContent   .rt-TooltipContent
+     .rt-TableRootTable       .rt-TableCell            .rt-TableColumnHeaderCell
+     .rt-TableRow             .rt-BaseTabList          .rt-TabsTrigger
+     .rt-SegmentedControlRoot .rt-SegmentedControlItem
+     .rt-Badge                .rt-Callout              .rt-CalloutRoot
+     .rt-Avatar               .rt-AvatarFallback       .rt-AvatarImage
+     .rt-Separator            .rt-Progress             .rt-ProgressIndicator
+     .rt-CheckboxRoot         .rt-RadioRoot            .rt-SwitchRoot
+     .rt-SwitchThumb          .rt-SliderTrack          .rt-SliderThumb
+     .rt-ScrollAreaScrollbar  .rt-ScrollAreaThumb
+     .rt-Inset                .rt-Kbd                  .rt-Code
+     .rt-Spinner              .rt-Skeleton
+   ------------------------------------------------------------------------ */
+
+/* ── TIER 3 hooks: app chrome each language must also cover ───────────────
+     .app-bg-grid             app canvas + atmosphere
+     .page-enter              page transition motion
+     .dl-sidebar .dl-header .dl-bottomnav   layout chrome (see Layouts/)
+     .aeon-drawer-panel .aeon-fab .aeon-*   tokenised in aeon.css
+     .Toastify__toast         toast surfaces
+     .leaflet-control-*       map controls (tiles themselves cannot be skinned)
+   ------------------------------------------------------------------------ */
+
+/* ── DOCUMENTED !important ESCAPES (only these two) ───────────────────────
+   1. Inline-style overrides that survived the codemod. Each MUST carry a
+      "codemod-exempt: <reason>" comment on the preceding line.
+   2. Third-party widgets that ship inline styles (Leaflet, Toastify).
+   ------------------------------------------------------------------------ */
+
+/* ── Motion accessibility: applies to every language ──────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  .radix-themes {
+    --dl-transition: 0.01ms linear;
+    --dl-lift: 0px;
+  }
+}
+
+/* ── Print floor ──────────────────────────────────────────────────────────
+   No language may make printed output illegible. Brutalism or Maximalism on a
+   printed NCR report would be wrong, so every language degrades to plain
+   ink-on-white at print time. This block is deliberately last. */
+@media print {
+  :root,
+  .radix-themes {
+    --dl-panel-shadow: none;
+    --dl-panel-shadow-hover: none;
+    --dl-control-shadow: none;
+    --dl-control-shadow-active: none;
+    --dl-panel-inset: none;
+    --dl-backdrop: none;
+    --dl-app-bg: none;
+    --dl-text-shadow: none;
+    --dl-border-color: #999;
+    --dl-border-width: 1px;
+    --dl-lift: 0px;
+    --color-panel-solid: #fff;
+    --color-panel-translucent: #fff;
+    --color-background: #fff;
+  }
+}

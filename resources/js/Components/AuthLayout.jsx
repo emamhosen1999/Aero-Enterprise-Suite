@@ -1,177 +1,98 @@
 import { Panel } from '@/Components/ui/Panel';
-import React, { useState, useEffect } from 'react';
-import {
-    ShieldCheckIcon
-} from '@heroicons/react/24/outline';
+import React from 'react';
 
 import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 
 import logo from '../../../public/assets/images/logo.png';
 
 const AuthLayout = ({ children, title, subtitle }) => {
-    const [isDesktop, setIsDesktop] = useState(false);
     const { settings: themeSettings } = useRadixTheme();
 
-    // Check if screen is desktop for showing floating elements
-    useEffect(() => {
-        const checkScreenSize = () => {
-            setIsDesktop(window.innerWidth > 768);
-        };
-        
-        checkScreenSize();
-        window.addEventListener('resize', checkScreenSize);
-        
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
-
     return (
-        <div 
-            className="min-h-screen flex items-center justify-center p-1 sm:p-2 relative overflow-hidden"
+        <div
             style={{
-                fontFamily: `var(--fontFamily, 'Inter')`,
-                transform: `scale(var(--scale, 1))`,
-                transformOrigin: 'center center',
-                // Use transparent background to allow the global theme background to show through
-                // The global theme background is applied to document.body by the theme system
-                backgroundColor: 'transparent',
-                background: 'transparent'
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '16px',
+                position: 'relative',
+                overflow: 'hidden',
+                fontFamily: `'Inter', system-ui, -apple-system, sans-serif`,
+                backgroundColor: 'var(--color-background)',
             }}
         >
-            {/* Floating Background Elements - Responsive positioning */}
-            {isDesktop && (
-                <>
-                    <div
-                        className="w-12 h-12 rounded-full"
-                        style={{
-                            position: 'absolute',
-                            top: '10%',
-                            left: '8%',
-                            background: `linear-gradient(135deg,
-                                color-mix(in srgb, var(--theme-primary, #006FEE) 15%, transparent),
-                                color-mix(in srgb, var(--theme-secondary, #7C3AED) 15%, transparent)
-                            )`,
-                            backdropFilter: 'blur(8px)',
-                            borderRadius: `var(--borderRadius, 50%)`,
-                            border: `var(--borderWidth, 1px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)`,
-                            transform: `scale(var(--scale, 1))`
-                        }}
-                    />
-                    <div
-                        className="w-8 h-8 rounded-full"
-                        style={{
-                            position: 'absolute',
-                            bottom: '15%',
-                            right: '10%',
-                            background: `linear-gradient(135deg,
-                                color-mix(in srgb, var(--theme-secondary, #7C3AED) 20%, transparent),
-                                color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)
-                            )`,
-                            backdropFilter: 'blur(6px)',
-                            borderRadius: `var(--borderRadius, 50%)`,
-                            border: `var(--borderWidth, 1px) solid color-mix(in srgb, var(--theme-secondary, #7C3AED) 20%, transparent)`,
-                            transform: `scale(var(--scale, 1))`
-                        }}
-                    />
-                </>
-            )}
-
-            <div className="w-full max-w-md px-1 sm:px-2">
-                <div className="flex flex-col items-center justify-center min-h-screen sm:min-h-[80vh] py-2 sm:py-4">
-                    {/* Auth Form Card */}
-                    <div
-                        className="w-full max-w-[420px]"
-                    >
+            <div style={{ width: '100%', maxWidth: 420, padding: '0 4px' }}>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '80vh',
+                    paddingTop: 16,
+                    paddingBottom: 16,
+                }}>
+                    {/* Auth Form Card — clean, cardless, matching mobile */}
+                    <div style={{ width: '100%', maxWidth: 420 }}>
                         <Panel
                             tinted
-                            className="p-3 sm:p-4 md:p-6 relative overflow-visible w-full rounded-2xl sm:rounded-3xl"
                             style={{
-                                borderRadius: `var(--borderRadius, 24px)`,
-                                fontFamily: `var(--fontFamily, 'Inter')`,
-                                transform: `scale(var(--scale, 1))`,
+                                padding: '32px 24px',
+                                position: 'relative',
+                                overflow: 'visible',
+                                width: '100%',
+                                borderRadius: 20,
                             }}
                         >
                             {/* Logo at top of form card */}
-                            <div
-                                className="text-center mb-3 sm:mb-4"
-                            >
-                                <div className="flex justify-center mb-2 sm:mb-3">
-                                    <div
-                                        className="inline-flex items-center justify-center rounded-xl"
-                                    >
+                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <img
                                             src={logo}
                                             alt="Logo"
-                                            className="w-40 h-40 object-contain"
+                                            style={{ width: 120, height: 120, objectFit: 'contain' }}
                                             onError={(e) => {
-                                                // Fallback to text logo if image fails to load
                                                 e.target.style.display = 'none';
-                                                e.target.nextSibling.style.display = 'block';
                                             }}
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Header */}
-                            <div className="mb-3 sm:mb-4 text-center">
-                                <div>
-                                    <h1
-                                        className="text-2xl sm:text-3xl md:text-4xl font-semibold mb-1 sm:mb-2"
+                            {/* Header — matching mobile's clean typography */}
+                            <div style={{ marginBottom: 24, textAlign: 'center' }}>
+                                <h1
+                                    style={{
+                                        fontSize: 26,
+                                        fontWeight: 900,
+                                        marginBottom: 8,
+                                        letterSpacing: '-0.5px',
+                                        lineHeight: 1.2,
+                                        fontFamily: `'Space Grotesk', system-ui, sans-serif`,
+                                        color: 'var(--gray-12)',
+                                        margin: '0 0 8px 0',
+                                    }}
+                                >
+                                    {title}
+                                </h1>
+                                {subtitle && (
+                                    <p
                                         style={{
-                                            background: `linear-gradient(135deg,
-                                                var(--theme-foreground, #11181C),
-                                                color-mix(in srgb, var(--theme-foreground, #11181C) 80%, var(--theme-primary, #006FEE))
-                                            )`,
-                                            backgroundClip: 'text',
-                                            WebkitBackgroundClip: 'text',
-                                            WebkitTextFillColor: 'transparent',
-                                            fontFamily: `var(--fontFamily, 'Inter')`
+                                            fontSize: 13,
+                                            lineHeight: 1.5,
+                                            color: 'var(--aero-color-subtle, var(--gray-9))',
+                                            fontFamily: `'Inter', system-ui, sans-serif`,
+                                            margin: 0,
                                         }}
                                     >
-                                        {title}
-                                    </h1>
-                                    {subtitle && (
-                                        <p
-                                            className="text-foreground-600 text-sm sm:text-base leading-relaxed px-1 sm:px-0"
-                                            style={{
-                                                color: 'color-mix(in srgb, var(--theme-foreground, #11181C) 70%, transparent)',
-                                                fontFamily: `var(--fontFamily, 'Inter')`
-                                            }}
-                                        >
-                                            {subtitle}
-                                        </p>
-                                    )}
-                                </div>
+                                        {subtitle}
+                                    </p>
+                                )}
                             </div>
 
                             {/* Form Content */}
-                            <div>
-                                {children}
-                            </div>
-
-                            {/* Decorative Elements - Minimized */}
-                            <div
-                                className="absolute -top-1 -right-1 w-3 h-3 rounded-full opacity-40"
-                                style={{
-                                    background: `linear-gradient(135deg,
-                                        var(--theme-primary, #006FEE),
-                                        var(--theme-secondary, #7C3AED)
-                                    )`,
-                                    borderRadius: `var(--borderRadius, 50%)`,
-                                    transform: `scale(var(--scale, 1))`
-                                }}
-                            />
-                            <div
-                                className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full opacity-40"
-                                style={{
-                                    background: `linear-gradient(135deg,
-                                        var(--theme-secondary, #7C3AED),
-                                        var(--theme-primary, #006FEE)
-                                    )`,
-                                    borderRadius: `var(--borderRadius, 50%)`,
-                                    transform: `scale(var(--scale, 1))`
-                                }}
-                            />
+                            <div>{children}</div>
                         </Panel>
                     </div>
                 </div>

@@ -1083,7 +1083,7 @@ const PunchStatusCard = React.memo(() => {
 
     return (
         <Box style={{ height: '100%' }}>
-            <Panel style={{ height: '100%', opacity: attendanceState.loading ? 0.7 : 1, display: 'flex', flexDirection: 'column' }}>
+            <Panel tinted style={{ height: '100%', opacity: attendanceState.loading ? 0.7 : 1, display: 'flex', flexDirection: 'column', borderRadius: 16 }}>
                 <Box p={{ initial: '3', md: '4' }} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     {/* Header: Avatar + Name + Time */}
                     <Flex align="center" justify="between" mb={{ initial: '3', md: '4' }}>
@@ -1098,20 +1098,20 @@ const PunchStatusCard = React.memo(() => {
                                 <Box style={{
                                     position: 'absolute', bottom: 0, right: 0,
                                     width: 10, height: 10, borderRadius: '50%',
-                                    background: statusConfig.color === 'success' ? 'var(--green-9)' : statusConfig.color === 'warning' ? 'var(--amber-9)' : 'var(--accent-9)',
+                                    background: statusConfig.color === 'success' ? 'var(--aero-success, var(--green-9))' : statusConfig.color === 'warning' ? 'var(--aero-warning, var(--amber-9))' : 'var(--aero-accent, var(--accent-9))',
                                     border: '2px solid var(--color-background)',
                                 }} />
                             </Box>
                             <Box>
-                                <Text size="2" weight="medium" style={{ display: 'block' }}>{user?.name}</Text>
-                                <Text size="1" color="gray">ID: {user?.employee_id || user?.id}</Text>
+                                <Text size="2" weight="bold" style={{ display: 'block', color: 'var(--gray-12)' }}>{user?.name}</Text>
+                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>ID: {user?.employee_id || user?.id}</Text>
                             </Box>
                         </Flex>
                         <Box style={{ textAlign: 'right' }}>
-                            <Text size={{ initial: '3', md: '4' }} weight="light" style={{ display: 'block', color: 'var(--accent-9)', fontVariantNumeric: 'tabular-nums' }}>
+                            <Text size={{ initial: '3', md: '4' }} weight="bold" style={{ display: 'block', color: 'var(--aero-accent, var(--accent-9))', fontVariantNumeric: 'tabular-nums', fontFamily: `'Space Grotesk', system-ui, sans-serif` }}>
                                 {systemState.currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </Text>
-                            <Text size="1" color="gray">
+                            <Text size="1" style={{ color: 'var(--aero-color-faint, var(--gray-9))' }}>
                                 {systemState.currentTime.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
                             </Text>
                         </Box>
@@ -1119,40 +1119,54 @@ const PunchStatusCard = React.memo(() => {
 
                     {/* Status Badge */}
                     <Flex justify="center" mb={{ initial: '3', md: '4' }}>
-                        <Badge color={rc(statusConfig.color)} variant="soft" size={{ initial: '1', md: '2' }} style={{ fontWeight: 600 }}>
+                        <Badge color={rc(statusConfig.color)} variant="soft" size={{ initial: '1', md: '2' }} style={{ fontWeight: 700, borderRadius: 999 }}>
                             <Flex align="center" gap="1">{statusConfig.icon} {statusConfig.text}</Flex>
                         </Badge>
                     </Flex>
 
                     {/* Work Stats */}
                     <Grid columns="2" gap={{ initial: '2', md: '3' }} mb={{ initial: '3', md: '4' }}>
-                        <Panel tinted p="0">
+                        <Panel tinted p="0" style={{ background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.08))', borderRadius: 12 }}>
                             <Flex direction="column" align="center" p="3" gap="1">
-                                <ClockIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
-                                <Text size="3" weight="bold" style={{ fontFamily: 'monospace', color: 'var(--accent-9)' }}>
+                                <ClockIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 20, height: 20 }} />
+                                <Text size="3" weight="bold" style={{ fontFamily: `'Space Grotesk', monospace`, color: 'var(--gray-12)', fontVariantNumeric: 'tabular-nums' }}>
                                     {attendanceState.realtimeWorkTime}
                                 </Text>
-                                <Text size="1" color="gray">Hours Today</Text>
+                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Hours Today</Text>
                             </Flex>
                         </Panel>
-                        <Panel tinted p="0">
+                        <Panel tinted p="0" style={{ background: 'var(--color-background)', border: '1px solid var(--aero-surface-border, rgba(0,0,0,0.08))', borderRadius: 12 }}>
                             <Flex direction="column" align="center" p="3" gap="1">
-                                <HomeIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
-                                <Text size="3" weight="bold" style={{ color: 'var(--accent-9)' }}>
+                                <HomeIcon style={{ color: 'var(--aero-accent, var(--accent-9))', width: 20, height: 20 }} />
+                                <Text size="3" weight="bold" style={{ color: 'var(--gray-12)', fontFamily: `'Space Grotesk', sans-serif` }}>
                                     {workStats.sessionsToday}
                                 </Text>
-                                <Text size="1" color="gray">Sessions</Text>
+                                <Text size="1" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>Sessions</Text>
                             </Flex>
                         </Panel>
                     </Grid>
 
-                    {/* Main Action Button */}
+                    {/* Main Action Button — matching mobile GradientButton */}
                     <Button
                         size="3"
-                        color={rc(statusConfig.color)}
                         disabled={isPunchActionDisabled}
                         onClick={handlePunch}
-                        style={{ width: '100%', marginBottom: 'var(--space-3)' }}
+                        style={{
+                            width: '100%',
+                            height: 48,
+                            borderRadius: 999,
+                            fontWeight: 800,
+                            fontSize: 14,
+                            marginBottom: 'var(--space-3)',
+                            background: isPunchActionDisabled
+                                ? 'var(--gray-a4)'
+                                : 'linear-gradient(135deg, var(--aero-accent, #4F8CFF) 0%, var(--aero-accent-strong, #2F6BFF) 100%)',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            cursor: isPunchActionDisabled ? 'not-allowed' : 'pointer',
+                            boxShadow: isPunchActionDisabled ? 'none' : '0 4px 14px rgba(79, 140, 255, 0.3)',
+                            transition: 'transform 80ms ease, opacity 150ms ease',
+                        }}
                     >
                         {isBiometricUser
                             ? <Flex align="center" gap="2"><LockClosedIcon />{assignedDeviceName ? `Use ${assignedDeviceName}` : 'Use Biometric Device'}</Flex>
@@ -1298,7 +1312,7 @@ const PunchStatusCard = React.memo(() => {
                     )}
 
                     {/* Today's Activity Collapsible */}
-                    <Box style={{ borderTop: '1px solid var(--gray-a4)' }}>
+                    <Box style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))' }}>
                         <Flex
                             align="center" justify="between" py="3"
                             style={{ cursor: 'pointer', userSelect: 'none' }}

@@ -51,7 +51,7 @@ const ActiveBar = () => (
     transform: 'translateY(-50%)',
     width: 3,
     height: 18,
-    background: 'var(--accent-9)',
+    background: 'var(--aero-accent, var(--accent-9))',
     borderRadius: '0 3px 3px 0',
     flexShrink: 0,
   }} />
@@ -85,7 +85,7 @@ const NavItem = React.memo(({ page, level, activePage, openSubMenus, onToggle, o
               <Box style={{
                 position: 'absolute', top: 4, right: 4,
                 width: 5, height: 5, borderRadius: '50%',
-                background: 'var(--accent-9)',
+                background: 'var(--aero-accent, var(--accent-9))',
                 border: '1.5px solid var(--color-panel-solid)',
               }} />
             )}
@@ -131,8 +131,8 @@ const NavItem = React.memo(({ page, level, activePage, openSubMenus, onToggle, o
             display: 'flex', alignItems: 'center', gap: 8,
             paddingLeft: 10 + indent, paddingRight: 10, height: 34,
             borderRadius: 'var(--radius-2)', cursor: 'pointer',
-            background: hasActiveChild ? 'var(--accent-a3)' : 'transparent',
-            color: hasActiveChild ? 'var(--accent-11)' : 'var(--gray-11)',
+            background: hasActiveChild ? 'var(--aero-surface, var(--gray-a3))' : 'transparent',
+            color: hasActiveChild ? 'var(--aero-accent, var(--accent-11))' : 'var(--gray-11)',
             userSelect: 'none', outline: 'none',
             transition: 'background 100ms',
           }}
@@ -166,7 +166,7 @@ const NavItem = React.memo(({ page, level, activePage, openSubMenus, onToggle, o
           marginLeft: 12 + indent,
         }}>
           <Box style={{ overflow: 'hidden' }}>
-            <Box style={{ paddingTop: 2, paddingBottom: 2, borderLeft: '1px solid var(--gray-a4)', paddingLeft: 6 }}>
+            <Box style={{ paddingTop: 2, paddingBottom: 2, borderLeft: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))', paddingLeft: 6 }}>
               {page.subMenu.map(sub => (
                 <NavItem key={sub.name} page={sub} level={level + 1} activePage={activePage}
                   openSubMenus={openSubMenus} onToggle={onToggle} onNavigate={onNavigate}
@@ -197,8 +197,8 @@ const NavItem = React.memo(({ page, level, activePage, openSubMenus, onToggle, o
               display: 'flex', alignItems: 'center', gap: 8,
               paddingLeft: 10 + indent, paddingRight: 10, height: 34,
               borderRadius: 'var(--radius-2)', cursor: 'pointer',
-              background: isActive ? 'var(--accent-a3)' : 'transparent',
-              color: isActive ? 'var(--accent-11)' : 'var(--gray-11)',
+              background: isActive ? 'var(--aero-surface, var(--gray-a3))' : 'transparent',
+              color: isActive ? 'var(--aero-accent, var(--accent-11))' : 'var(--gray-11)',
               transition: 'background 100ms',
             }}
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--gray-a2)'; }}
@@ -332,10 +332,11 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        borderRight: '1px solid var(--gray-a4)',
+        borderRight: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
         flexShrink: 0,
         overflow: 'hidden',
         borderRadius: 0,
+        background: 'var(--color-background)',
       }}>
 
       {/* ── Brand ───────────────────────────────────────────────────────────── */}
@@ -344,14 +345,14 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
         justify={collapsed ? 'center' : 'start'}
         gap="3"
         px={collapsed ? '0' : '3'}
-        style={{ height: 56, borderBottom: '1px solid var(--gray-a4)', flexShrink: 0, paddingInline: collapsed ? 0 : undefined }}
+        style={{ height: 56, borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))', flexShrink: 0, paddingInline: collapsed ? 0 : undefined }}
       >
-        <Box style={{ width: 30, height: 30, flexShrink: 0, overflow: 'hidden', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a5)' }}>
+        <Box style={{ width: 30, height: 30, flexShrink: 0, overflow: 'hidden', borderRadius: 'var(--radius-2)', border: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))' }}>
           <img src={logo} alt={app?.name || 'Logo'} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </Box>
         {!collapsed && (
           <Box style={{ minWidth: 0, flex: 1 }}>
-            <Text size="2" weight="bold" truncate style={{ display: 'block', color: 'var(--accent-11)' }}>{app?.name || 'Enterprise'}</Text>
+            <Text size="2" weight="bold" truncate style={{ display: 'block', color: 'var(--aero-accent, var(--accent-11))' }}>{app?.name || 'Enterprise'}</Text>
             <Text size="1" color="gray" style={{ display: 'block' }}>DBEDC Guardian</Text>
           </Box>
         )}
@@ -420,7 +421,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
       </ScrollArea>
 
       {/* ── User footer ─────────────────────────────────────────────────────── */}
-      <Box style={{ borderTop: '1px solid var(--gray-a4)', flexShrink: 0, padding: collapsed ? '8px 0' : '8px 12px' }}>
+      <Box style={{ borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))', flexShrink: 0, padding: collapsed ? '8px 0' : '8px 12px' }}>
         {collapsed ? (
           <Tooltip content={`${userName} · ${userDesignation}`} side="right" delayDuration={80}>
             <Flex justify="center" style={{ cursor: 'default' }}>

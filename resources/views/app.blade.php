@@ -474,6 +474,11 @@
                 var appearance = settings.appearance || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.setAttribute('data-is-root-theme', 'true');
                 document.documentElement.classList.add(appearance === 'dark' ? 'dark' : 'light');
+                // Design language must land before first paint, otherwise the
+                // user sees a flash of stock Radix before the skin applies.
+                var LANGS = ['none','skeuomorphism','neomorphism','glassmorphism','claymorphism','minimalism','maximalism','brutalism','liquidglass','bentogrid','spatialui'];
+                var design = settings.designLanguage;
+                document.documentElement.setAttribute('data-design', LANGS.indexOf(design) !== -1 ? design : 'none');
             } catch(e) {}
         })();
 

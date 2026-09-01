@@ -53,37 +53,45 @@ export default function EmployeeDashboard() {
             <Head title="Employee Dashboard" />
             <Box p={{ initial: '3', sm: '4', md: '5' }}>
                 
-                {/* ── Greeting Banner ── */}
-                <Panel mb="4" style={{ background: 'linear-gradient(135deg, var(--accent-a2) 0%, var(--accent-a1) 100%)', borderRadius: 16 }}>
-                    <Flex gap="4" align="center" wrap="wrap">
+                {/* ── Hero Card — matching mobile EmployeeHeroCard ── */}
+                <Panel mb="4" style={{ background: 'var(--aero-surface, var(--gray-2))', borderRadius: 20, padding: '28px 20px' }}>
+                    <Flex direction="column" align="center" gap="3">
                         <Avatar
-                            size="6"
+                            size="7"
                             src={user?.profile_image_url}
                             fallback={user?.name?.substring(0, 2).toUpperCase()}
-                            style={{ borderRadius: '50%', border: '2px solid var(--accent-9)' }}
+                            style={{ borderRadius: '50%', border: '2px solid var(--aero-accent, var(--accent-9))' }}
                         />
-                        <Box style={{ flex: 1, minWidth: 200 }}>
-                            <Text size="2" color="gray" style={{ fontFamily: 'monospace' }}>
-                                Welcome back,
-                            </Text>
-                            <Heading size="6" style={{ letterSpacing: '-0.02em' }}>
+                        <Box style={{ textAlign: 'center' }}>
+                            <Heading size="6" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 900, letterSpacing: '-0.5px', fontSize: 26 }}>
                                 {user?.name}
                             </Heading>
-                            <Flex gap="3" mt="1" align="center" wrap="wrap">
-                                <Badge color="indigo" variant="soft">{user?.designation?.title || 'Team Member'}</Badge>
-                                <Badge color="gray" variant="soft">{user?.department?.name || 'Operations'}</Badge>
-                                <Text size="1" color="gray">ID: {user?.employee_id || 'N/A'}</Text>
-                            </Flex>
-                        </Box>
-                        
-                        <Box style={{ textAlign: 'right' }}>
-                            <Heading size="5" style={{ fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
-                                {dayjs().format('dddd')}
-                            </Heading>
-                            <Text size="2" color="gray">
-                                {dayjs().format('MMMM DD, YYYY')}
+                            {user?.employee_id && (
+                                <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums', display: 'block', marginTop: 4 }}>
+                                    {user.employee_id}
+                                </Text>
+                            )}
+                            <Text size="2" style={{ color: 'var(--aero-color-faint, var(--gray-8))', display: 'block', marginTop: 2 }}>
+                                {[user?.designation?.title, user?.department?.name].filter(Boolean).join(' · ') || 'Team Member'}
                             </Text>
                         </Box>
+
+                        {/* Date pill — matching mobile shift badge */}
+                        <Flex
+                            align="center"
+                            gap="2"
+                            style={{
+                                paddingInline: 12, paddingBlock: 6,
+                                borderRadius: 999,
+                                border: '1px solid var(--aero-surface-border, var(--gray-a4))',
+                                background: 'var(--color-background)',
+                            }}
+                        >
+                            <Text size="2" weight="bold">{dayjs().format('dddd')}</Text>
+                            <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))', fontVariantNumeric: 'tabular-nums' }}>
+                                {dayjs().format('MMMM DD, YYYY')}
+                            </Text>
+                        </Flex>
                     </Flex>
                 </Panel>
 

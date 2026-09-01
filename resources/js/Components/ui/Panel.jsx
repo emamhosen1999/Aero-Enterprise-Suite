@@ -1,12 +1,11 @@
 import React from 'react';
 import { Box, Flex, Heading, Separator } from '@radix-ui/themes';
 
-const TINT_STYLE = { background: 'var(--gray-2)', borderRadius: 'var(--radius-3)' };
-// Cardless "surface" — a defining hairline edge, no fill, no shadow (ladder rung L3).
-// Applied to panels that were real Radix surface Cards (variant="surface"): they read as
-// intentional surfaces without reintroducing heavy card chrome, and regain the inner
-// padding the Card used to provide.
-const SURFACE_STYLE = { border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)' };
+/* Mobile-app-aligned: tinted uses --aero-surface (#0E0E14 dark / #F4F4F7 light) */
+const TINT_STYLE = { background: 'var(--aero-surface, var(--gray-2))', borderRadius: 12 };
+// Cardless "surface" — a defining hairline edge, no fill, no shadow.
+// Matches mobile app's $surfaceBorder (rgba(255,255,255,0.10) dark / rgba(0,0,0,0.07) light)
+const SURFACE_STYLE = { border: '1px solid var(--aero-surface-border, var(--gray-a4))', borderRadius: 12 };
 
 function intersperseSeparators(children) {
   const arr = React.Children.toArray(children);

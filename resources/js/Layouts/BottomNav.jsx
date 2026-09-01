@@ -53,10 +53,11 @@ const BottomNav = ({ toggleThemeDrawer }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
-        borderTop: '1px solid var(--gray-a4)',
+        borderTop: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
         zIndex: 200,
         paddingBottom: 'env(safe-area-inset-bottom)',
         borderRadius: 0,
+        background: 'var(--color-background)',
       }}
       aria-label="Bottom navigation"
     >
@@ -73,9 +74,9 @@ const BottomNav = ({ toggleThemeDrawer }) => {
                 cursor: 'pointer',
                 padding: '6px 10px',
                 borderRadius: 'var(--radius-2)',
-                background: isActive ? 'var(--accent-a3)' : 'transparent',
-                color: isActive ? 'var(--accent-11)' : 'var(--gray-10)',
-                transition: 'background 120ms, color 120ms',
+                background: 'transparent',
+                color: isActive ? 'var(--aero-accent, var(--accent-9))' : 'var(--aero-color-faint, var(--gray-8))',
+                transition: 'color 140ms ease',
                 minWidth: 52,
                 position: 'relative',
               }}
@@ -86,24 +87,14 @@ const BottomNav = ({ toggleThemeDrawer }) => {
               aria-current={isActive ? 'page' : undefined}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleNav(item); }}
             >
-              <Icon style={{ width: 18, height: 18 }} />
+              <Icon style={{ width: 20, height: 20 }} />
               <Text
                 size="1"
                 weight={isActive ? 'bold' : 'regular'}
-                style={{ fontSize: 10, lineHeight: 1 }}
+                style={{ fontSize: 11, lineHeight: 1, color: isActive ? 'var(--gray-12)' : 'var(--aero-color-faint, var(--gray-8))' }}
               >
                 {item.label}
               </Text>
-              {isActive && (
-                <Box style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  width: 24,
-                  height: 2,
-                  borderRadius: 'var(--radius-full)',
-                  background: 'var(--accent-9)',
-                }} />
-              )}
             </Flex>
           </Tooltip>
         );

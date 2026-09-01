@@ -17,7 +17,34 @@ export const SCALING_OPTIONS = ['90%', '95%', '100%', '105%', '110%'];
 
 export const PANEL_BACKGROUNDS = ['solid', 'translucent'];
 
+/*
+ * The ten design languages, plus 'none' (stock Radix).
+ * `id` is the value written to <html data-design="...">, and is also the
+ * filename in resources/css/design/<id>.css.
+ * `lockRadius` marks languages where corner radius is constitutive of the
+ * style rather than decorative -- Brutalism is not Brutalism with rounded
+ * corners, Claymorphism is not Claymorphism without them. For those two the
+ * Radius control is disabled rather than silently ignored.
+ */
+export const DESIGN_LANGUAGES = [
+  { id: 'none',           label: 'None',           blurb: 'Stock Radix Themes' },
+  { id: 'skeuomorphism',  label: 'Skeuomorphism',  blurb: 'Physical materials, bevels, real textures' },
+  { id: 'neomorphism',    label: 'Neomorphism',    blurb: 'Soft extruded surfaces, dual light source' },
+  { id: 'glassmorphism',  label: 'Glassmorphism',  blurb: 'Frosted translucency over a lit backdrop' },
+  { id: 'claymorphism',   label: 'Claymorphism',   blurb: 'Puffy 3D clay, deep radii', lockRadius: true },
+  { id: 'minimalism',     label: 'Minimalism',     blurb: 'Whitespace, hairlines, near-no shadow' },
+  { id: 'maximalism',     label: 'Maximalism',     blurb: 'Dense, saturated, layered, expressive' },
+  { id: 'brutalism',      label: 'Brutalism',      blurb: 'Hard edges, raw borders, offset shadow', lockRadius: true },
+  { id: 'liquidglass',    label: 'Liquid Glass',   blurb: 'Refractive glass with specular edges' },
+  { id: 'bentogrid',      label: 'Bento Grid',     blurb: 'Tiled cells, tight gutters, clear bounds' },
+  { id: 'spatialui',      label: 'Spatial UI',     blurb: 'Layered depth, parallax, elevation rank' },
+];
+
+export const DESIGN_LANGUAGE_IDS = DESIGN_LANGUAGES.map((d) => d.id);
+
 export const FONT_FAMILIES = [
+  { label: 'Auto (match design language)', value: 'auto' },
+  { label: 'Space Grotesk', value: '"Space Grotesk", system-ui, sans-serif' },
   { label: 'Inter', value: 'Inter, system-ui, sans-serif' },
   { label: 'Roboto', value: 'Roboto, sans-serif' },
   { label: 'Outfit', value: 'Outfit, sans-serif' },
@@ -28,15 +55,16 @@ export const FONT_FAMILIES = [
 ];
 
 const DEFAULT_SETTINGS = {
-  accentColor: 'indigo',
+  accentColor: 'blue',
   grayColor: 'auto',
   radius: 'medium',
   scaling: '100%',
   appearance: 'light',
   panelBackground: 'solid',
-  fontFamily: 'Inter, system-ui, sans-serif',
+  fontFamily: 'auto',
   customAccentHex: '',
   bgStyle: 'grid',
+  designLanguage: 'none',
 };
 const RadixThemeContext = createContext(null);
 
@@ -65,6 +93,7 @@ export const RadixThemeProvider = ({ children }) => {
     applyFontFamily(settings.fontFamily);
     applyCustomAccent(settings.customAccentHex);
     syncAppearanceClass(settings.appearance);
+    syncDesignLanguage(settings.designLanguage);
   }, [settings]);
 
   const updateSettings = useCallback((patch) => {
@@ -90,6 +119,14 @@ export const RadixThemeProvider = ({ children }) => {
 };
 
 function applyFontFamily(fontFamily) {
+  // 'auto' clears the user override so --dl-font-body from the active design
+  // language takes effect. Brutalism is not Brutalism in Inter.
+  if (!fontFamily || fontFamily === 'auto') {
+    document.documentElement.style.removeProperty('--custom-font-family');
+    document.documentElement.style.removeProperty('--default-font-family');
+    document.documentElement.style.removeProperty('--fontFamily');
+    return;
+  }
   if (fontFamily) {
     document.documentElement.style.setProperty('--default-font-family', fontFamily);
     document.documentElement.style.setProperty('--custom-font-family', fontFamily);
@@ -114,6 +151,17 @@ function syncAppearanceClass(appearance) {
     html.classList.add('light');
     html.classList.remove('dark');
   }
+}
+
+/*
+ * Written to <html>, not to the <Theme> wrapper, so that React portals --
+ * dialogs, popovers, tooltips, toasts -- inherit the language too. Those
+ * render outside the Theme subtree, and skinning everything except them is
+ * the most visible way a design system looks half-applied.
+ */
+function syncDesignLanguage(language) {
+  const id = DESIGN_LANGUAGE_IDS.includes(language) ? language : 'none';
+  document.documentElement.setAttribute('data-design', id);
 }
 
 export { RadixThemeContext };

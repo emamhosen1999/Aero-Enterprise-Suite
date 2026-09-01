@@ -120,9 +120,10 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
         style={{
           height: 56, display: 'flex', alignItems: 'center',
           paddingInline: 10, gap: 6,
-          borderBottom: '1px solid var(--gray-a4)',
+          borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
           position: 'sticky', top: 0, zIndex: 100, flexShrink: 0,
           borderRadius: 0,
+          background: 'var(--color-background)',
         }}
       >
         <form
@@ -159,12 +160,13 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
         alignItems: 'center',
         paddingInline: 12,
         gap: 4,
-        borderBottom: '1px solid var(--gray-a4)',
+        borderBottom: '1px solid var(--dl-border-color, rgba(0,0,0,0.08))',
         position: 'sticky',
         top: 0,
         zIndex: 100,
         flexShrink: 0,
         borderRadius: 0,
+        background: 'var(--color-background)',
       }}
     >
       {/* ── Sidebar toggle ──────────────────────────────────────────────────── */}

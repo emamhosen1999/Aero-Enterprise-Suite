@@ -116,18 +116,21 @@ export default function RadixThemeDrawer({ open, onClose }) {
 
               <Separator size="4" my="4" />
 
-              {/* ── Appearance ───────────────────────────────────────── */}
+              {/* ── Appearance (Aligned with Mobile App OLED/Pure) ── */}
               <Text id="appearance-title" size="2" weight="medium" mb="3">Appearance</Text>
               <div role="group" aria-labelledby="appearance-title"
                 style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-                {[{val:'light', icon: <SunIcon />}, {val:'dark', icon: <MoonIcon />}].map(({ val, icon }) => (
+                {[
+                  { val: 'light', label: 'Pure (Light)', icon: <SunIcon /> },
+                  { val: 'dark', label: 'OLED (Dark)', icon: <MoonIcon /> }
+                ].map(({ val, label, icon }) => (
                   <label key={val} className="rt-ThemePanelRadioCard">
                     <input className="rt-ThemePanelRadioCardInput" type="radio" name="appearance" value={val}
                       checked={settings.appearance === val}
                       onChange={() => updateSettings({ appearance: val })} />
                     <Flex align="center" justify="center" gap="2" style={{ height: 32 }}>
                       {icon}
-                      <Text size="1" weight="medium" style={{ textTransform: 'capitalize' }}>{val}</Text>
+                      <Text size="1" weight="medium">{label}</Text>
                     </Flex>
                   </label>
                 ))}
